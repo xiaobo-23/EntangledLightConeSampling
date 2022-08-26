@@ -11,17 +11,21 @@ let
     # Make an array of 'site' indices
     s = siteinds("S=1/2", N; conserve_qns = true)
 
-    # Make gates (1, 2), (2, 3), (3, 4) ...
-    gates = ITensor[]
-    for ind in 1:(N - 1)
-        s1 = s[ind]
-        s2 = s[ind + 1]
-        hj = op("Sz", s1) * op("Sz", s2) + 
-            1/2 * op("S+", s1) * op("S-", s2) + 
-            1/2 * op("S-", s1) * op("S+", s2)
-        Gj = exp(-im * tau / 2* hj)
-        push!(gates, Gj)
+    
+    # Construct time-dependent Hamiltonian H(t)
+    function construct_Hamiltonian(longitudinal_field, kick_time, timeSlice, kickFrequency)
+        gates = ITensor[]
+        for ind in 1:(N - 1)
+            s1 = s[ind]
+            s2 = s[ind + 1]
+            hj = op("Sz", s1) * op("Sz", s2) + 
+                longitudinal_filed * op("Sz", s1)
+            Gj = exp(-im * tau / 2* hj)
+            push!(gates, Gj)
+        end
+        return gates
     end
+    
 
     # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     append!(gates, reverse(gates))
