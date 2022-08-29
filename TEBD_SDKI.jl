@@ -52,7 +52,7 @@ let
         ψ = apply(gates, ψ; cutoff)
         
         # Apply the kick when time is an integer
-        if time/tau % 10 == 0
+        if abs(time/tau % 10) < 1E-8
             ψ = apply(kickGates, ψ; cutoff)
         end
         normalize!(ψ)
