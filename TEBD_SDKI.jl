@@ -17,8 +17,9 @@ let
     for ind in 1:(N - 1)
         s1 = s[ind]
         s2 = s[ind + 1]
-        hj = op("Sz", s1) * op("Sz", s2) 
-            # + h * op("Sz", s1) + h * op("Sz", s2)
+        hj = π / 4 * op("Sz", s1) * op("Sz", s2) 
+            + h * op("Sz", s1) * op("Id", s2) 
+            + h * op("Sz", s2) * op("Id", s1)
         Gj = exp(-im * tau / 2 * hj)
         push!(gates, Gj)
     end
@@ -28,14 +29,11 @@ let
 
     # Construct the gate for the transverse Ising model applied only at integer time
     kickGates = ITensor[]
-    hamilt = OpSum()
     for ind in 1:N
         s1 = s[ind]
-        # hamilt += π / 4 * op("Sx", s1)
-        hamilt += op("Sx", s1)
+        hamilt += π / 4 * op("Sx", s1)
         # hamilt += π/4, "Sx", s1
     end
-    println(hamilt)
     tmpG = exp(-im * hamilt)
     push!(kickGates, tmpG)
     
