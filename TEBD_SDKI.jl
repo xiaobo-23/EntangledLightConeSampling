@@ -1,3 +1,4 @@
+using ITensors: orthocenter
 ## Implement time evolution block decimation (TEBD) for the self-dula kicked Ising (SDKI) model
 using ITensors
 
@@ -11,6 +12,54 @@ let
     # Make an array of 'site' indices && 
     s = siteinds("S=1/2", N; conserve_qns = false); # s = siteinds("S=1/2", N; conserve_qns = true)
 
+    
+    # Implement the function to generate one sample of the probability distirbution 
+    # defined by squaring the components of the tensor
+    function sample(m :: MPS)
+        mpsLength = length(m)
+        
+        if orthocenter(m) != 1 
+            error("sample: MPS m must have orthocenter(m) == 1")
+        end
+        if abs(1.0 - norm(m[1])) > 1E-8
+            error("sample: MPS is not normalized, norm=$(norm(m[1]))")
+        end
+
+        result = zeros(Int, mpsLength)
+        A = m[1]
+
+        for ind in 1:mpsLength
+            s = siteind(m, ind)
+            d = dim(s)
+            pdisc = 0.0
+            r = rand()
+
+            n = 1
+            An = ITensor()
+            pn = 0.0
+
+            while n <= d:
+                projn = ITensor(s)
+                projn[s => n] = 1.0
+                An = A * dag(projn)
+                pn = real(scalar(dag(An) * An))
+                pdisc += pn
+
+                (r < pdisc) && break
+                n += 1
+            end
+            result[ind] = n
+            
+            if ind < mpsLength
+                A = m[ind + 1] * An
+                A *= (1. / sqrt(pn))
+            end
+        end
+    end
+    
+    
+    
+    
     
     # Construct the gate for the Ising model with longitudinal longitudinal_field
     gates = ITensor[]
