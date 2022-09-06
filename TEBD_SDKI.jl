@@ -38,7 +38,7 @@ let
             An = ITensor()
             pn = 0.0
 
-            while n <= d:
+            while n <= d
                 projn = ITensor(s)
                 projn[s => n] = 1.0
                 An = A * dag(projn)
@@ -56,10 +56,7 @@ let
             end
         end
     end
-    
-    
-    
-    
+
     
     # Construct the gate for the Ising model with longitudinal longitudinal_field
     gates = ITensor[]
@@ -77,16 +74,23 @@ let
     # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     append!(gates, reverse(gates))
 
-    # Construct the gate for the transverse Ising model applied only at integer time
+    # Construct the gate for the transverse Ising field applied only at integer time
     kickGates = ITensor[]
     for ind in 1:N
         s1 = s[ind]
         hamilt = π / 4 * op("Sx", s1)
-        println(typeof(hamilt))
         tmpG = exp(-im * hamilt)
         push!(kickGates, tmpG)
-        # hamilt += π/4, "Sx", s1
     end
+
+    # # An alternative way to construct the transverse Ising field 
+    # # Need to be fixed: add identity operators? 
+    # kickGates = ITensor[]
+    # hamilt = ITensor()
+    # for ind in 1:N
+    #     s1 = s[ind]
+    #     hamilt += π / 4 * op("Sx", s1)
+    # end
     # tmpG = exp(-im * hamilt)
     # push!(kickGates, tmpG)
     
