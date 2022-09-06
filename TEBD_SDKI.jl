@@ -64,8 +64,8 @@ let
         s1 = s[ind]
         s2 = s[ind + 1]
         hj = π / 4 * op("Sz", s1) * op("Sz", s2) 
-            # + h * op("Sz", s1) * op("Id", s2) 
-            # + h * op("Sz", s2) * op("Id", s1)
+            + h * op("Sz", s1) * op("Id", s2) 
+            + h * op("Sz", s2) * op("Id", s1)
         # println(typeof(hj))
         Gj = exp(-im * tau / 2 * hj)
         push!(gates, Gj)
@@ -120,13 +120,12 @@ let
     # Compute <Sz> at rach time step and apply gates to go to the next step
     @time for time in 0.0:tau:ttotal
         Sz = expect(ψ, "Sz"; sites = centralSite)
+        Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1:N)
         println("At time step $time, Sz is $Sz")
+        println("At time step $time, Czz is $Czz")
 
         time ≈ ttotal && break
         if (abs(time / tau % 10) < 1E-8 || abs((time + tau)/tau % 10) < 1E-8)
-            println("At time $(time/tau), applying the kicked fields")
-            ψ = apply(kickGates, ψ; cutoff)
-        elseif abs((time + tau)/tau % 10) < 1E-8
             println("At time $(time/tau), applying the kicked fields")
             ψ = apply(kickGates, ψ; cutoff)
         else
@@ -135,11 +134,10 @@ let
         normalize!(ψ)
     end
     
-    
-    
+
     # Compute <Sz> at each time step and apply the gates to go to the next step
     # @time for time in 0.0:tau:ttotal
-    #     Sz = expect(ψ, "Sz"; site = central_site)
+    #     Sz = expect(ψ, "Sz"; sites = central_site)
     #     println("At time step $time, Sz is $Sz")
 
     #     time ≈ ttotal && break
