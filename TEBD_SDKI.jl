@@ -63,34 +63,46 @@ let
     for ind in 1:(N - 1)
         s1 = s[ind]
         s2 = s[ind + 1]
-        hj = π / 4 * op("Sz", s1) * op("Sz", s2) 
-            + h * op("Sz", s1) * op("Id", s2) 
-            + h * op("Sz", s2) * op("Id", s1)
+        hj = π * op("Sz", s1) * op("Sz", s2) 
+            + 2 * h * op("Sz", s1) * op("I", s2) 
+            # + 2 * h * op("Sz", s2) * op("Id", s1)
         # println(typeof(hj))
         Gj = exp(-im * tau / 2 * hj)
         push!(gates, Gj)
     end
+    
+    # Add the last site using single-site operator
+    hn = 2 * h * op("Sz", s[N])
+    Gn = exp(-im * tau / 2 * hn)
+    push!(gates, Gn)
 
     # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     append!(gates, reverse(gates))
+
 
     # Construct the gate for the Ising model with longitudinal and transverse fields
     kickGates = ITensor[]
     for ind in 1:(N - 1)
         s1 = s[ind]
         s2 = s[ind + 1]
-        tmpH = π / 4 * op("Sz", s1) * op("Sz", s2)
-            + h * op("Sz", s1) * op("Id", s2) 
-            + h * op("Sz", s2) * op("Id", s1)
-            + π / 4 * op("Sx", s1) * op("Id", s2)
-            + π / 4 * op("Sx", s2) * op("Id", s1)
+        tmpH = π  * op("Sz", s1) * op("Sz", s2)
+            + 2 * h * op("Sz", s1) * op("I", s2) 
+            # + 2 * h * op("Sz", s2) * op("Id", s1)
+            + π / 2 * op("Sx", s1) * op("I", s2)
+            # + π / 2 * op("Sx", s2) * op("Id", s1)
         tmpG = exp(-im * tau / 2 * tmpH)
         push!(kickGates, tmpG)
     end
 
+    hn = 2 * h * op("Sz", s[N]) + π / 2 * op("Sx", s[N])
+    Gn = exp(-im * tau / 2 * hn)
+    push!(kickGates, Gn)
+
     # Append the reverse gates (N - 1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     append!(kickGates, reverse(kickGates))
 
+    # An alternative approach to add kicked fields. 
+    # Seems incorrect since the two parts of the original Hamiltonian will have different time steps
     # Construct the gate for the transverse Ising field applied only at integer time
     # kickGates = ITensor[]
     # for ind in 1:N
@@ -99,17 +111,6 @@ let
     #     tmpG = exp(-im * hamilt)
     #     push!(kickGates, tmpG)
     # end
-
-    # # An alternative way to construct the transverse Ising field 
-    # # Need to be fixed: add identity operators? 
-    # kickGates = ITensor[]
-    # hamilt = ITensor()
-    # for ind in 1:N
-    #     s1 = s[ind]
-    #     hamilt += π / 4 * op("Sx", s1)
-    # end
-    # tmpG = exp(-im * hamilt)
-    # push!(kickGates, tmpG)
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
@@ -120,7 +121,7 @@ let
     # Compute <Sz> at rach time step and apply gates to go to the next step
     @time for time in 0.0:tau:ttotal
         Sz = expect(ψ, "Sz"; sites = centralSite)
-        Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1:N)
+        Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = centralSite : centralSite + 1)
         println("At time step $time, Sz is $Sz")
         println("At time step $time, Czz is $Czz")
 
