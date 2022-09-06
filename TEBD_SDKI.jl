@@ -1,18 +1,19 @@
+## Implement time evolution block decimation (TEBD) for the self-dual kicked Ising (SDKI) model
 using ITensors: orthocenter, sites
-## Implement time evolution block decimation (TEBD) for the self-dula kicked Ising (SDKI) model
 using ITensors
+
 
 let 
     N = 10
     cutoff = 1E-8
     tau = 0.1
     ttotal = 5.0
-    h = 0.0                 #  an integrability-breaking longitudinal field h 
+    h = 2.0                                            # an integrability-breaking longitudinal field h 
 
-    # Make an array of 'site' indices && 
-    s = siteinds("S=1/2", N; conserve_qns = false); # s = siteinds("S=1/2", N; conserve_qns = true)
 
-    
+    # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
+    s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
+
     # Implement the function to generate one sample of the probability distirbution 
     # defined by squaring the components of the tensor
     function sample(m :: MPS)
@@ -67,13 +68,13 @@ let
             + 2 * h * op("Sz", s1) * op("I", s2) 
             # + 2 * h * op("Sz", s2) * op("Id", s1)
         # println(typeof(hj))
-        Gj = exp(-im * tau / 2 * hj)
+        Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
     
     # Add the last site using single-site operator
     hn = 2 * h * op("Sz", s[N])
-    Gn = exp(-im * tau / 2 * hn)
+    Gn = exp(-1.0im * tau / 2 * hn)
     push!(gates, Gn)
 
     # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
@@ -90,12 +91,12 @@ let
             # + 2 * h * op("Sz", s2) * op("Id", s1)
             + π / 2 * op("Sx", s1) * op("I", s2)
             # + π / 2 * op("Sx", s2) * op("Id", s1)
-        tmpG = exp(-im * tau / 2 * tmpH)
+        tmpG = exp(-1.0im * tau / 2 * tmpH)
         push!(kickGates, tmpG)
     end
 
     hn = 2 * h * op("Sz", s[N]) + π / 2 * op("Sx", s[N])
-    Gn = exp(-im * tau / 2 * hn)
+    Gn = exp(-1.0im * tau / 2 * hn)
     push!(kickGates, Gn)
 
     # Append the reverse gates (N - 1, N), (N - 2, N - 1), (N - 3, N - 2) ...
@@ -128,29 +129,12 @@ let
         time ≈ ttotal && break
         if (abs(time / tau % 10) < 1E-8 || abs((time + tau)/tau % 10) < 1E-8)
             println("At time $(time/tau), applying the kicked fields")
-            ψ = apply(kickGates, ψ; cutoff)
+            ψ = apply(kickGates, ψ; cutoff = cutoff)
         else
-            ψ = apply(gates, ψ; cutoff)
+            ψ = apply(gates, ψ; cutoff = cutoff)
         end
         normalize!(ψ)
     end
     
-
-    # Compute <Sz> at each time step and apply the gates to go to the next step
-    # @time for time in 0.0:tau:ttotal
-    #     Sz = expect(ψ, "Sz"; sites = central_site)
-    #     println("At time step $time, Sz is $Sz")
-
-    #     time ≈ ttotal && break
-    #     ψ = apply(gates, ψ; cutoff)
-        
-    #     # Apply the kick when time is an integer
-    #     if abs(time/tau % 10) < 1E-8
-    #         println("At time $(time/tau/10)")
-    #         ψ = apply(kickGates, ψ; cutoff)
-    #     end
-    #     normalize!(ψ)
-    # end
-
     return
 end 
