@@ -1,5 +1,5 @@
 ## Implement time evolution block decimation (TEBD) for the self-dual kicked Ising (SDKI) model
-using ITensors: orthocenter, sites
+using ITensors: orthocenter, sites, copy
 using ITensors
 
 
@@ -8,7 +8,7 @@ let
     cutoff = 1E-8
     tau = 0.1
     ttotal = 5.0
-    h = 2.0                                            # an integrability-breaking longitudinal field h 
+    h = 20.0                                            # an integrability-breaking longitudinal field h 
 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -64,9 +64,9 @@ let
     for ind in 1:(N - 1)
         s1 = s[ind]
         s2 = s[ind + 1]
-        hj = π * op("Sz", s1) * op("Sz", s2) 
+        hj = π * op("Sz", s1) * op("Sz", s2)
             + 2 * h * op("Sz", s1) * op("I", s2) 
-            # + 2 * h * op("Sz", s2) * op("Id", s1)
+        #     # + 2 * h * op("Sz", s2) * op("Id", s1)
         # println(typeof(hj))
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
@@ -79,6 +79,8 @@ let
 
     # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     append!(gates, reverse(gates))
+    # @show size(gates)
+    # @show gates[1]
 
 
     # Construct the gate for the Ising model with longitudinal and transverse fields
@@ -115,11 +117,15 @@ let
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
+    # ψ = randomMPS(s, states, 20)
+    # @show maxlinkdim(ψ)
 
     # Locate the central site
     centralSite = div(N, 2)
 
     # Compute <Sz> at rach time step and apply gates to go to the next step
+    tmpPsi = copy(ψ)
     @time for time in 0.0:tau:ttotal
         Sz = expect(ψ, "Sz"; sites = centralSite)
         Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = centralSite : centralSite + 1)
@@ -128,12 +134,14 @@ let
 
         time ≈ ttotal && break
         if (abs(time / tau % 10) < 1E-8 || abs((time + tau)/tau % 10) < 1E-8)
-            println("At time $(time/tau), applying the kicked fields")
+            println("At time $time, applying the kicked fields")
             ψ = apply(kickGates, ψ; cutoff = cutoff)
         else
             ψ = apply(gates, ψ; cutoff = cutoff)
         end
         normalize!(ψ)
+        tmp_overlap = abs(inner(tmpPsi, ψ))
+        println("The inner product is: $tmp_overlap")
     end
     
     return

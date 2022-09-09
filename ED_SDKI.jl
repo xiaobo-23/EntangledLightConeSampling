@@ -6,9 +6,9 @@ ITensors.disable_warn_order()
 let 
     N = 8
     cutoff = 1E-8
-    τ = 5
+    τ = 1
     iterationLimit = 10
-    h = 5                                            # an integrability-breaking longitudinal field h 
+    h = 5                                                   # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);         # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -38,8 +38,8 @@ let
     end
 
     # Exponentiate the Ising plus longitudinal field Hamiltonian
-    expHamiltonian₁ = exp(-τ * Hamiltonian₁)
-    expHamiltonian₂ = exp(-τ * Hamiltonian₂)
+    expHamiltonian₁ = exp(-1.0im * τ * Hamiltonian₁)
+    expHamiltonian₂ = exp(-1.0im * Hamiltonian₂)
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
@@ -51,7 +51,7 @@ let
     # Need to be updated for the circuit setup
     tmpPsi = ψ
     @time for ind in 1:iterationLimit
-        tmpPsi = apply(expHamiltonian₂, tmpPsi; cutoff)
+        tmpPsi = apply(expHamiltonian₁, tmpPsi; cutoff)
         normalize!(tmpPsi)
         tmpSz = expect(tmpPsi, "Sz")
         println("At each projection step, Sz is $tmpSz")
