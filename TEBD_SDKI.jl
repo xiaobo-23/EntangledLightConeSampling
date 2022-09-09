@@ -1,7 +1,7 @@
 ## Implement time evolution block decimation (TEBD) for the self-dual kicked Ising (SDKI) model
-using ITensors: orthocenter, sites, copy
 using ITensors
-
+using ITensors.HDF5
+using ITensors: orthocenter, sites, copy
 
 let 
     N = 10
@@ -118,19 +118,33 @@ let
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
-    # ψ = randomMPS(s, states, 20)
+    # ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
 
     # Locate the central site
     centralSite = div(N, 2)
 
     # Compute <Sz> at rach time step and apply gates to go to the next step
-    tmpPsi = copy(ψ)
+    ψ_copy = copy(ψ)
+    Sz = Float64[]
+    ψ_overlap = Float64[]
+    Czz = zeros(51,  N)
+    index = 1
+    
     @time for time in 0.0:tau:ttotal
-        Sz = expect(ψ, "Sz"; sites = centralSite)
-        Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = centralSite : centralSite + 1)
-        println("At time step $time, Sz is $Sz")
-        println("At time step $time, Czz is $Czz")
+        tmpSz = expect(ψ, "Sz"; sites = centralSite)
+        tmpCzz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
+        # tmpCzz = correlation_matrix(ψ, "Sz", "Sz"; sites = centralSite : centralSite + 1)
+        # println("At time step $time, Sz is $Sz")
+        println("At time step $time, Czz is $(tmpCzz[1, :])")
+        # @show size(Sz); @show typeof(Sz)
+        # @show size(tmpCzz); @show typeof(tmpCzz)
+        
+        append!(Sz, tmpSz)
+        Czz[index, :] = tmpCzz[1, :]
+        index += 1
+        # append!(Czz, tmpCzz)
+        @show size(Czz); @show typeof(Czz)
 
         time ≈ ttotal && break
         if (abs(time / tau % 10) < 1E-8 || abs((time + tau)/tau % 10) < 1E-8)
@@ -140,9 +154,17 @@ let
             ψ = apply(gates, ψ; cutoff = cutoff)
         end
         normalize!(ψ)
-        tmp_overlap = abs(inner(tmpPsi, ψ))
+        tmp_overlap = abs(inner(ψ, ψ_copy))
+        append!(ψ_overlap, tmp_overlap)
         println("The inner product is: $tmp_overlap")
     end
+
+    # Store data into a hdf5 file
+    file = h5open("TEBD_N$(N)_Info.h5", "w")
+    write(file, "Sz", Sz)
+    write(file, "Czz", Czz)
+    write(file, "Wavefunction Overlap", ψ_overlap)
+    close(file)
     
     return
 end 
