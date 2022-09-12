@@ -1,14 +1,15 @@
+using Base: Float64
 ## Implement time evolution block decimation (TEBD) for the self-dual kicked Ising (SDKI) model
 using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy
 
 let 
-    N = 10
+    N = 8
     cutoff = 1E-8
     tau = 0.1
-    ttotal = 5.0
-    h = 20.0                                            # an integrability-breaking longitudinal field h 
+    ttotal = 10.0
+    h = 2.0                                             # an integrability-breaking longitudinal field h 
 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -91,13 +92,13 @@ let
         tmpH = π  * op("Sz", s1) * op("Sz", s2)
             + 2 * h * op("Sz", s1) * op("I", s2) 
             # + 2 * h * op("Sz", s2) * op("Id", s1)
-            + π / 2 * op("Sx", s1) * op("I", s2)
+            + π / 2 * (1 / (2 * tau)) * op("Sx", s1) * op("I", s2)
             # + π / 2 * op("Sx", s2) * op("Id", s1)
         tmpG = exp(-1.0im * tau / 2 * tmpH)
         push!(kickGates, tmpG)
     end
 
-    hn = 2 * h * op("Sz", s[N]) + π / 2 * op("Sx", s[N])
+    hn = 2 * h * op("Sz", s[N]) + π / 2 * (1 / (2 * tau)) * op("Sx", s[N])
     Gn = exp(-1.0im * tau / 2 * hn)
     push!(kickGates, Gn)
 
@@ -126,17 +127,21 @@ let
 
     # Compute <Sz> at rach time step and apply gates to go to the next step
     ψ_copy = copy(ψ)
-    Sz = Float64[]
-    ψ_overlap = Float64[]
-    Czz = zeros(51,  N)
+    Sz = Complex{Float64}[]
+    ψ_overlap = Complex{Float64}[]
+    Czz = zeros(101,  N); Czz = complex(Czz)
     index = 1
     
     @time for time in 0.0:tau:ttotal
+        tmp_overlap = abs(inner(ψ, ψ_copy))
+        append!(ψ_overlap, tmp_overlap)
+        println("The inner product is: $tmp_overlap")
+
         tmpSz = expect(ψ, "Sz"; sites = centralSite)
         tmpCzz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
         # tmpCzz = correlation_matrix(ψ, "Sz", "Sz"; sites = centralSite : centralSite + 1)
-        # println("At time step $time, Sz is $Sz")
-        println("At time step $time, Czz is $(tmpCzz[1, :])")
+        # println("At time step $time, Sz is $tmpSz")
+        # println("At time step $time, Czz is $(tmpCzz[1, :])")
         # @show size(Sz); @show typeof(Sz)
         # @show size(tmpCzz); @show typeof(tmpCzz)
         
@@ -147,16 +152,17 @@ let
         @show size(Czz); @show typeof(Czz)
 
         time ≈ ttotal && break
-        if (abs(time / tau % 10) < 1E-8 || abs((time + tau)/tau % 10) < 1E-8)
+        if (abs(time / tau % 10) < 1E-8 || abs((time + tau) / tau % 10) < 1E-8)
             println("At time $time, applying the kicked fields")
             ψ = apply(kickGates, ψ; cutoff = cutoff)
         else
             ψ = apply(gates, ψ; cutoff = cutoff)
         end
         normalize!(ψ)
-        tmp_overlap = abs(inner(ψ, ψ_copy))
-        append!(ψ_overlap, tmp_overlap)
-        println("The inner product is: $tmp_overlap")
+
+        # tmp_overlap = abs(inner(ψ, ψ_copy))
+        # append!(ψ_overlap, tmp_overlap)
+        # println("The inner product is: $tmp_overlap")
     end
 
     # Store data into a hdf5 file

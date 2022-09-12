@@ -1,6 +1,7 @@
 ## Implement time evolution block decimation (TEBD) for the self-dual kicked Ising (SDKI) model
-using ITensors: orthocenter, sites
 using ITensors
+using ITensors.HDF5
+using ITensors: orthocenter, sites
 
 ITensors.disable_warn_order()
 let 
@@ -16,7 +17,7 @@ let
     # Define the Ising model Hamiltonian with longitudinal field 
     ampoA = OpSum()
     for ind in 1 : (N - 1)
-        ampoA += π/4, "Sz", ind, "Sz", ind + 1
+        ampoA += π, "Sz", ind, "Sz", ind + 1
         ampoA += 2 * h, "Sz", ind
     end
     ampoA += 2 * h, "Sz", N
@@ -43,41 +44,59 @@ let
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # @show maxlinkdim(ψ)
 
     # Locate the central site
     centralSite = div(N, 2)
 
     # Time evovle the initial random wavefunction to obtain the ground state
     # Need to be updated for the circuit setup
-    tmpPsi = ψ
+    ψ_copy = copy(ψ)
+    Sz = Complex{Float64}[]
+    ψ_overlap = Complex{Float64}[]
+    Czz = zeros(51,  N); Czz = complex(Czz)
+    index = 1
+
     @time for ind in 1:iterationLimit
-        tmpPsi = apply(expHamiltonian₁, tmpPsi; cutoff)
-        normalize!(tmpPsi)
-        tmpSz = expect(tmpPsi, "Sz")
-        println("At each projection step, Sz is $tmpSz")
+        tmpOverlap = abs(inner(ψ, ψ_copy))
+        println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap")
+        append!(ψ_overlap, tmpOverlap)
+
+        # ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
+        # normalize!(ψ_copy)
+        ψ_copy = apply(expHamiltonian₁, ψ_copy; cutoff)
+        normalize!(ψ_copy)
+        tmpSz = expect(ψ_copy, "Sz")
+        @show size(tmpSz)
+        println("At projection step $ind, Sz is $tmpSz")
+        append!(Sz, tmpSz)
+
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N)
+        @show size(tmpCzz)
+        println("At projection step $ind, Czz is $(tmpCzz[1, :])")
+        Czz[index, :] = tmpCzz[1, :]
+        index += 1
+
+        if ind == iterationLimit
+            tmpOverlap = abs(inner(ψ, ψ_copy))
+            println("At projection step $ind, overlap of wavefunciton is $tmpOverlap")
+            append!(ψ_overlap, tmpOverlap)
+        end
     end
 
-    Sz = expect(ψ, "Sz"; sites = centralSite)
-    Sz_prime = expect(tmpPsi, "Sz"; sites = centralSite)
-    println("Using initial random MPS, Sz is $Sz")
-    println("Using the projected MPS, Sz is $Sz_prime")
+     # Store data into a hdf5 file
+     file = h5open("ED_N$(N)_Info.h5", "w")
+     write(file, "Sz", Sz)
+     write(file, "Czz", Czz)
+     write(file, "Wavefunction Overlap", ψ_overlap)
+     close(file)
 
-    # Compute <Sz> at rach time step and apply gates to go to the next step
-    # @time for time in 0.0:tau:ttotal
-    #     Sz = expect(ψ, "Sz"; sites = centralSite)
-    #     Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = centralSite : centralSite + 1)
-    #     println("At time step $time, Sz is $Sz")
-    #     println("At time step $time, Czz is $Czz")
-
-    #     time ≈ ttotal && break
-    #     if (abs(time / tau % 10) < 1E-8 || abs((time + tau)/tau % 10) < 1E-8)
-    #         println("At time $(time/tau), applying the kicked fields")
-    #         ψ = apply(kickGates, ψ; cutoff)
-    #     else
-    #         ψ = apply(gates, ψ; cutoff)
-    #     end
-    #     normalize!(ψ)
-    # end
+    # Sz = expect(ψ, "Sz"; sites = centralSite)
+    # Sz_prime = expect(ψ_copy, "Sz"; sites = centralSite)
+    # println("Using initial random MPS, Sz is $Sz")
+    # println("Using the projected MPS, Sz is $Sz_prime")
     
     return
 end 
