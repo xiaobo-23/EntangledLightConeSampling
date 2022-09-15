@@ -79,7 +79,7 @@ let
         # Compute spin correlation function Czz
         tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N)
         @show size(tmpCzz)
-        println("At projection step $ind, Czz is $(tmpCzz[N // 2, :])")
+        println("At projection step $ind, Czz is $(tmpCzz[1, :])")
         Czz[index, :] = tmpCzz[1, :]
         index += 1
 
