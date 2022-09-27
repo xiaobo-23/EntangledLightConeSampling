@@ -9,7 +9,7 @@ let
     cutoff = 1E-8
     τ = 1
     iterationLimit = 10
-    h = 2                                                   # an integrability-breaking longitudinal field h 
+    h = 10.0                                                # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);         # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -51,15 +51,16 @@ let
     # Locate the central site
     centralSite = div(N, 2)
     ψ_copy = copy(ψ)
-    Sz = Complex{Float64}[]
+    # Sz = Complex{Float64}[]
     ψ_overlap = Complex{Float64}[]
-    Czz = zeros(10,  N); Czz = complex(Czz)
+    Sz = zeros(iterationLimit, N); Czz = complex(Sz)
+    Czz = zeros(iterationLimit, N^2); Czz = complex(Czz)
     index = 1
 
     @time for ind in 1:iterationLimit
         # Compute overlap of wavefunction < Psi(t) | Psi(0) > 
         tmpOverlap = abs(inner(ψ, ψ_copy))
-        println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap")
+        println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
         append!(ψ_overlap, tmpOverlap)
 
         # Apply the kicked transverse field gate
@@ -73,17 +74,19 @@ let
         # Compute local observables e.g. Sz
         tmpSz = expect(ψ_copy, "Sz")
         @show size(tmpSz)
-        println("At projection step $ind, Sz is $tmpSz")
-        append!(Sz, tmpSz)
+        # println("At projection step $ind, Sz is $tmpSz")
+        # append!(Sz, tmpSz)
+        Sz[index, :] = tmpSz
 
         # Compute spin correlation function Czz
         tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N)
-        @show size(tmpCzz)
-        println("At projection step $ind, Czz is $(tmpCzz[1, :])")
-        Czz[index, :] = tmpCzz[1, :]
+        @show size(tmpCzz')
+        # println("At projection step $ind, Czz is $(tmpCzz)")
+        # Czz[index, :] = tmpCzz[1, :]
+        Czz[index, :] = vec(tmpCzz')
         index += 1
 
-
+        # Compute overlap of wavefunction < Psi(t) | Psi(0) >
         if ind == iterationLimit
             tmpOverlap = abs(inner(ψ, ψ_copy))
             println("At projection step $ind, overlap of wavefunciton is $tmpOverlap")
@@ -92,7 +95,7 @@ let
     end
 
     # Store data into a hdf5 file
-    file = h5open("ED_N$(N)_Info.h5", "w")
+    file = h5open("ED_N$(N)_h$(h)_Info.h5", "w")
     write(file, "Sz", Sz)
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
