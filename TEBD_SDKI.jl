@@ -9,8 +9,7 @@ let
     cutoff = 1E-8
     tau = 0.1
     ttotal = 10.0
-    h = 10.0                                            # an integrability-breaking longitudinal field h 
-
+    h = 0.2                                             # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -65,22 +64,39 @@ let
     for ind in 1:(N - 1)
         s1 = s[ind]
         s2 = s[ind + 1]
-        hj = π * op("Sz", s1) * op("Sz", s2) + 2 * h * op("Sz", s1) * op("Id", s2) 
-        #     # + 2 * h * op("Sz", s2) * op("Id", s1)
+
+        if (ind - 1 < 1E-8)
+            tmp1 = 2 
+            tmp2 = 1
+        elseif ((ind - (N - 1)) < 1E-8)
+            tmp1 = 1
+            tmp2 = 2
+        else
+            tmp1 = 1
+            tmp2 = 1
+        end
+
+        hj = π * op("Sz", s1) * op("Sz", s2) 
+            + tmp1 * h * op("Sz", s1) * op("Id", s2) 
+            + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        #   + 2 * h * op("Sz", s1) * op("Id", s2) 
+        # . + 2 * h * op("Sz", s2) * op("Id", s1)
         # println(typeof(hj))
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
-    
-    # Add the last site using single-site operator
-    hn = 2 * h * op("Sz", s[N])
-    Gn = exp(-1.0im * tau / 2 * hn)
-    push!(gates, Gn)
-
     # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     append!(gates, reverse(gates))
+    
+    # Add the last site using single-site operator
+    # hn = 2 * h * op("Sz", s[N])
+    # Gn = exp(-1.0im * tau / 2 * hn)
+    # push!(gates, Gn)
+    
+    # @show gates
     # @show size(gates)
-
+    # @show reverse(gates)
+    
 
     # # Construct the gate for the Ising model with longitudinal and transverse fields
     # kickGates = ITensor[]
@@ -128,6 +144,8 @@ let
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    @show eltype(ψ), eltype(ψ[1])
+
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
@@ -137,9 +155,10 @@ let
 
     # Compute <Sz> at rach time step and apply gates to go to the next step
     ψ_copy = copy(ψ)
-    Sz = zeros(101, N); Sz = complex(Sz)
-    # Sz = Complex{Float64}[]
     ψ_overlap = Complex{Float64}[]
+
+    # 
+    Sz = zeros(101, N); Sz = complex(Sz)
     Czz = zeros(101,  N^2); Czz = complex(Czz)
     index = 1
     
@@ -147,34 +166,26 @@ let
         tmp_overlap = abs(inner(ψ, ψ_copy))
         println("The inner product is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
+
+        tmpSz = expect(ψ, "Sz"; sites = 1 : N)
+        Sz[index, :] = tmpSz
+
+        tmpCzz = correlation_matrix(ψ, "Sx", "Sx"; sites = 1 : N)
+        Czz[index, :] = vec(tmpCzz')
+        # Czz[index, :] = tmpCzz[1, :]
+        index += 1
         
         time ≈ ttotal && break
         # if (abs((time / tau) % 10) < 1E-8 || abs((time + tau) / tau % 10) < 1E-8)
         if (abs((time / tau) % 10) < 1E-8)
-            println("At time $time, applying the kicked fields")
             # ψ = apply(kickGates, ψ; cutoff = cutoff)
             ψ = apply(expHamiltoininaₓ, ψ; cutoff)
-        else
-            ψ = apply(gates, ψ; cutoff = cutoff)
+        # else
+        #     ψ = apply(gates, ψ; cutoff)
         end
+        ψ = apply(gates, ψ; cutoff)
+        # @show eltype(ψ), eltype(ψ[1])
         normalize!(ψ)
-
-        # tmpSz = expect(ψ, "Sz"; sites = centralSite)
-        tmpSz = expect(ψ, "Sz"; sites = 1 : N)
-        Sz[index, :] = tmpSz
-        # append!(Sz, tmpSz)
-
-        tmpCzz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
-        Czz[index, :] = vec(tmpCzz')
-        # Czz[index, :] = tmpCzz[1, :]
-        index += 1
-    
-        # println("At time step $time, Sz is $tmpSz")
-        # println("At time step $time, Czz is $(tmpCzz[1, :])")
-        # @show size(Sz); @show typeof(Sz)
-        # @show size(tmpCzz); @show typeof(tmpCzz)
-        @show size(Czz); @show typeof(Czz)
-
 
         # tmp_overlap = abs(inner(ψ, ψ_copy))
         # append!(ψ_overlap, tmp_overlap)
