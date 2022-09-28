@@ -9,10 +9,10 @@ let
     cutoff = 1E-8
     τ = 0.1; timeSlice = Int(1 / τ)
     iterationLimit = 10
-    h = 0.2                                                 # an integrability-breaking longitudinal field h 
+    h = 0.2                                             # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N; conserve_qns = false);         # s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
 
     # Define the Ising model Hamiltonian with longitudinal field 
     ampoA = OpSum()
@@ -51,14 +51,27 @@ let
     # Locate the central site
     centralSite = div(N, 2)
     ψ_copy = copy(ψ)
-    # Sz = Complex{Float64}[]
+
+    # Compute overlaps between the original and time evolved wavefunctions
     ψ_overlap = Complex{Float64}[]
-    Sz = zeros(iterationLimit, N); Czz = complex(Sz)
+
+    # Compute local observables
+    Sx = zeros(iterationLimit, N);  Sx = complex(Sx)
+    Sy = zeros(iterationLimit, N);  Sy = complex(Sy)
+    Sz = zeros(iterationLimit, N);  Sz = complex(Sz)
+
+    # Compute spin correlation functions
+    Cxx = zeros(iterationLimit, N); Cxx = complex(Cxx)
+    Cyy = zeros(iterationLimit, N); Cyy = complex(Cyy)
     Czz = zeros(iterationLimit, N); Czz = complex(Czz)
     index = 1
 
     @time for ind in 1:iterationLimit
         # Compute overlap of wavefunction < Psi(t) | Psi(0) > 
+        # tmpOverlap = abs(inner(ψ, ψ_copy))
+        # append!(ψ_overlap, tmpOverlap)
+        # println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
+
         if (ind - 1) < 1E-8
             tmpOverlap = abs(inner(ψ, ψ_copy))
             append!(ψ_overlap, tmpOverlap)
@@ -66,17 +79,15 @@ let
         end
     
         # Compute local observables e.g. Sz
-        tmpSz = expect(ψ_copy, "Sz")
-        @show size(tmpSz)
-        # println("At projection step $ind, Sz is $tmpSz")
-        # append!(Sz, tmpSz)
-        Sz[index, :] = tmpSz
+        tmpSx = expect(ψ_copy, "Sx"); Sx[index, :] = tmpSx; @show size(tmpSx)
+        tmpSy = expect(ψ_copy, "Sy"); Sy[index, :] = tmpSy; @show size(tmpSy)
+        tmpSz = expect(ψ_copy, "Sz"); Sz[index, :] = tmpSz; @show size(tmpSz)
 
-        # Compute spin correlation function Czz
-        tmpCzz = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N)
-        @show size(tmpCzz')
-        # println("At projection step $ind, Czz is $(tmpCzz)")
-        Czz[index, :] = tmpCzz[1, :]
+        # Compute spin correlation functions e.g. Czz
+        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[index, :] = tmpCxx[4, :]; @show size(tmpCxx')
+        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[index, :] = tmpCyy[4, :]; @show size(tmpCyy')
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[index, :] = tmpCzz[4, :]; @show size(tmpCzz')
+        # Vectorize the correlation matrix to store all information
         # Czz[index, :] = vec(tmpCzz')
         index += 1
 
@@ -84,7 +95,7 @@ let
         ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
         normalize!(ψ_copy)
        
-        # Apply the Ising + longitudinal field gate
+        # Apply the Ising interaction plus longitudinal field gate using a smaller time step
         for tmpInd in 1 : timeSlice
             # Compute the overlap of wavefunctions < Psi(t) | Psi(0) >
             tmpOverlap = abs(inner(ψ, ψ_copy))
@@ -103,12 +114,15 @@ let
         # end
     end
 
-    # Store data into a hdf5 file
-    file = h5open("ED_N$(N)_h$(h)_Info.h5", "w")
-    write(file, "Sz", Sz)
-    write(file, "Czz", Czz)
-    @show size(ψ_overlap)
-    write(file, "Wavefunction Overlap", ψ_overlap)
+    # Save measurements into a hdf5 file
+    file = h5open("ED_N$(N)_h$(h)_Info_Kick.h5", "w")
+    write(file, "Sx", Sx)       # Sx
+    write(file, "Sy", Sy)       # Sy
+    write(file, "Sz", Sz)       # Sz
+    write(file, "Cxx", Cxx)     # Cxx
+    write(file, "Cyy", Cyy)     # Cyy   
+    write(file, "Czz", Czz)     # Czz
+    write(file, "Wavefunction Overlap", ψ_overlap);  @show size(ψ_overlap)
     close(file)
     
     return
