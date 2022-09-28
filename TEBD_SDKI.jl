@@ -68,13 +68,18 @@ let
         if (ind - 1 < 1E-8)
             tmp1 = 2 
             tmp2 = 1
-        elseif ((ind - (N - 1)) < 1E-8)
+        elseif (abs(ind - (N - 1)) < 1E-8)
             tmp1 = 1
             tmp2 = 2
         else
             tmp1 = 1
             tmp2 = 1
         end
+
+        println("")
+        println("Coefficients are $(tmp1) and $(tmp2)")
+        println("Site index is $(ind) and the conditional sentence is $(ind - (N - 1))")
+        println("")
 
         hj = π * op("Sz", s1) * op("Sz", s2) 
             + tmp1 * h * op("Sz", s1) * op("Id", s2) 
@@ -145,7 +150,6 @@ let
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     @show eltype(ψ), eltype(ψ[1])
-
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
@@ -153,13 +157,17 @@ let
     # Locate the central site
     centralSite = div(N, 2)
 
-    # Compute <Sz> at rach time step and apply gates to go to the next step
+    # Compute the overlap between the original and time evolved wavefunctions
     ψ_copy = copy(ψ)
     ψ_overlap = Complex{Float64}[]
 
-    # 
-    Sz = zeros(101, N); Sz = complex(Sz)
-    Czz = zeros(101,  N^2); Czz = complex(Czz)
+    # Compute local observables e.g. Sz, Czz 
+    timeSlices = Int(ttotal / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
+    Sx = zeros(timeSlices, N); Sx = complex(Sx)
+    Sy = zeros(timeSlices, N); Sy = complex(Sy)
+    Sz = zeros(timeSlices, N); Sz = complex(Sz)
+    Cxx = zeros(timeSlices, N); Cxx = complex(Cxx)
+    Czz = zeros(timeSlices, N); Czz = complex(Czz)
     index = 1
     
     @time for time in 0.0:tau:ttotal
@@ -167,25 +175,36 @@ let
         println("The inner product is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
 
-        tmpSz = expect(ψ, "Sz"; sites = 1 : N)
-        Sz[index, :] = tmpSz
+        # Local observables e.g. Sx, Sz
+        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx
+        tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz
 
-        tmpCzz = correlation_matrix(ψ, "Sx", "Sx"; sites = 1 : N)
-        Czz[index, :] = vec(tmpCzz')
-        # Czz[index, :] = tmpCzz[1, :]
+        # Spin correlaiton functions e.g. Cxx, Czz
+        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[4, :]
+        tmpCzz = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Czz[index, :] = tmpCzz[4, :]
+        # Czz[index, :] = vec(tmpCzz')
         index += 1
         
         time ≈ ttotal && break
-        # if (abs((time / tau) % 10) < 1E-8 || abs((time + tau) / tau % 10) < 1E-8)
         if (abs((time / tau) % 10) < 1E-8)
-            # ψ = apply(kickGates, ψ; cutoff = cutoff)
-            ψ = apply(expHamiltoininaₓ, ψ; cutoff)
-        # else
-        #     ψ = apply(gates, ψ; cutoff)
+            println("")
+            println("Apply the kicked gates at integer time $time")
+            println("")
+            ψ_copy = apply(expHamiltoininaₓ, ψ_copy; cutoff)
+            normalize!(ψ_copy)
         end
-        ψ = apply(gates, ψ; cutoff)
-        # @show eltype(ψ), eltype(ψ[1])
-        normalize!(ψ)
+        ψ_copy = apply(gates, ψ_copy; cutoff)
+        normalize!(ψ_copy)
+
+        #********************************************************************************
+        # Previous ideas of using a square wave to represent a delta function
+        #********************************************************************************
+        # if (abs((time / tau) % 10) < 1E-8)
+        #     # ψ = apply(kickGates, ψ; cutoff = cutoff)
+        #     ψ = apply(expHamiltoininaₓ, ψ; cutoff)
+        # # else
+        # #     ψ = apply(gates, ψ; cutoff)
+        # end
 
         # tmp_overlap = abs(inner(ψ, ψ_copy))
         # append!(ψ_overlap, tmp_overlap)
@@ -193,8 +212,10 @@ let
     end
 
     # Store data into a hdf5 file
-    file = h5open("TEBD_N$(N)_h$(h)_Info.h5", "w")
+    file = h5open("RawData/TEBD_N$(N)_h$(h)_Info.h5", "w")
+    write(file, "Sx", Sx)
     write(file, "Sz", Sz)
+    write(file, "Cxx", Cxx)
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
     close(file)
