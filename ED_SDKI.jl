@@ -8,11 +8,11 @@ let
     N = 8
     cutoff = 1E-8
     τ = 0.1; timeSlice = Int(1 / τ)
-    iterationLimit = 11
-    h = 0.2                                            # an integrability-breaking longitudinal field h 
+    iterationLimit = 10
+    h = 0.5                                            # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false);    # s = siteinds("S=1/2", N; conserve_qns = true)
 
     # Define the Ising model Hamiltonian with longitudinal field 
     ampoA = OpSum()
@@ -25,6 +25,24 @@ let
         ampoA += 2 * h, "Sz", ind
     end
     H₁ = MPO(ampoA, s)
+
+    # ampoA = OpSum()
+    # for ind in 1 : (N - 1)
+    #     if (ind - 1 < 1E-8)
+    #         tmp1 = 2
+    #         tmp2 = 1
+    #     elseif (abs(ind - (N - 1)) < 1E-8)
+    #         tmp1 = 1
+    #         tmp2 = 2
+    #     else
+    #         tmp1 = 1
+    #         tmp2 = 1
+    #     end
+    #     ampoA += π, "Sz", ind, "Sz", ind + 1
+    #     ampoA += tmp1 * h, "Sz", ind
+    #     ampoA += tmp2 * h, "Sz", ind + 1
+    # end
+    # H₁ = MPO(ampoA, s)
 
     # Define the Hamiltonian with transverse field
     ampoB = OpSum()
@@ -52,7 +70,7 @@ let
     # @show maxlinkdim(ψ)
 
     # Locate the central site
-    centralSite = div(N, 2)
+    # centralSite = div(N, 2)
     ψ_copy = copy(ψ)
 
     # Compute overlaps between the original and time evolved wavefunctions
@@ -71,15 +89,15 @@ let
 
     @time for ind in 1:iterationLimit
         # Compute overlap of wavefunction < Psi(t) | Psi(0) > 
-        tmpOverlap = abs(inner(ψ, ψ_copy))
-        append!(ψ_overlap, tmpOverlap)
-        println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
+        # tmpOverlap = abs(inner(ψ, ψ_copy))
+        # append!(ψ_overlap, tmpOverlap)
+        # println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
 
-        # if (ind - 1) < 1E-8
-        #     tmpOverlap = abs(inner(ψ, ψ_copy))
-        #     append!(ψ_overlap, tmpOverlap)
-        #     println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
-        # end
+        if (ind - 1) < 1E-8
+            tmpOverlap = abs(inner(ψ, ψ_copy))
+            append!(ψ_overlap, tmpOverlap)
+            println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
+        end
     
         # Compute local observables e.g. Sz
         tmpSx = expect(ψ_copy, "Sx"); Sx[index, :] = tmpSx; @show size(tmpSx)
@@ -97,18 +115,19 @@ let
         # Apply the kicked transverse field gate
         ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
         normalize!(ψ_copy)
-        tmpOverlap = abs(inner(ψ, ψ_copy))
-        println("")
-        println("Apply the kicked gates at integer time $ind")
-        println("Overlap of wavefunctions are: $tmpOverlap")
-        println("")
+        
+        # tmpOverlap = abs(inner(ψ, ψ_copy))
+        # println("")
+        # println("Apply the kicked gates at integer time $ind")
+        # println("Overlap of wavefunctions are: $tmpOverlap")
+        # println("")
        
         # Apply the Ising interaction plus longitudinal field gate using a smaller time step
         for tmpInd in 1 : timeSlice
             # Compute the overlap of wavefunctions < Psi(t) | Psi(0) >
             tmpOverlap = abs(inner(ψ, ψ_copy))
             append!(ψ_overlap, tmpOverlap)
-            @show size(ψ_overlap)
+            # @show size(ψ_overlap)
 
             ψ_copy = apply(expHamiltonian₁, ψ_copy; cutoff)
             normalize!(ψ_copy)
@@ -122,6 +141,8 @@ let
         # end
     end
 
+    @show size(ψ_overlap)
+    @show size(Czz)
     # Save measurements into a hdf5 file
     file = h5open("RawData/ED_N$(N)_h$(h)_Info.h5", "w")
     write(file, "Sx", Sx)       # Sx

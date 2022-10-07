@@ -9,10 +9,10 @@ let
     cutoff = 1E-8
     tau = 0.1
     ttotal = 10.0
-    h = 0.2                                             # an integrability-breaking longitudinal field h 
+    h = 0.5                                           # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false);   # s = siteinds("S=1/2", N; conserve_qns = true)
 
     # Implement the function to generate one sample of the probability distirbution 
     # defined by squaring the components of the tensor
@@ -81,11 +81,9 @@ let
         println("Site index is $(ind) and the conditional sentence is $(ind - (N - 1))")
         println("")
 
-        hj = π * op("Sz", s1) * op("Sz", s2) 
-            + tmp1 * h * op("Sz", s1) * op("Id", s2) 
-            + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         #   + 2 * h * op("Sz", s1) * op("Id", s2) 
-        # . + 2 * h * op("Sz", s2) * op("Id", s1)
+        #   + 2 * h * op("Sz", s2) * op("Id", s1)
         # println(typeof(hj))
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
@@ -134,7 +132,7 @@ let
     for ind in 2 : N
         Hamiltonianₓ *= Hₓ[ind]
     end
-    expHamiltoininaₓ = exp(-1.0im * Hamiltonianₓ)
+    expHamiltoinianₓ = exp(-1.0im * Hamiltonianₓ)
     
     # An alternative approach to add kicked fields. 
     # Seems incorrect since the two parts of the original Hamiltonian will have different time steps
@@ -149,13 +147,13 @@ let
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    @show eltype(ψ), eltype(ψ[1])
+    # @show eltype(ψ), eltype(ψ[1])
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
 
     # Locate the central site
-    centralSite = div(N, 2)
+    # centralSite = div(N, 2)
 
     # Compute the overlap between the original and time evolved wavefunctions
     ψ_copy = copy(ψ)
@@ -181,7 +179,7 @@ let
 
         # Spin correlaiton functions e.g. Cxx, Czz
         tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[4, :]
-        tmpCzz = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Czz[index, :] = tmpCzz[4, :]
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[4, :]
         # Czz[index, :] = vec(tmpCzz')
         index += 1
         
@@ -190,9 +188,11 @@ let
             println("")
             println("Apply the kicked gates at integer time $time")
             println("")
-            ψ_copy = apply(expHamiltoininaₓ, ψ_copy; cutoff)
+            ψ_copy = apply(expHamiltoinianₓ, ψ_copy; cutoff)
             normalize!(ψ_copy)
         end
+
+
         ψ_copy = apply(gates, ψ_copy; cutoff)
         normalize!(ψ_copy)
 
