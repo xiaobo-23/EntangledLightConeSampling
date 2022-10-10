@@ -9,7 +9,7 @@ let
     cutoff = 1E-8
     tau = 0.1
     ttotal = 10.0
-    h = 0.5                                           # an integrability-breaking longitudinal field h 
+    h = 10.0                                          # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);   # s = siteinds("S=1/2", N; conserve_qns = true)
