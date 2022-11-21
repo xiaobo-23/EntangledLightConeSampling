@@ -107,7 +107,7 @@ let
     ##################################################################################################################################################
     ## Construct the holographic quantum dynamics simulation (holoQUADS) circuit
     ##################################################################################################################################################
-    # Loose end: figure out the Coefficients
+    # Loose end: figure out the Coefficients and long-distance two-site gates
 
 
 
