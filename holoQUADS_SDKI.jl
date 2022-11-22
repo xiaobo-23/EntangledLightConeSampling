@@ -107,13 +107,74 @@ let
     ##################################################################################################################################################
     ## Construct the holographic quantum dynamics simulation (holoQUADS) circuit
     ##################################################################################################################################################
-    # Loose end: figure out the Coefficients and long-distance two-site gates
+    
+    # TO-DO: figure out how to implement the long-distance two-site gates
+
+    # Construct time evolution for one floquet time step
+    function timeEvolutionCorner(numGates :: Int, numSites :: Int, gates :: ITensor)
+        # In the corner case, two-site gates are applied to site 1 --> site N
+        # gates = ITensor[]
+        if 2 * numGates >= numSites
+            error("the number of time evolution gates is larger than what can be accommodated based on the number of sites!")
+        end
+
+        for ind₁ in 1:2
+            for ind₂ in 1:numGates
+                parity = (ind₁ - 1) % 2
+                s1 = s[2 * ind₂ - parity]
+                s2 = s[2 * ind₂ + 1 - parity]
+
+                if 2 * ind₂ - parity - 1 < 1E-8
+                    coeff₁ = 2
+                    coeff₂ = 1
+                else
+                    coeff₁ = 1
+                    coeff₂ = 1
+                end
+
+                hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
+                Gj = exp(-1.0im * tau / 2 * hj)
+                push!(gates, Gj)
+            end
+        end
+        # return gates
+    end
 
 
+    function timeEvolution(initialPosition :: Int, numSites :: Int, gates :: ITensor)
+        # In the general case, two-site gates are applied to selected site with inverse order 
+        # gates = ITensor[]
+        if initialPosition == 1
+            s1 = s[initialPosition]
+            s2 = s[numSites]
+            tmpGate = # Get long-range two-site gate
+            push!(gates, tmpGate)
+
+            s1 = s[numSites]
+            s2 = s[numSites]
+            hj = (π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2))
+        else
+            # coeff₁ = 1
+            # coeff₂ = 1
+            for ind in 1 : 2
+                s1 = s[initialPosition - ind + 1]
+                s2 = s[initialPosition - ind]
+                hj = (π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2))
+                Gj = exp(-1.0im * tau / 2 * hj)
+                push!(gates, Gj)
+            end
+        end
+
+        for ind in 1 : 2
+            if initialPosition == 1
+                s1 = s[]
+            end
+        end
+    end
 
     # Construct the classical version of the holographic quantum dynamics circuit
     function constructLayer(numQubits :: Int, qubitToMeasure :: Int)
-        gates = ITensor()
+        gates = ITensor[]
 
         if qubitToMeasure == 1
             for ind₁ in reverse(1 : 2 * (numQubits - 1))                                                # Number of MPS = 2 * number of Qubits
