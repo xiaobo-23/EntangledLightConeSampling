@@ -172,55 +172,55 @@ let
         end
     end
 
-    # Construct the classical version of the holographic quantum dynamics circuit
-    function constructLayer(numQubits :: Int, qubitToMeasure :: Int)
-        gates = ITensor[]
+    # # Construct the classical version of the holographic quantum dynamics circuit
+    # function constructLayer(numQubits :: Int, qubitToMeasure :: Int)
+    #     gates = ITensor[]
 
-        if qubitToMeasure == 1
-            for ind₁ in reverse(1 : 2 * (numQubits - 1))                                                # Number of MPS = 2 * number of Qubits
-                for ind₂ in 1 : ((ind₁ + 1) // 2)
-                    s1 = s[2 * ind₂ - (ind₁ % 2)]
-                    s2 = s[2 * ind₂ + 1 - (ind₁ % 2)]
+    #     if qubitToMeasure == 1
+    #         for ind₁ in reverse(1 : 2 * (numQubits - 1))                                                # Number of MPS = 2 * number of Qubits
+    #             for ind₂ in 1 : ((ind₁ + 1) // 2)
+    #                 s1 = s[2 * ind₂ - (ind₁ % 2)]
+    #                 s2 = s[2 * ind₂ + 1 - (ind₁ % 2)]
 
-                    if (ind - 1 < 1E-8)
-                        tmp1 = 2 
-                        tmp2 = 1
-                    elseif (abs(ind - (N - 1)) < 1E-8)
-                        tmp1 = 1
-                        tmp2 = 2
-                    else
-                        tmp1 = 1
-                        tmp2 = 1
-                    end
+    #                 if (ind - 1 < 1E-8)
+    #                     tmp1 = 2 
+    #                     tmp2 = 1
+    #                 elseif (abs(ind - (N - 1)) < 1E-8)
+    #                     tmp1 = 1
+    #                     tmp2 = 2
+    #                 else
+    #                     tmp1 = 1
+    #                     tmp2 = 1
+    #                 end
 
-                    hj += (π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2))
-                end
-                Gj = exp(-1.0im * tau / 2 * hj) 
-                push!(gates, Gj)
-            end
-        else                                                                                        
-            for ind₁ in 1 : 2 * (numQubits - 1):
-                tmpInd₁ = (2 * (qubitToMeasure - 1) - ind₁ + N) % N
-                tmpInd₂ = (2 * (qubitToMeasure - 1) - ind₁ - 1 + N) % N 
+    #                 hj += (π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2))
+    #             end
+    #             Gj = exp(-1.0im * tau / 2 * hj) 
+    #             push!(gates, Gj)
+    #         end
+    #     else                                                                                        
+    #         for ind₁ in 1 : 2 * (numQubits - 1):
+    #             tmpInd₁ = (2 * (qubitToMeasure - 1) - ind₁ + N) % N
+    #             tmpInd₂ = (2 * (qubitToMeasure - 1) - ind₁ - 1 + N) % N 
 
-                if tmpInd₁ == 0
-                    tmpInd₁ = N
-                end
+    #             if tmpInd₁ == 0
+    #                 tmpInd₁ = N
+    #             end
 
-                if tmpInd₂ == 0
-                    tmpInd₂ = N
-                end
+    #             if tmpInd₂ == 0
+    #                 tmpInd₂ = N
+    #             end
 
-                s1 = s[tmpInd₁]
-                s2 = s[tmpInd₂]
+    #             s1 = s[tmpInd₁]
+    #             s2 = s[tmpInd₂]
 
-                hj = (π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2))
-                Gj = exp(-1.0im * tau / 2 * hj) 
-                push!(gates, Gj)
-            end
-        end
-        return gates
-    end 
+    #             hj = (π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2))
+    #             Gj = exp(-1.0im * tau / 2 * hj) 
+    #             push!(gates, Gj)
+    #         end
+    #     end
+    #     return gates
+    # end 
 
 
     # Initialize the wavefunction
