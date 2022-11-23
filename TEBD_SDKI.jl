@@ -82,74 +82,44 @@ let
         println("")
 
         hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        #   + 2 * h * op("Sz", s1) * op("Id", s2) 
-        #   + 2 * h * op("Sz", s2) * op("Id", s1)
         # println(typeof(hj))
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
     # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     append!(gates, reverse(gates))
-    
-    # Add the last site using single-site operator
-    # hn = 2 * h * op("Sz", s[N])
-    # Gn = exp(-1.0im * tau / 2 * hn)
-    # push!(gates, Gn)
-    
+
     # @show gates
     # @show size(gates)
     # @show reverse(gates)
     
-
-    # # Construct the gate for the Ising model with longitudinal and transverse fields
-    # kickGates = ITensor[]
-    # for ind in 1:(N - 1)
-    #     s1 = s[ind]
-    #     s2 = s[ind + 1]
-    #     tmpH = π  * op("Sz", s1) * op("Sz", s2)
-    #         + 2 * h * op("Sz", s1) * op("I", s2) 
-    #         # + 2 * h * op("Sz", s2) * op("Id", s1)
-    #         + π / 2 * (1 / (2 * tau)) * op("Sx", s1) * op("I", s2)
-    #         # + π / 2 * op("Sx", s2) * op("Id", s1)
-    #     tmpG = exp(-1.0im * tau / 2 * tmpH)
-    #     push!(kickGates, tmpG)
-    # end
-
-    # hn = 2 * h * op("Sz", s[N]) + π / 2 * (1 / (2 * tau)) * op("Sx", s[N])
-    # Gn = exp(-1.0im * tau / 2 * hn)
-    # push!(kickGates, Gn)
-
-    # # Append the reverse gates (N - 1, N), (N - 2, N - 1), (N - 3, N - 2) ...
-    # append!(kickGates, reverse(kickGates))
-
-    # Construct the kicked gate similar to the ED code 
-    ampo = OpSum()
-    for ind in 1 : N
-        ampo += π/2, "Sx", ind
+    # Construct the kicked gate that are only applied at integer time
+    kickGates = ITensor[]
+    for ind in 1:N
+        s1 = s[ind]
+        hamilt = π / 2 * op("Sx", s1)
+        tmpG = exp(-im * hamilt)
+        push!(kickGates, tmpG)
     end
-    Hₓ = MPO(ampo, s)
-    Hamiltonianₓ = Hₓ[1]
-    for ind in 2 : N
-        Hamiltonianₓ *= Hₓ[ind]
-    end
-    expHamiltoinianₓ = exp(-1.0im * Hamiltonianₓ)
     
-    # An alternative approach to add kicked fields. 
-    # Seems incorrect since the two parts of the original Hamiltonian will have different time steps
-    # Construct the gate for the transverse Ising field applied only at integer time
-    # kickGates = ITensor[]
-    # for ind in 1:N
-    #     s1 = s[ind]
-    #     hamilt = π / 4 * op("Sx", s1)
-    #     tmpG = exp(-im * hamilt)
-    #     push!(kickGates, tmpG)
+    # # Construct the kicked gate using exact eponentiation
+    # ampo = OpSum()
+    # for ind in 1 : N
+    #     ampo += π/2, "Sx", ind
     # end
+    # Hₓ = MPO(ampo, s)
+    # Hamiltonianₓ = Hₓ[1]
+    # for ind in 2 : N
+    #     Hamiltonianₓ *= Hₓ[ind]
+    # end
+    # expHamiltoinianₓ = exp(-1.0im * Hamiltonianₓ)
+    
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    # @show eltype(ψ), eltype(ψ[1])
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
+    # @show eltype(ψ), eltype(ψ[1])
     # @show maxlinkdim(ψ)
 
     # Locate the central site
