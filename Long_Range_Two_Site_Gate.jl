@@ -20,20 +20,21 @@ let
     Gj = exp(-1.0im * tau / 2 * hj)
     # @show hj
     # @show Gj
-    # @show inds(Gj)
+    @show inds(Gj)
 
-    (s1ᵢ, snᵢ, s1ⱼ, snⱼ) = inds(Gj)
-    @show s1ᵢ, snᵢ, s1ⱼ, snⱼ
+    # for ind in 1 : n
+    #     @show s[ind], s[ind]'
+    # end
 
-    U, S, V = svd(Gj, (s1ᵢ, s1ⱼ))
+    U, S, V = svd(Gj, (s[1], s[1]'))
     @show norm(U*S*V - Gj)
-    @show S
-    @show U
-    @show V
+    # @show S
+    # @show U
+    # @show V
 
     # Absorb the S matrix into the U matrix on the left
     U = U * S
-    @show U
+    # @show U
 
     # Make a vector to store the bond indices
     bondIndices = Vector(undef, n - 1)
@@ -44,7 +45,7 @@ let
     else 
         replacetags!(U, "Link,v", "i1")
     end
-    @show U
+    # @show U
     bondIndices[1] = inds(U)[3]
 
     if hastags(inds(V)[3], "Link,v") != true
@@ -52,40 +53,33 @@ let
     else
         replacetags!(V, "Link,v", "i" * string(n))
     end
-    @show V
+    # @show V
     bondIndices[n - 1] = inds(V)[3]
 
     @show (bondIndices[1], bondIndices[n - 1])
 
     longrangeGate = ITensor[]; push!(longrangeGate, U)
     @show sizeof(longrangeGate)
-    @show longrangeGate
+    # @show longrangeGate
     for ind in 2 : n - 1
         # Set up site indices
-        # @show tags(s[ind])
-        siteString = tags(s[ind])
-        @show siteString
-        indice₁ = Index(2, siteString)
-        indice₂ = prime(indice₁)
-        # indice₂ = Index(2, siteString)'
-        @show indice₁, indice₂
-
         if abs(ind - (n - 1)) > 1E-8
             bondString = "i" * string(ind)
             bondIndices[ind] = Index(4, bondString)
         end
 
         # Make the identity tensor
-        tmpIdentity = delta(indice₁, indice₂) * delta(bondIndices[ind - 1], bondIndices[ind])
+        @show s[ind], s[ind]'
+        tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind])
         push!(longrangeGate, tmpIdentity)
 
         @show sizeof(longrangeGate)
-        @show longrangeGate
+        # @show longrangeGate
     end
 
     push!(longrangeGate, V)
     @show sizeof(longrangeGate)
-    @show longrangeGate
+    # @show longrangeGate
 
     return
 end 
