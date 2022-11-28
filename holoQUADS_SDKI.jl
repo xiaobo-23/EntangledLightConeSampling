@@ -1,18 +1,21 @@
-## Implement time evolution block decimation (TEBD) for the self-dual kicked Ising (SDKI) model
+#@ 11/28/2022
+## Implement the quantum circuit for the SDKI model using classical MPS.
+
 using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy
 using Base: Float64
 ITensors.disable_warn_order()
+
 let 
     N = 10
     cutoff = 1E-8
     tau = 0.1
-    ttotal = 10.0
-    h = 10.0                                             # an integrability-breaking longitudinal field h 
+    ttotal = 10.0 
+    h = 10.0                                           # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N; conserve_qns = false);      # s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false);    # s = siteinds("S=1/2", N; conserve_qns = true)
 
     # Implement the function to generate one sample of the probability distirbution 
     # defined by squaring the components of the tensor
@@ -57,6 +60,55 @@ let
             end
         end
     end
+
+    # Implement the sampling function to measure one two-site MPS
+    function sample(m::MPS, j::Int)
+        mpsLength = length(m)
+
+        # Move the orthogonality center of the MPS to site j
+        orthogonalize!(m, j)
+        if orthocenter(m) != j
+            error("sample: MPS m must have orthocenter(m) == 1")
+        end
+        # Check the normalization of the MPS
+        if abs(1.0 - norm(m[j])) > 1E-8
+            error("sample: MPS is not normalized, norm=$(norm(m[1]))")
+        end
+
+        result = zeros(Int, 2)
+        A = m[j]
+
+        for ind in j:j+1
+            s = siteind(m, j)
+            d = dim(s)
+            pdsic = 0.0
+            r = rand()
+
+            n = 1
+            An = ITensor()
+            pn = 0.0
+
+            while n <= d
+                projn = ITensor(s)
+                porjn[s => n] = 1.0
+                An = A * dag(projn)
+                pn = real(scalar(dag(An) * An))
+                pdisc += pn
+
+                (r < pdisc) && break
+                n += 1
+            end
+            result[ind - j + 1] = n
+
+            if ind < mpsLength
+                A = m[ind + 1] * An
+                A *= (1. / sqrt(pn))
+            end
+        end
+
+        # TO-DO List: implement the reset procedure
+        
+    end 
 
     ###############################################################################################################################
     ## Construct the gates for TEBD algorithm
