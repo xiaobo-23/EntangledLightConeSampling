@@ -9,7 +9,7 @@ ITensors.disable_warn_order()
 
 let 
     n = 10; h = 1.0
-    tau = 0.1
+    tau = 0.1; cutoff = 1E-8
     
     s = siteinds("S=1/2", n; conserve_qns = false)
     s1 = s[1]
@@ -22,6 +22,10 @@ let
     # @show Gj
     @show inds(Gj)
 
+    # Benchmark gate that employs swap operations
+    benchmarkGate = ITensor[]
+    push!(benchmarkGate, Gj)
+    
     # for ind in 1 : n
     #     @show s[ind], s[ind]'
     # end
@@ -56,10 +60,11 @@ let
     # @show V
     bondIndices[n - 1] = inds(V)[3]
 
-    @show (bondIndices[1], bondIndices[n - 1])
+    # @show (bondIndices[1], bondIndices[n - 1])
 
     longrangeGate = ITensor[]; push!(longrangeGate, U)
-    @show sizeof(longrangeGate)
+    @show typeof(U), U
+    # @show sizeof(longrangeGate)
     # @show longrangeGate
     for ind in 2 : n - 1
         # Set up site indices
@@ -69,17 +74,33 @@ let
         end
 
         # Make the identity tensor
-        @show s[ind], s[ind]'
-        tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind])
+        # @show s[ind], s[ind]'
+        tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]); # @show typeof(tmpIdentity)
         push!(longrangeGate, tmpIdentity)
 
-        @show sizeof(longrangeGate)
+        # @show sizeof(longrangeGate)
         # @show longrangeGate
     end
 
     push!(longrangeGate, V)
-    @show sizeof(longrangeGate)
+    @show typeof(V), V
+    # @show sizeof(longrangeGate)
     # @show longrangeGate
 
+    # Benchmark the newly implemented long-range two-site gate with the original two-site gate in ITensor which employs swap operations
+    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ_copy = copy(ψ)
+    @show typeof(longrangeGate), typeof(benchmarkGate)
+
+    # TO-DO List: convert a vector of ITensors to a vector of MPOs
+    #ψ₁ = apply(longrangeGate, ψ_copy; cutoff)
+    ψ₁ = apply(L, ψ_copy; cutoff)
+    
+    ψ_copy = copy(ψ)
+    ψ₂ = apply(benchmarkGate, ψ_copy; cutoff)
+    @show ψ_copy; benchmarkGate
+
+    @show abs(inner(ψ, ψ_copy))
+    # @show abs(inner(ψ₁, ψ₂))
     return
 end 

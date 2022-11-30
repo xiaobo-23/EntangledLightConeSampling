@@ -31,6 +31,8 @@ let
         # @show projectionMatrix, sizeof(projectionMatrix)
         result = zeros(Int, 2)
         A = m[j]
+        @show A
+        @show m[j]
 
         for ind in j:j+1
             s = siteind(m, ind)
@@ -92,10 +94,6 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("RawData/TEBD_N$(N)_h$(h)_Info.h5", "w")
-    # write(file, "Sx", Sx)
-    # write(file, "Sz", Sz)
-    # write(file, "Cxx", Cxx)
-    # write(file, "Czz", Czz)
     # write(file, "Wavefunction Overlap", ψ_overlap)
     # close(file)
     
