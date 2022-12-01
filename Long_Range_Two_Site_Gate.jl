@@ -5,11 +5,11 @@
 using ITensors
 using ITensors: orthocenter, sites, copy 
 using Base: Float64
+using ITensors.HDF5
 ITensors.disable_warn_order()
-
 let 
-    n = 10; h = 1.0
-    tau = 0.1; cutoff = 1E-8
+    n = 50; h = 1.0
+    tau = 0.1; cutoff = 1E-8; measurements = 20
     
     s = siteinds("S=1/2", n; conserve_qns = false)
     s1 = s[1]
@@ -62,10 +62,41 @@ let
 
     # @show (bondIndices[1], bondIndices[n - 1])
 
-    longrangeGate = ITensor[]; push!(longrangeGate, U)
-    @show typeof(U), U
-    # @show sizeof(longrangeGate)
-    # @show longrangeGate
+    # longrangeGate = ITensor[]; push!(longrangeGate, U)
+    # @show typeof(U), U
+    # # @show sizeof(longrangeGate)
+    # # @show longrangeGate
+    # for ind in 2 : n - 1
+    #     # Set up site indices
+    #     if abs(ind - (n - 1)) > 1E-8
+    #         bondString = "i" * string(ind)
+    #         bondIndices[ind] = Index(4, bondString)
+    #     end
+
+    #     # Make the identity tensor
+    #     # @show s[ind], s[ind]'
+    #     tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]); # @show typeof(tmpIdentity)
+    #     push!(longrangeGate, tmpIdentity)
+
+    #     # @show sizeof(longrangeGate)
+    #     # @show longrangeGate
+    # end
+
+    # push!(longrangeGate, V)
+    # @show typeof(V), V
+    # # @show sizeof(longrangeGate)
+    # # @show longrangeGate
+
+    # tmpGate = MPO(n)
+    # for ind in 1 : n
+    #     tmpGate[ind] = longrangeGate[ind]
+    # end
+
+    #####################################################################################################################################
+    # Construct the long-range two-site gate as an MPO
+    longrangeGate = MPO(n)
+    longrangeGate[1] = U
+
     for ind in 2 : n - 1
         # Set up site indices
         if abs(ind - (n - 1)) > 1E-8
@@ -75,32 +106,59 @@ let
 
         # Make the identity tensor
         # @show s[ind], s[ind]'
-        tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]); # @show typeof(tmpIdentity)
-        push!(longrangeGate, tmpIdentity)
+        tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
+        longrangeGate[ind] = tmpIdentity
 
         # @show sizeof(longrangeGate)
         # @show longrangeGate
     end
 
-    push!(longrangeGate, V)
     @show typeof(V), V
+    longrangeGate[n] = V
     # @show sizeof(longrangeGate)
     # @show longrangeGate
-
-    # Benchmark the newly implemented long-range two-site gate with the original two-site gate in ITensor which employs swap operations
-    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    ψ_copy = copy(ψ)
     @show typeof(longrangeGate), typeof(benchmarkGate)
+    #####################################################################################################################################
 
-    # TO-DO List: convert a vector of ITensors to a vector of MPOs
-    #ψ₁ = apply(longrangeGate, ψ_copy; cutoff)
-    ψ₁ = apply(L, ψ_copy; cutoff)
     
-    ψ_copy = copy(ψ)
-    ψ₂ = apply(benchmarkGate, ψ_copy; cutoff)
-    @show ψ_copy; benchmarkGate
+    
+    # Benchmark the accuracy of this implemented two-site gate. 
+    Sx₁ = complex(zeros(measurements, n)); Sx₂ = complex(zeros(measurements, n))
+    Sy₁ = complex(zeros(measurements, n)); Sy₂ = complex(zeros(measurements, n))
+    Sz₁ = complex(zeros(measurements, n)); Sz₂ = complex(zeros(measurements, n))
+    overlap₁ = zeros(measurements)
+    overlap₂ = zeros(measurements)
+    overlap = zeros(measurements)
 
-    @show abs(inner(ψ, ψ_copy))
-    # @show abs(inner(ψ₁, ψ₂))
+    for index in 1 : measurements
+        # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+        states = [isodd(tmpSite) ? "Up" : "Dn" for tmpSite = 1:n]
+        ψ = randomMPS(s, states, linkdims = 2)
+
+        ψ_copy = deepcopy(ψ)
+        @time ψ₁ = apply(longrangeGate, ψ_copy; cutoff)
+        Sx₁[index, :] = expect(ψ₁, "Sx"; sites = 1 : n)
+        Sy₁[index, :] = expect(ψ₁, "Sy"; sites = 1 : n)
+        Sz₁[index, :] = expect(ψ₁, "Sz"; sites = 1 : n)
+
+        ψ_copy = deepcopy(ψ)
+        @time ψ₂ = apply(benchmarkGate, ψ_copy; cutoff)
+        Sx₂[index, :] = expect(ψ₂, "Sx"; sites = 1 : n)
+        Sy₂[index, :] = expect(ψ₂, "Sy"; sites = 1 : n)
+        Sz₂[index, :] = expect(ψ₂, "Sz"; sites = 1 : n)
+
+        overlap[index]  = abs(inner(ψ₁, ψ₂));  @show abs(inner(ψ₁, ψ₂))
+        overlap₁[index] = abs(inner(ψ₁, ψ));   @show abs(inner(ψ₁, ψ))
+        overlap₂[index] = abs(inner(ψ₂, ψ));   @show abs(inner(ψ₂, ψ))
+    end
+    
+    file = h5open("Data/Long_Range_Gate_Test.h5", "w")
+    write(file, "Sx1", Sx₁); write(file, "Sx2", Sx₂)
+    write(file, "Sy1", Sy₁); write(file, "Sy2", Sy₂)
+    write(file, "Sz1", Sz₁); write(file, "Sz2", Sz₂)
+    write(file, "overlap",  overlap)
+    write(file, "overlap1", overlap₁)
+    write(file, "overlap2", overlap₂)
+
     return
 end 
