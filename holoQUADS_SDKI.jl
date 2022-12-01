@@ -3,7 +3,7 @@
 
 using ITensors
 using ITensors.HDF5
-using ITensors: orthocenter, sites, copy
+using ITensors: orthocenter, sites, copy, complex
 using Base: Float64
 ITensors.disable_warn_order()
 
@@ -303,11 +303,11 @@ let
 
     # Compute local observables e.g. Sz, Czz 
     timeSlices = Int(ttotal / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
-    Sx = zeros(timeSlices, N); Sx = complex(Sx)
-    Sy = zeros(timeSlices, N); Sy = complex(Sy)
-    Sz = zeros(timeSlices, N); Sz = complex(Sz)
-    Cxx = zeros(timeSlices, N); Cxx = complex(Cxx)
-    Czz = zeros(timeSlices, N); Czz = complex(Czz)
+    Sx = complex(zeros(timeSlices, N))
+    Sy = complex(zeros(timeSlices, N))
+    Sz = complex(zeros(timeSlices, N))
+    Cxx = complex(zeros(timeSlices, N))
+    Czz = complex(zeros(timeSlices, N))
     index = 1
     
     @time for time in 0.0:tau:ttotal
