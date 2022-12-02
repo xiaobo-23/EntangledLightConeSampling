@@ -130,19 +130,23 @@ let
     overlap₂ = zeros(measurements)
     overlap = zeros(measurements)
 
+    # states = [isodd(tmpSite) ? "Up" : "Dn" for tmpSite = 1:n]
+    # ψ = randomMPS(s, states, linkdims = 4)
+    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ₁ = deepcopy(ψ)
+    ψ₂ = deepcopy(ψ)
+
     for index in 1 : measurements
         # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-        states = [isodd(tmpSite) ? "Up" : "Dn" for tmpSite = 1:n]
-        ψ = randomMPS(s, states, linkdims = 2)
 
-        ψ_copy = deepcopy(ψ)
-        @time ψ₁ = apply(longrangeGate, ψ_copy; cutoff)
+        # ψ_copy = deepcopy(ψ)
+        @time ψ₁ = apply(longrangeGate, ψ₁; cutoff)
         Sx₁[index, :] = expect(ψ₁, "Sx"; sites = 1 : n)
         Sy₁[index, :] = expect(ψ₁, "Sy"; sites = 1 : n)
         Sz₁[index, :] = expect(ψ₁, "Sz"; sites = 1 : n)
 
-        ψ_copy = deepcopy(ψ)
-        @time ψ₂ = apply(benchmarkGate, ψ_copy; cutoff)
+        # ψ_copy = deepcopy(ψ)
+        @time ψ₂ = apply(benchmarkGate, ψ₂; cutoff)
         Sx₂[index, :] = expect(ψ₂, "Sx"; sites = 1 : n)
         Sy₂[index, :] = expect(ψ₂, "Sy"; sites = 1 : n)
         Sz₂[index, :] = expect(ψ₂, "Sz"; sites = 1 : n)
@@ -152,7 +156,7 @@ let
         overlap₂[index] = abs(inner(ψ₂, ψ));   @show abs(inner(ψ₂, ψ))
     end
     
-    file = h5open("Data/Long_Range_Gate_Test.h5", "w")
+    file = h5open("Data/Long_Range_Gate_Test_Time_Series_AF.h5", "w")
     write(file, "Sx1", Sx₁); write(file, "Sx2", Sx₂)
     write(file, "Sy1", Sy₁); write(file, "Sy2", Sy₂)
     write(file, "Sz1", Sz₁); write(file, "Sz2", Sz₂)
