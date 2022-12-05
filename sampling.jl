@@ -3,7 +3,7 @@
 
 using ITensors
 using ITensors.HDF5
-using ITensors: orthocenter, sites, copy
+using ITensors: orthocenter, sites, copy, real
 using Base: Float64, project_deps_get
 ITensors.disable_warn_order()
 
@@ -26,8 +26,8 @@ function sample(m::MPS, j::Int)
     # @show projectionMatrix, sizeof(projectionMatrix)
     result = zeros(Int, 2)
     A = m[j]
-    @show A
-    @show m[j]
+    # @show A
+    # @show m[j]
 
     for ind in j:j+1
         s = siteind(m, ind)
@@ -52,7 +52,7 @@ function sample(m::MPS, j::Int)
             n += 1
         end
         result[ind - j + 1] = n
-        @show result[ind - j + 1]
+        # @show result[ind - j + 1]
         # @show An
 
         if ind < mpsLength
@@ -60,7 +60,7 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        @show m[ind]
+        # @show m[ind]
         if n - 1 < 1E-8
             tmpReset = ITensor(projn0_Matrix, s, s')
         else
@@ -68,12 +68,23 @@ function sample(m::MPS, j::Int)
         end
         m[ind] *= tmpReset
         noprime!(m[ind])
-        @show m[ind]
+        # @show m[ind]
     end
 end 
 
+# Compute von Neumann entanglement entropy to check how measurements affect entropy of a system
+function compute_entropy(input_matrix)
+    local tmpEntropy = 0
+    for index in 1 : size(input_matrix, 1) 
+        # entropy += -2 * input_matrix[index, index]^2 * log(input_matrix[index, index])
+        tmp = input_matrix[index, index]^2
+        tmpEntropy += -tmp * log(tmp)
+    end
+    return tmpEntropy
+end
+
 let 
-    N = 20
+    N = 16
     initial_s = siteinds("S=1/2", N; conserve_qns = false)  
     # s = siteinds("S=1/2", N; conserve_qns = true)
 
@@ -95,26 +106,77 @@ let
     # overlap = abs(inner(ψ, ψ₀))
     # @show overlap
     
-    initialization_number = 6
+    initialization_number = 5
     Sz = complex(zeros(2 * initialization_number, N))
+    entropy = real(zeros(2 * initialization_number, N - 2))
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    
+    
     for ind in 1 : initialization_number
-        ψ = randomMPS(initial_s, states, linkdims = 4)
+        ψ = randomMPS(initial_s, states, linkdims = 256) 
         ψ₀ = deepcopy(ψ)
+        
+        # Compute Sz and von Neumann entanglment entropy before taking measurements
         @show maxlinkdim(ψ)
         Sz[2 * ind - 1, :] = expect(ψ, "Sz"; sites = 1 : N)
-        sample(ψ, 2 * ind - 1)
+        for site_index in 2 : N - 1
+            # @show inds(ψ[site_index])
+            orthogonalize!(ψ, site_index)
+            # @show siteind(ψ, site_index) == inds(ψ[site_index])[1]
+            # @show linkind(ψ, site_index - 1) == inds(ψ[site_index])[2]
+            # @show site_index, inds(ψ[site_index])
+            # @show site_index, inds(ψ[site_index - 1])[2]
+            # @show site_index, linkind(ψ, site_index - 1)
+
+            i₀, j₀ = inds(ψ[site_index])[1], inds(ψ[site_index])[3]
+            # i₀, j₀ = siteind(ψ, site_index), linkind(ψ, site_index - 1)
+            _, C0, _ = svd(ψ[site_index], i₀, j₀); # @show sizeof(matrix(C0))
+            C0 = matrix(C0)
+            SvN = compute_entropy(C0)
+
+            i₁, j₁ = siteind(ψ, site_index), linkind(ψ, site_index - 1)
+            _, C1, _ = svd(ψ[site_index], i₁, j₁)
+            C1 = matrix(C1)
+            SvN₁ = compute_entropy(C1)
+            
+            @show dim(linkind(ψ, site_index - 1))
+            @show site_index, SvN, SvN₁
+            entropy[2 * ind - 1, site_index - 1] = SvN₁
+        end
+        
+        # Compute Sz and von Neumann entanglment entropy after taking measurements
+        sample(ψ, 2 * ind + 1)
+        # sample(ψ, 9)
         Sz[2 * ind, :] = expect(ψ, "Sz"; sites = 1 : N)
+        for site_index in 2 : N - 1
+            # @show inds(ψ[site_index])
+            orthogonalize!(ψ, site_index)
+            i₀, j₀ = inds(ψ[site_index])[1], inds(ψ[site_index])[3]
+            # i₀, j₀ = siteind(ψ, site_index), linkind(ψ, site_index - 1)
+            _, C0, _ = svd(ψ[site_index], i₀, j₀); # @show sizeof(matrix(C0))
+            C0 = matrix(C0)
+            SvN = compute_entropy(C0)
+
+            i₁, j₁ = siteind(ψ, site_index), linkind(ψ, site_index - 1)
+            _, C1, _ = svd(ψ[site_index], i₁, j₁)
+            C1 = matrix(C1)
+            SvN₁ = compute_entropy(C1)
+            
+            @show dim(linkind(ψ, site_index - 1))
+            @show site_index, SvN, SvN₁
+            entropy[2 * ind, site_index - 1] = SvN₁
+        end
 
         overlap = Complex[]
         overlap = abs(inner(ψ, ψ₀))
         @show overlap
     end
-
+    @show entropy
 
     # Store data into a hdf5 file
     file = h5open("Data/Sample_Test_Random.h5", "w")
     write(file, "Sz", Sz)
+    write(file, "entropy", entropy)
     close(file)
     
     return
