@@ -84,7 +84,7 @@ function compute_entropy(input_matrix)
 end
 
 let 
-    N = 16
+    N = 50
     initial_s = siteinds("S=1/2", N; conserve_qns = false)  
     # s = siteinds("S=1/2", N; conserve_qns = true)
 
@@ -106,14 +106,14 @@ let
     # overlap = abs(inner(ψ, ψ₀))
     # @show overlap
     
-    initialization_number = 5
+    initialization_number = 4
     Sz = complex(zeros(2 * initialization_number, N))
     entropy = real(zeros(2 * initialization_number, N - 2))
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     
     
     for ind in 1 : initialization_number
-        ψ = randomMPS(initial_s, states, linkdims = 256) 
+        ψ = randomMPS(initial_s, states, linkdims = 32) 
         ψ₀ = deepcopy(ψ)
         
         # Compute Sz and von Neumann entanglment entropy before taking measurements
@@ -145,7 +145,7 @@ let
         end
         
         # Compute Sz and von Neumann entanglment entropy after taking measurements
-        sample(ψ, 2 * ind + 1)
+        sample(ψ, 10 * ind + 1)
         # sample(ψ, 9)
         Sz[2 * ind, :] = expect(ψ, "Sz"; sites = 1 : N)
         for site_index in 2 : N - 1
@@ -174,7 +174,7 @@ let
     @show entropy
 
     # Store data into a hdf5 file
-    file = h5open("Data/Sample_Test_Random.h5", "w")
+    file = h5open("Data/Sample_Test_Random_L50_Chi32.h5", "w")
     write(file, "Sz", Sz)
     write(file, "entropy", entropy)
     close(file)
