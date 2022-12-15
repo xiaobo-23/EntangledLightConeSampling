@@ -162,10 +162,14 @@ let
     N = 10
     cutoff = 1E-8
     tau = 0.5
-    ttotal = 4.0                                       # floquet time = 1 / 2 * circuit time 
-    h = 10.0                                           # an integrability-breaking longitudinal field h 
-    time_step = 8
-    max_gates = 4
+    h = 10.0                                    # an integrability-breaking longitudinal field h 
+    
+    # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
+    floquet_time = 4.0                                        # floquet time = Δτ * circuit_time
+    circuit_time = Int(floquet_time / tau)
+    @show floquet_time, circuit_time
+    # max_gates = 4
+
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);    # s = siteinds("S=1/2", N; conserve_qns = true)
 
@@ -344,7 +348,7 @@ let
 
     # Construct time evolution for one floquet time step
     function time_evolution_corner(num_gates :: Int, parity :: Int)
-        # In the corner case, two-site gates are applied to site 1 --> site N
+        # Time evolution using TEBD for the corner case
         gates = ITensor[]
 
         for ind₁ in 1 : num_gates
@@ -368,12 +372,15 @@ let
         return gates
     end
 
+    
+    
     function time_evolution(initialPosition :: Int, numSites :: Int, tmp_sites)
-        # In the general case, two-site gates are applied to selected site with inverse order (N --> 1)
+        # General time evolution using TEBD
         gates = ITensor[]
         if initialPosition - 1 < 1E-8
             tmpGate = long_range_gate(tmp_sites, numSites)
-            push!(gates, tmpGate)
+            # push!(gates, tmpGate)
+            return tmpGate
         else
             if initialPosition - 2 < 1E-8
                 coeff₁ = 1
@@ -406,7 +413,7 @@ let
     ψ_overlap = Complex{Float64}[]
 
     # Compute local observables e.g. Sz, Czz 
-    # timeSlices = Int(ttotal / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
+    # timeSlices = Int(floquet_time / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
     # Sx = complex(zeros(timeSlices, N))
     # Sy = complex(zeros(timeSlices, N))
     # Sz = complex(zeros(timeSlices, N))
@@ -416,30 +423,35 @@ let
     
 
     options = [4, 4, 3, 3, 2, 2, 1, 1]
-    odd_even = [0, 1, 0, 1, 0, 1, 0, 1]
-    @time for ind in 1 : time_step
+    # odd_even = [0, 1, 0, 1, 0, 1, 0, 1]
+    @time for ind in 1 : circuit_time
         tmp_overlap = abs(inner(ψ, ψ_copy))
         println("The inner product is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
 
-        # Local observables e.g. Sx, Sz
-        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx; # Sx[index, :] = tmpSx
-        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
-        tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSz
+        # # Local observables e.g. Sx, Sz
+        # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx; # Sx[index, :] = tmpSx
+        # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
+        # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSz
 
         # Apply kicked gate at integer times
         if ind % 2 == 1
             ψ_copy = apply(kick_gate, ψ_copy; cutoff)
             normalize!(ψ_copy)
             println("")
+            println("")
+            println("Applying the kicked Ising gate.")
             tmp_overlap = abs(inner(ψ, ψ_copy))
             @show tmp_overlap
+            println("")
             println("")
         end
 
         # Apply a sequence of two-site gates
+        tmp_parity = (ind - 1) % 2
+        tmp_num_gates = Int(circuit_time / 2); @show typeof(tmp_num_gates)
         tmp_two_site_gates = ITensor[]
-        tmp_two_site_gates = time_evolution_corner(options[ind], odd_even[ind])
+        tmp_two_site_gates = time_evolution_corner(options[ind], tmp_parity)
         # println("")
         # @show tmp_two_site_gates 
         # @show typeof(tmp_two_site_gates)
@@ -447,8 +459,11 @@ let
 
         ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
         println("")
+        println("")
+        println("Appling the Ising gate plus longitudinal fields.")
         tmp_overlap = abs(inner(ψ, ψ_copy))
         @show tmp_overlap
+        println("")
         println("")
     end
     
@@ -458,45 +473,45 @@ let
     @show tmp_overlap
     println("")
 
-    options = [1, 10, 9, 8, 7, 6, 5, 4]
-    @time for ind in 1 : time_step
-        tmp_overlap = abs(inner(ψ, ψ_copy))
-        println("The inner product is: $tmp_overlap")
-        append!(ψ_overlap, tmp_overlap)
+    # options = [1, 10, 9, 8, 7, 6, 5, 4]
+    # @time for ind in 1 : circuit_time
+    #     # tmp_overlap = abs(inner(ψ, ψ_copy))
+    #     # println("The inner product is: $tmp_overlap")
+    #     # append!(ψ_overlap, tmp_overlap)
 
-        # Local observables e.g. Sx, Sz
-        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx; # Sx[index, :] = tmpSx
-        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
-        tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSz
+    #     # Local observables e.g. Sx, Sz
+    #     tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx; # Sx[index, :] = tmpSx
+    #     tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
+    #     tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSz
 
-        # Apply kicked gate at integer times
-        if ind % 2 == 1
-            ψ_copy = apply(kick_gate, ψ_copy; cutoff)
-            normalize!(ψ_copy)
-            println("")
-            tmp_overlap = abs(inner(ψ, ψ_copy))
-            @show tmp_overlap
-            println("")
-        end
+    #     # Apply kicked gate at integer times
+    #     if ind % 2 == 1
+    #         ψ_copy = apply(kick_gate, ψ_copy; cutoff)
+    #         normalize!(ψ_copy)
+    #         println("")
+    #         tmp_overlap = abs(inner(ψ, ψ_copy))
+    #         @show tmp_overlap
+    #         println("")
+    #     end
 
-        # Apply a sequence of two-site gates
-        tmp_two_site_gates = ITensor[]
-        tmp_two_site_gates = time_evolution(options[ind], N, s)
-        # println("")
-        # @show tmp_two_site_gates 
-        # @show typeof(tmp_two_site_gates)
-        # println("")
+    #     # Apply a sequence of two-site gates
+    #     # tmp_two_site_gates = ITensor[]
+    #     tmp_two_site_gates = time_evolution(options[ind], N, s)
+    #     # println("")
+    #     # @show tmp_two_site_gates 
+    #     # @show typeof(tmp_two_site_gates)
+    #     # println("")
 
-        ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-        println("")
-        tmp_overlap = abs(inner(ψ, ψ_copy))
-        @show tmp_overlap
-        println("")
-    end
-    sample(ψ_copy, 3); @show abs(inner(ψ, ψ_copy))
+    #     ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+    #     println("")
+    #     tmp_overlap = abs(inner(ψ, ψ_copy))
+    #     @show tmp_overlap
+    #     println("")
+    # end
+    # sample(ψ_copy, 3); @show abs(inner(ψ, ψ_copy))
     
     
-    # @time for time in 0.0:tau:ttotal
+    # @time for time in 0.0:tau:floquet_time
     #     tmp_overlap = abs(inner(ψ, ψ_copy))
     #     println("The inner product is: $tmp_overlap")
     #     append!(ψ_overlap, tmp_overlap)
@@ -514,12 +529,12 @@ let
     #     # tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1, N); @show tmpCxx
     #     # tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1, N); @show tmpCzz
         
-    #     # time ≈ ttotal && break
-    #     time > ttotal && break
+    #     # time ≈ floquet_time && break
+    #     time > floquet_time && break
     #     @show Int(time / tau), time, tau
 
     #     # Real-time evolution corner case
-    #     for ind in 1 : time_step
+    #     for ind in 1 : circuit_time
     #         if ind % 2 == 1
     #             println("")
     #             println("Apply the kicked gates at integer time $time")
