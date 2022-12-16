@@ -99,19 +99,6 @@ let
             println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
         end
     
-        # Compute local observables e.g. Sz
-        tmpSx = expect(ψ_copy, "Sx"); Sx[index, :] = tmpSx; @show size(tmpSx)
-        tmpSy = expect(ψ_copy, "Sy"); Sy[index, :] = tmpSy; @show size(tmpSy)
-        tmpSz = expect(ψ_copy, "Sz"); Sz[index, :] = tmpSz; @show size(tmpSz)
-
-        # Compute spin correlation functions e.g. Czz
-        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[index, :] = tmpCxx[4, :]; @show size(tmpCxx')
-        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[index, :] = tmpCyy[4, :]; @show size(tmpCyy')
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[index, :] = tmpCzz[4, :]; @show size(tmpCzz')
-        # Vectorize the correlation matrix to store all information
-        # Czz[index, :] = vec(tmpCzz')
-        index += 1
-
         # Apply the kicked transverse field gate
         ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
         normalize!(ψ_copy)
@@ -133,6 +120,20 @@ let
             normalize!(ψ_copy)
         end
 
+        # Compute local observables e.g. Sz
+        tmpSx = expect(ψ_copy, "Sx"); Sx[index, :] = tmpSx; @show size(tmpSx)
+        tmpSy = expect(ψ_copy, "Sy"); Sy[index, :] = tmpSy; @show size(tmpSy)
+        tmpSz = expect(ψ_copy, "Sz"); Sz[index, :] = tmpSz; @show size(tmpSz)
+
+        # Compute spin correlation functions e.g. Czz
+        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[index, :] = tmpCxx[4, :]; @show size(tmpCxx')
+        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[index, :] = tmpCyy[4, :]; @show size(tmpCyy')
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[index, :] = tmpCzz[4, :]; @show size(tmpCzz')
+        # Vectorize the correlation matrix to store all information
+        # Czz[index, :] = vec(tmpCzz')
+        index += 1
+
+        
         # Compute overlap of wavefunction < Psi(t) | Psi(0) >
         # if ind == iterationLimit
         #     tmpOverlap = abs(inner(ψ, ψ_copy))

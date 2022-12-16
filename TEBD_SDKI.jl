@@ -7,7 +7,7 @@ ITensors.disable_warn_order()
 let 
     N = 8
     cutoff = 1E-8
-    tau = 0.5
+    tau = 0.1
     ttotal = 10.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
@@ -94,25 +94,25 @@ let
     # @show reverse(gates)
     
     # Construct the kicked gate that are only applied at integer time
-    kickGates = ITensor[]
-    for ind in 1:N
-        s1 = s[ind]
-        hamilt = π / 2 * op("Sx", s1)
-        tmpG = exp(-im * hamilt)
-        push!(kickGates, tmpG)
-    end
+    # kickGates = ITensor[]
+    # for ind in 1:N
+    #     s1 = s[ind]
+    #     hamilt = π / 2 * op("Sx", s1)
+    #     tmpG = exp(-im * hamilt)
+    #     push!(kickGates, tmpG)
+    # end
     
-    # # Construct the kicked gate using exact eponentiation
-    # ampo = OpSum()
-    # for ind in 1 : N
-    #     ampo += π/2, "Sx", ind
-    # end
-    # Hₓ = MPO(ampo, s)
-    # Hamiltonianₓ = Hₓ[1]
-    # for ind in 2 : N
-    #     Hamiltonianₓ *= Hₓ[ind]
-    # end
-    # expHamiltoinianₓ = exp(-1.0im * Hamiltonianₓ)
+    # Construct the kicked gate using exact eponentiation
+    ampo = OpSum()
+    for ind in 1 : N
+        ampo += π/2, "Sx", ind
+    end
+    Hₓ = MPO(ampo, s)
+    Hamiltonianₓ = Hₓ[1]
+    for ind in 2 : N
+        Hamiltonianₓ *= Hₓ[ind]
+    end
+    expHamiltoinianₓ = exp(-1.0im * Hamiltonianₓ)
     
     
     # Initialize the wavefunction
@@ -138,10 +138,30 @@ let
     Czz = zeros(timeSlices, N); Czz = complex(Czz)
     index = 1
     
+
+    distance = Int(1.0 / tau)
     @time for time in 0.0:tau:ttotal
         tmp_overlap = abs(inner(ψ, ψ_copy))
         println("The inner product is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
+
+        time ≈ ttotal && break
+        println("")
+        println("")
+        @show time
+        println("")
+        println("")
+        
+        if (abs((time / tau) % distance) < 1E-8)
+            println("")
+            println("Apply the kicked gates at integer time $time")
+            println("")
+            ψ_copy = apply(expHamiltoinianₓ, ψ_copy; cutoff)
+            normalize!(ψ_copy)
+        end
+
+        ψ_copy = apply(gates, ψ_copy; cutoff)
+        normalize!(ψ_copy)
 
         # Local observables e.g. Sx, Sz
         tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx
@@ -152,19 +172,6 @@ let
         tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[4, :]
         # Czz[index, :] = vec(tmpCzz')
         index += 1
-        
-        time ≈ ttotal && break
-        if (abs((time / tau) % 10) < 1E-8)
-            println("")
-            println("Apply the kicked gates at integer time $time")
-            println("")
-            ψ_copy = apply(expHamiltoinianₓ, ψ_copy; cutoff)
-            normalize!(ψ_copy)
-        end
-
-
-        ψ_copy = apply(gates, ψ_copy; cutoff)
-        normalize!(ψ_copy)
 
         #********************************************************************************
         # Previous ideas of using a square wave to represent a delta function
@@ -182,7 +189,7 @@ let
     end
 
     # Store data into a hdf5 file
-    file = h5open("Data/TEBD_N$(N)_h$(h).h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau).h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sz", Sz)
     write(file, "Cxx", Cxx)
