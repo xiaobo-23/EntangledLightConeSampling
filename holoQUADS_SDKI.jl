@@ -164,16 +164,16 @@ end
 # end
 
 let 
-    N = 10
+    N = 8
     cutoff = 1E-8
     tau = 0.5
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 4.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
-    num_measurements = 10
+    num_measurements = 50
 
     # Implement a long-range two-site gate
     function long_range_gate(tmp_s, position_index::Int)
@@ -553,7 +553,7 @@ let
 
 
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h).h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time).h5", "w")
     write(file, "Sz", Sz)
     # write(file, "Sx", Sx)
     # write(file, "Cxx", Cxx)

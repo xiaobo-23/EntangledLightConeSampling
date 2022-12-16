@@ -7,9 +7,9 @@ ITensors.disable_warn_order()
 let 
     N = 8
     cutoff = 1E-8
-    τ = 0.1; timeSlice = Int(1 / τ)
+    τ = 0.5; timeSlice = Int(1 / τ)
     iterationLimit = 10
-    h = 10.0                                           # an integrability-breaking longitudinal field h 
+    h = 0.2                                           # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);    # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -144,7 +144,7 @@ let
     @show size(ψ_overlap)
     @show size(Czz)
     # Save measurements into a hdf5 file
-    file = h5open("RawData/ED_N$(N)_h$(h)_Info.h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h).h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz
