@@ -297,17 +297,6 @@ let
     # # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
     # append!(gates, reverse(gates))
 
-    # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
-
-    # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
-    kick_gate = ITensor[]
-    for ind in 1 : N
-        s1 = s[ind]
-        hamilt = π / 2 * op("Sx", s1)
-        tmpG = exp(-1.0im * hamilt)
-        push!(kick_gate, tmpG)
-    end
 
     # # Construct the transverse field as the kicked gate
     # ampo = OpSum()
@@ -367,11 +356,8 @@ let
             @show inds(s1)
             @show inds(s2)
 
-            # if 2 * ind₁ - parity - 1 < 1E-8
-            #     coeff₁ = 2
-            #     coeff₂ = 1
             if 2 * ind₁ - parity - 1 < 1E-8
-                coeff₁ = 1
+                coeff₁ = 2
                 coeff₂ = 1
             else
                 coeff₁ = 1
@@ -385,7 +371,6 @@ let
         return gates
     end
 
-    
     
     function time_evolution(initialPosition :: Int, numSites :: Int, tmp_sites)
         # General time evolution using TEBD
@@ -412,7 +397,17 @@ let
         return gates
     end
 
-    
+    # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
+    s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
+
+    # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
+    kick_gate = ITensor[]
+    for ind in 1 : N
+        s1 = s[ind]
+        hamilt = π / 2 * op("Sx", s1)
+        tmpG = exp(-1.0im * hamilt)
+        push!(kick_gate, tmpG)
+    end
     
     # Compute local observables e.g. Sz, Czz 
     # timeSlices = Int(floquet_time / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
@@ -424,7 +419,6 @@ let
     # Sz = complex(zeros(num_measurements, N))
     Sz = real(zeros(num_measurements, N))
 
-    
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
