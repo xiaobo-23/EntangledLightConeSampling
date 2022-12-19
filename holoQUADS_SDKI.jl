@@ -178,7 +178,7 @@ let
     floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
-    num_measurements = 500
+    num_measurements = 2000
 
     # Implement a long-range two-site gate
     function long_range_gate(tmp_s, position_index::Int)
@@ -367,8 +367,11 @@ let
             @show inds(s1)
             @show inds(s2)
 
+            # if 2 * ind₁ - parity - 1 < 1E-8
+            #     coeff₁ = 2
+            #     coeff₂ = 1
             if 2 * ind₁ - parity - 1 < 1E-8
-                coeff₁ = 2
+                coeff₁ = 1
                 coeff₂ = 1
             else
                 coeff₁ = 1
@@ -392,16 +395,17 @@ let
             # push!(gates, tmpGate)
             return tmpGate
         else
-            if initialPosition - 2 < 1E-8
-                coeff₁ = 1
-                coeff₂ = 2 
-            else
-                coeff₁ = 1
-                coeff₂ = 1
-            end
+            # if initialPosition - 2 < 1E-8
+            #     coeff₁ = 1
+            #     coeff₂ = 2
+            # else
+            #     coeff₁ = 1
+            #     coeff₂ = 1
+            # end
             s1 = tmp_sites[initialPosition]
             s2 = tmp_sites[initialPosition - 1]
-            hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
+            # hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
+            hj = (π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2))
             Gj = exp(-1.0im * tau / 2 * hj)
             push!(gates, Gj)
         end
@@ -475,6 +479,11 @@ let
             
             tmp_two_site_gates = ITensor[]
             tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity)
+            println("")
+            println("")
+            @show sizeof(tmp_two_site_gates)
+            println("")
+            println("")
             # println("")
             # @show tmp_two_site_gates 
             # @show typeof(tmp_two_site_gates)
@@ -575,4 +584,4 @@ let
     close(file)
     
     return
-end 
+end  
