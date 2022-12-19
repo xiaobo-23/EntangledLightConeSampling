@@ -173,7 +173,7 @@ let
     floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
-    num_measurements = 50
+    num_measurements = 2000
 
     # Implement a long-range two-site gate
     function long_range_gate(tmp_s, position_index::Int)
