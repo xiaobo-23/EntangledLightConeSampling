@@ -77,6 +77,11 @@ function sample(m::MPS, j::Int)
         noprime!(m[ind])
         # @show m[ind]
     end
+    println("")
+    println("")
+    println("Measure sites $j and $(j+1)!")
+    println("")
+    println("")
     return result
 end 
 
@@ -167,13 +172,13 @@ let
     N = 8
     cutoff = 1E-8
     tau = 0.5
-    h = 0.2                                     # an integrability-breaking longitudinal field h 
+    h = 10.0                                    # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
     floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
-    num_measurements = 2000
+    num_measurements = 500
 
     # Implement a long-range two-site gate
     function long_range_gate(tmp_s, position_index::Int)
@@ -185,7 +190,7 @@ let
         Gj = exp(-1.0im * tau / 2 * hj)
         # @show hj
         # @show Gj
-        @show inds(Gj)
+        # @show inds(Gj)
 
         # Benchmark gate that employs swap operations
         benchmarkGate = ITensor[]
@@ -196,7 +201,7 @@ let
         # end
 
         U, S, V = svd(Gj, (tmp_s[1], tmp_s[1]'))
-        @show norm(U*S*V - Gj)
+        # @show norm(U*S*V - Gj)
         # @show S
         # @show U
         # @show V
@@ -223,7 +228,7 @@ let
             replacetags!(V, "Link,v", "i" * string(position_index))
         end
         # @show V
-        @show position_index
+        # @show position_index
         bondIndices[position_index - 1] = inds(V)[3]
         # @show (bondIndices[1], bondIndices[n - 1])
 
@@ -250,11 +255,11 @@ let
             # @show longrangeGate
         end
 
-        @show typeof(V), V
+        # @show typeof(V), V
         longrangeGate[position_index] = V
         # @show sizeof(longrangeGate)
         # @show longrangeGate
-        @show typeof(longrangeGate), typeof(benchmarkGate)
+        # @show typeof(longrangeGate), typeof(benchmarkGate)
         #####################################################################################################################################
         return longrangeGate
     end
@@ -415,6 +420,18 @@ let
     # Sz = complex(zeros(num_measurements, N))
     Sz = real(zeros(num_measurements, N))
 
+    
+    
+    # Initialize the wavefunction
+    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # @show eltype(ψ), eltype(ψ[1])
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # @show maxlinkdim(ψ)
+
+    # Locate the central site
+    # centralSite = div(N, 2)
+    
     for measure_ind in 1 : num_measurements
         println("")
         println("")
@@ -423,16 +440,6 @@ let
         println("############################################################################")
         println("")
         println("")
-
-        # Initialize the wavefunction
-        ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-        # @show eltype(ψ), eltype(ψ[1])
-        # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
-        # ψ = randomMPS(s, states, linkdims = 2)
-        # @show maxlinkdim(ψ)
-
-        # Locate the central site
-        # centralSite = div(N, 2)
 
         # Compute the overlap between the original and time evolved wavefunctions
         ψ_copy = deepcopy(ψ)
@@ -454,7 +461,7 @@ let
                 normalize!(ψ_copy)
                 println("")
                 println("")
-                println("Applying the kicked Ising gate.")
+                println("Applying the kicked Ising gate at time $(ind)!")
                 tmp_overlap = abs(inner(ψ, ψ_copy))
                 @show tmp_overlap
                 println("")
@@ -474,19 +481,26 @@ let
             # println("")
 
             ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-            println("")
-            println("")
-            println("Appling the Ising gate plus longitudinal fields.")
-            tmp_overlap = abs(inner(ψ, ψ_copy))
-            @show tmp_overlap
-            println("")
-            println("")
+            normalize!(ψ_copy)
+            # println("")
+            # println("")
+            # println("Appling the Ising gate plus longitudinal fields.")
+            # tmp_overlap = abs(inner(ψ, ψ_copy))
+            # @show tmp_overlap
+            # println("")
+            # println("")
         end
-        
+
+        println("")
+        println("")
+        tmp_overlap = abs(inner(ψ, ψ_copy))
+        @show tmp_overlap
+        println("")
         Sz[measure_ind, 1:2] = sample(ψ_copy, 1)
         println("")
         tmp_overlap = abs(inner(ψ, ψ_copy))
         @show tmp_overlap
+        println("")
         println("")
 
         @time for ind₁ in 1 : Int(N / 2) - 1
@@ -498,6 +512,7 @@ let
                 end
                 push!(gate_seeds, tmp_ind)
             end
+            println("")
             println("")
             @show gate_seeds
             println("")
@@ -532,28 +547,26 @@ let
                 # println("")
 
                 ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-                println("")
-                tmp_overlap = abs(inner(ψ, ψ_copy))
-                @show tmp_overlap
-                println("")
+                normalize!(ψ_copy)
+                # println("")
+                # tmp_overlap = abs(inner(ψ, ψ_copy))
+                # @show tmp_overlap
+                # println("")
             end
             Sz[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1) 
-            println("")
-            @show abs(inner(ψ, ψ_copy))
-            println("")
+            # println("")
+            # @show abs(inner(ψ, ψ_copy))
+            # println("")
         end
     end
     
-    
-    @show typeof(Sz)
-    @show Sz
+    # @show typeof(Sz)
+    # @show Sz
     replace!(Sz, 1.0 => 0.5, 2.0 => -0.5)
-    @show Sz
+    # @show Sz
     
-
-
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time).h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Test2.h5", "w")
     write(file, "Sz", Sz)
     # write(file, "Sx", Sx)
     # write(file, "Cxx", Cxx)

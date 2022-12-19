@@ -9,7 +9,7 @@ let
     cutoff = 1E-8
     τ = 0.5; timeSlice = Int(1 / τ)
     iterationLimit = 10
-    h = 0.2                                           # an integrability-breaking longitudinal field h 
+    h = 10.0                                          # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);    # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -133,7 +133,7 @@ let
         # Czz[index, :] = vec(tmpCzz')
         index += 1
 
-        
+
         # Compute overlap of wavefunction < Psi(t) | Psi(0) >
         # if ind == iterationLimit
         #     tmpOverlap = abs(inner(ψ, ψ_copy))

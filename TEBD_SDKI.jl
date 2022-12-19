@@ -9,7 +9,7 @@ let
     cutoff = 1E-8
     tau = 0.1
     ttotal = 10.0
-    h = 0.2                                            # an integrability-breaking longitudinal field h 
+    h = 10.0                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -151,7 +151,7 @@ let
         @show time
         println("")
         println("")
-        
+
         if (abs((time / tau) % distance) < 1E-8)
             println("")
             println("Apply the kicked gates at integer time $time")
@@ -189,7 +189,7 @@ let
     end
 
     # Store data into a hdf5 file
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau).h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_half_infinite.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sz", Sz)
     write(file, "Cxx", Cxx)
