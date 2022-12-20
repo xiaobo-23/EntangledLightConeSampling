@@ -169,13 +169,13 @@ end
 # end
 
 let 
-    N = 8
+    N = 18
     cutoff = 1E-8
     tau = 0.5
-    h = 10.0                                    # an integrability-breaking longitudinal field h 
+    h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 8.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
     num_measurements = 2000
@@ -186,7 +186,8 @@ let
         s2 = tmp_s[position_index]
         
         # Notice the difference in coefficients due to the system is half-infinite chain
-        hj = π * op("Sz", s1) * op("Sz", s2) + 2 * h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + 2 * h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau / 2 * hj)
         # @show hj
         # @show Gj
@@ -409,6 +410,7 @@ let
         push!(kick_gate, tmpG)
     end
     
+    
     # Compute local observables e.g. Sz, Czz 
     # timeSlices = Int(floquet_time / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
     # Sx = complex(zeros(timeSlices, N))
@@ -421,6 +423,8 @@ let
 
     
     # Initialize the wavefunction
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = productMPS
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]

@@ -102,6 +102,16 @@ let
     #     push!(kickGates, tmpG)
     # end
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     # Construct the kicked gate using exact eponentiation
     ampo = OpSum()
     for ind in 1 : N
