@@ -7,12 +7,12 @@ ITensors.disable_warn_order()
 let 
     N = 8
     cutoff = 1E-8
-    τ = 0.5; timeSlice = Int(1 / τ)
-    iterationLimit = 10
-    h = 10.0                                          # an integrability-breaking longitudinal field h 
+    τ = 0.1; timeSlice = Int(1 / τ)
+    iterationLimit = 12
+    h = 0.2                                            # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N; conserve_qns = false);    # s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
 
     # Define the Ising model Hamiltonian with longitudinal field 
     ampoA = OpSum()
@@ -65,61 +65,32 @@ let
     
     # Initialize the wavefunction
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ_copy = copy(ψ)
+    ψ_overlap = Complex{Float64}[]
+    
+    # Initializa the wavefunction as a random MPS
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
 
-    # Locate the central site
-    # centralSite = div(N, 2)
-    ψ_copy = copy(ψ)
-
-    # Compute overlaps between the original and time evolved wavefunctions
-    ψ_overlap = Complex{Float64}[]
-
     # Compute local observables
-    Sx = zeros(iterationLimit, N);  Sx = complex(Sx)
-    Sy = zeros(iterationLimit, N);  Sy = complex(Sy)
-    Sz = zeros(iterationLimit, N);  Sz = complex(Sz)
+    Sx = complex(zeros(iterationLimit, N))
+    Sy = complex(zeros(iterationLimit, N))
+    Sz = complex(zeros(iterationLimit, N))
 
     # Compute spin correlation functions
-    Cxx = zeros(iterationLimit, N); Cxx = complex(Cxx)
-    Cyy = zeros(iterationLimit, N); Cyy = complex(Cyy)
-    Czz = zeros(iterationLimit, N); Czz = complex(Czz)
+    Cxx = complex(zeros(iterationLimit, N))
+    Cyy = complex(zeros(iterationLimit, N))
+    Czz = complex(zeros(iterationLimit, N))
     index = 1
 
-    @time for ind in 1:iterationLimit
-        # Compute overlap of wavefunction < Psi(t) | Psi(0) > 
-        # tmpOverlap = abs(inner(ψ, ψ_copy))
-        # append!(ψ_overlap, tmpOverlap)
-        # println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
-
-        if (ind - 1) < 1E-8
-            tmpOverlap = abs(inner(ψ, ψ_copy))
-            append!(ψ_overlap, tmpOverlap)
-            println("At projection step $(ind - 1), overlap of wavefunciton is $tmpOverlap") 
-        end
+    # Compute the overlap of wavefunctions before starting real-time evolution
+    append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+    println("At time T=0, the overlap of wvafunctions is $ψ_overlap[1]")
+    println("")
+    pritnln("")
     
-        # Apply the kicked transverse field gate
-        ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
-        normalize!(ψ_copy)
-        
-        # tmpOverlap = abs(inner(ψ, ψ_copy))
-        # println("")
-        # println("Apply the kicked gates at integer time $ind")
-        # println("Overlap of wavefunctions are: $tmpOverlap")
-        # println("")
-       
-        # Apply the Ising interaction plus longitudinal field gate using a smaller time step
-        for tmpInd in 1 : timeSlice
-            # Compute the overlap of wavefunctions < Psi(t) | Psi(0) >
-            tmpOverlap = abs(inner(ψ, ψ_copy))
-            append!(ψ_overlap, tmpOverlap)
-            # @show size(ψ_overlap)
-
-            ψ_copy = apply(expHamiltonian₁, ψ_copy; cutoff)
-            normalize!(ψ_copy)
-        end
-
+    @time for ind in 1:iterationLimit
         # Compute local observables e.g. Sz
         tmpSx = expect(ψ_copy, "Sx"); Sx[index, :] = tmpSx; @show size(tmpSx)
         tmpSy = expect(ψ_copy, "Sy"); Sy[index, :] = tmpSy; @show size(tmpSy)
@@ -133,19 +104,28 @@ let
         # Czz[index, :] = vec(tmpCzz')
         index += 1
 
+        # Apply the kicked transverse field gate
+        ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
+        normalize!(ψ_copy)
+        append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
 
-        # Compute overlap of wavefunction < Psi(t) | Psi(0) >
-        # if ind == iterationLimit
-        #     tmpOverlap = abs(inner(ψ, ψ_copy))
-        #     println("At projection step $ind, overlap of wavefunciton is $tmpOverlap")
-        #     append!(ψ_overlap, tmpOverlap)
-        # end
+        
+       
+        # Apply the Ising interaction plus longitudinal field gate using a smaller time step
+        for tmpInd in 1 : timeSlice
+            ψ_copy = apply(expHamiltonian₁, ψ_copy; cutoff)
+            normalize!(ψ_copy)
+            
+            # Compute the overlap of wavefunctions < Psi(t) | Psi(0) >
+            appned!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+        end
     end
 
-    @show size(ψ_overlap)
-    @show size(Czz)
+    # @show size(ψ_overlap)
+    # @show size(Czz)
+    
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h).h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit).h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz
