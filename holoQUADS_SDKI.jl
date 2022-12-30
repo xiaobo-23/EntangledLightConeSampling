@@ -1,6 +1,6 @@
 ## 11/28/2022
-## Implement the quantum circuit for the SDKI model using classical MPS.
-## 
+## Implement the holographic quantum circuit for the kicked Ising model
+## Test first two sites which is built based on the corner case
 
 using ITensors
 using ITensors.HDF5
@@ -169,13 +169,13 @@ end
 # end
 
 let 
-    N = 20
+    N = 18
     cutoff = 1E-8
     tau = 0.5
-    h = 0.2                                     # an integrability-breaking longitudinal field h 
+    h = 10.0                                    # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 9.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 8.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
     num_measurements = 2000
