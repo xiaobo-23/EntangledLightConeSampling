@@ -1,7 +1,7 @@
 ## Implement time evolution block decimation (TEBD) for the self-dual kicked Ising (SDKI) model
 using ITensors
 using ITensors.HDF5
-using ITensors: orthocenter, sites, copy
+using ITensors: orthocenter, sites, copy, complex
 using Base: Float64
 ITensors.disable_warn_order()
 let 
@@ -102,46 +102,35 @@ let
         push!(kickGates, tmpG)
     end
     
-    
-    # # Construct the kicked gate using exact eponentiation
-    # ampo = OpSum()
-    # for ind in 1 : N
-    #     ampo += π/2, "Sx", ind
-    # end
-    # Hₓ = MPO(ampo, s)
-    # Hamiltonianₓ = Hₓ[1]
-    # for ind in 2 : N
-    #     Hamiltonianₓ *= Hₓ[ind]
-    # end
-    # expHamiltoinianₓ = exp(-1.0im * Hamiltonianₓ)
-    
-    
-    # Initialize the wavefunction
+    # Initialize the wavefunction a Neel state
     ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ_copy = copy(ψ)
+    ψ_overlap = Complex{Float64}[]
+
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
     # @show eltype(ψ), eltype(ψ[1])
     # @show maxlinkdim(ψ)
 
-    # Locate the central site
-    # centralSite = div(N, 2)
-
-    # Compute the overlap between the original and time evolved wavefunctions
-    ψ_copy = copy(ψ)
-    ψ_overlap = Complex{Float64}[]
-
     # Compute local observables e.g. Sz, Czz 
     timeSlices = Int(ttotal / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
-    Sx = zeros(timeSlices, N); Sx = complex(Sx)
-    Sy = zeros(timeSlices, N); Sy = complex(Sy)
-    Sz = zeros(timeSlices, N); Sz = complex(Sz)
-    Cxx = zeros(timeSlices, N); Cxx = complex(Cxx)
-    Czz = zeros(timeSlices, N); Czz = complex(Czz)
-    index = 1
-    
+    Sx = complex(zeros(timeSlices, N))
+    Sy = complex(zeros(timeSlices, N))
+    Sz = complex(zeros(timeSlices, N))
+    Cxx = complex(zeros(timeSlices, N)) 
+    Cyy = complex(zeros(timeSlices, N))
+    Czz = complex(zeros(timeSlices, N))
 
-    distance = Int(1.0 / tau)
-    @time for time in 0.0:tau:ttotal
+    # Take measurements of the initial setting before time evolution
+    tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[1, :] = tmpSx
+    tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[1, :] = tmpSz
+
+    tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N); Czz[1, :] = tmpCzz[Int(N / 2), :]
+    tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N); Cxx[1, :] = tmpCxx[Int(N / 2), :]
+    append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+
+    distance = Int(1.0 / tau); index = 2
+    @time for time in 0.0 : tau : ttotal
         time ≈ ttotal && break
         println("")
         println("")
@@ -149,20 +138,13 @@ let
         println("")
         println("")
 
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1:N)
-        println("")
-        println("")
-        @show tmpCzz[Int(N / 2), :]
-        println("")
-        println("")
-
         if (abs((time / tau) % distance) < 1E-8)
             println("")
             println("Apply the kicked gates at integer time $time")
             println("")
-            # ψ_copy = apply(expHamiltoinianₓ, ψ_copy; cutoff)
             ψ_copy = apply(kickGates, ψ_copy; cutoff)
             normalize!(ψ_copy)
+            append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         end
 
         ψ_copy = apply(gates, ψ_copy; cutoff)
@@ -173,28 +155,14 @@ let
         tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz
 
         # Spin correlaiton functions e.g. Cxx, Czz
-        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[4, :]
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[4, :]
+        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[Int(N / 2), :]
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[Int(N / 2), :]
         # Czz[index, :] = vec(tmpCzz')
         index += 1
 
         tmp_overlap = abs(inner(ψ, ψ_copy))
         println("The inner product is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
-
-        #********************************************************************************
-        # Previous ideas of using a square wave to represent a delta function
-        #********************************************************************************
-        # if (abs((time / tau) % 10) < 1E-8)
-        #     # ψ = apply(kickGates, ψ; cutoff = cutoff)
-        #     ψ = apply(expHamiltoininaₓ, ψ; cutoff)
-        # # else
-        # #     ψ = apply(gates, ψ; cutoff)
-        # end
-
-        # tmp_overlap = abs(inner(ψ, ψ_copy))
-        # append!(ψ_overlap, tmp_overlap)
-        # println("The inner product is: $tmp_overlap")
     end
 
     # Store data into a hdf5 file

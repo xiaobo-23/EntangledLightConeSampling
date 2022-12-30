@@ -2,8 +2,8 @@
 using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites
-
 ITensors.disable_warn_order()
+
 let 
     N = 8
     cutoff = 1E-8
@@ -82,34 +82,31 @@ let
     Cxx = complex(zeros(iterationLimit, N))
     Cyy = complex(zeros(iterationLimit, N))
     Czz = complex(zeros(iterationLimit, N))
-    index = 1
 
     # Compute the overlap of wavefunctions before starting real-time evolution
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-    println("At time T=0, the overlap of wvafunctions is $ψ_overlap[1]")
     println("")
-    pritnln("")
+    println("At time T=0, the overlap of wvafunctions is $(ψ_overlap[1])")
+    println("")
     
     @time for ind in 1:iterationLimit
         # Compute local observables e.g. Sz
-        tmpSx = expect(ψ_copy, "Sx"); Sx[index, :] = tmpSx; @show size(tmpSx)
-        tmpSy = expect(ψ_copy, "Sy"); Sy[index, :] = tmpSy; @show size(tmpSy)
-        tmpSz = expect(ψ_copy, "Sz"); Sz[index, :] = tmpSz; @show size(tmpSz)
+        tmpSx = expect(ψ_copy, "Sx"); Sx[ind, :] = tmpSx; @show size(tmpSx)
+        tmpSy = expect(ψ_copy, "Sy"); Sy[ind, :] = tmpSy; @show size(tmpSy)
+        tmpSz = expect(ψ_copy, "Sz"); Sz[ind, :] = tmpSz; @show size(tmpSz)
 
         # Compute spin correlation functions e.g. Czz
-        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[index, :] = tmpCxx[4, :]; @show size(tmpCxx')
-        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[index, :] = tmpCyy[4, :]; @show size(tmpCyy')
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[index, :] = tmpCzz[4, :]; @show size(tmpCzz')
+        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[ind, :] = tmpCxx[Int(N / 2), :]; @show size(tmpCxx')
+        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[ind, :] = tmpCyy[Int(N / 2), :]; @show size(tmpCyy')
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[ind, :] = tmpCzz[Int(N / 2), :]; @show size(tmpCzz')
+        
         # Vectorize the correlation matrix to store all information
         # Czz[index, :] = vec(tmpCzz')
-        index += 1
 
         # Apply the kicked transverse field gate
         ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
         normalize!(ψ_copy)
-        append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-
-        
+        append!(ψ_overlap, abs(inner(ψ, ψ_copy)))        
        
         # Apply the Ising interaction plus longitudinal field gate using a smaller time step
         for tmpInd in 1 : timeSlice
@@ -117,7 +114,7 @@ let
             normalize!(ψ_copy)
             
             # Compute the overlap of wavefunctions < Psi(t) | Psi(0) >
-            appned!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+            append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         end
     end
 
