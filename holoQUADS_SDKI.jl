@@ -424,8 +424,8 @@ let
     
     # Initialize the wavefunction
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = productMPS
-    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ = MPS(s, states)
+    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
