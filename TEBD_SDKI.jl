@@ -3,13 +3,13 @@ using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex
 using Base: Float64
+using Random
 ITensors.disable_warn_order()
-
 let 
     N = 8
     cutoff = 1E-8
     tau = 0.1; ttotal = 12.0
-    h = 10.0                                           # an integrability-breaking longitudinal field h 
+    h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -102,15 +102,30 @@ let
         push!(kickGates, tmpG)
     end
     
-    # Initialize the wavefunction a Neel state
-    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    ψ_copy = copy(ψ)
-    ψ_overlap = Complex{Float64}[]
+    # # Initialize the wavefunction a Neel state
+    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # ψ_copy = copy(ψ)
+    # ψ_overlap = Complex{Float64}[]
 
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
     # @show eltype(ψ), eltype(ψ[1])
     # @show maxlinkdim(ψ)
+
+    # Initialize the random MPS by reading in from a file
+    # wavefunction_file = h5open("random_MPS.h5", "r")
+    # ψ = read(wavefunction_file, "Psi", MPS)
+    # close(wavefunction_file)
+    # ψ_copy = deepcopy(ψ)
+    # ψ_overlap = Complex{Float64}[]
+
+    # Intialize the wvaefunction as a random MPS
+    Random.seed!(200)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2)
+    ψ_copy = deepcopy(ψ)
+    ψ_overlap = Complex{Float64}[] 
+
 
     # Compute local observables e.g. Sz, Czz 
     timeSlices = Int(ttotal / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
@@ -123,10 +138,12 @@ let
 
     # Take measurements of the initial setting before time evolution
     tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[1, :] = tmpSx
+    tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[1, :] = tmpSy
     tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[1, :] = tmpSz
 
-    tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N); Czz[1, :] = tmpCzz[Int(N / 2), :]
     tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N); Cxx[1, :] = tmpCxx[Int(N / 2), :]
+    tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N); Cyy[1, :] = tmpCyy[Int(N / 2), :]
+    tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N); Czz[1, :] = tmpCzz[Int(N / 2), :]
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
 
     distance = Int(1.0 / tau); index = 2
@@ -138,24 +155,26 @@ let
         println("")
         println("")
 
-        if (abs((time / tau) % distance) < 1E-8)
-            println("")
-            println("Apply the kicked gates at integer time $time")
-            println("")
-            ψ_copy = apply(kickGates, ψ_copy; cutoff)
-            normalize!(ψ_copy)
-            append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-        end
+        # if (abs((time / tau) % distance) < 1E-8)
+        #     println("")
+        #     println("Apply the kicked gates at integer time $time")
+        #     println("")
+        #     ψ_copy = apply(kickGates, ψ_copy; cutoff)
+        #     normalize!(ψ_copy)
+        #     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+        # end
 
         ψ_copy = apply(gates, ψ_copy; cutoff)
         normalize!(ψ_copy)
 
         # Local observables e.g. Sx, Sz
         tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx
+        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy
         tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz
 
         # Spin correlaiton functions e.g. Cxx, Czz
         tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[Int(N / 2), :]
+        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[Int(N / 2), :]
         tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[Int(N / 2), :]
         # Czz[index, :] = vec(tmpCzz')
         index += 1
@@ -166,10 +185,12 @@ let
     end
 
     # Store data into a hdf5 file
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau).h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random.h5", "w")
     write(file, "Sx", Sx)
+    write(file, "Sy", Sy)
     write(file, "Sz", Sz)
     write(file, "Cxx", Cxx)
+    write(file, "Cyy", Cyy)
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
     close(file)

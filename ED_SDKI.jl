@@ -2,14 +2,14 @@
 using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites
+using Random
 ITensors.disable_warn_order()
-
 let 
     N = 8
     cutoff = 1E-8
     τ = 0.1; timeSlice = Int(1 / τ)
     iterationLimit = 12
-    h = 10.0                                           # an integrability-breaking longitudinal field h 
+    h = 0.2                                           # an integrability-breaking longitudinal field h 
     
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
@@ -63,15 +63,22 @@ let
     expHamiltonian₁ = exp(-1.0im * τ * Hamiltonian₁)
     expHamiltonian₂ = exp(-1.0im * Hamiltonian₂)
     
-    # Initialize the wavefunction
-    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    ψ_copy = copy(ψ)
-    ψ_overlap = Complex{Float64}[]
+    # # Initialize the wavefunction
+    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # ψ_copy = copy(ψ)
+    # ψ_overlap = Complex{Float64}[]
     
     # Initializa the wavefunction as a random MPS
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
-    # ψ = randomMPS(s, states, linkdims = 2)
+    Random.seed!(200)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
+    ψ_copy = deepcopy(ψ)
+    ψ_overlap = Complex{Float64}[]
+    # wavefunction_file = h5open("random_MPS.h5", "w")
+    # write(wavefunction_file, "Psi", ψ)
+    # close(wavefunction_file)
+
 
     # Compute local observables
     Sx = complex(zeros(iterationLimit, N))
@@ -86,7 +93,7 @@ let
     # Compute the overlap of wavefunctions before starting real-time evolution
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
     println("")
-    println("At time T=0, the overlap of wvafunctions is $(ψ_overlap[1])")
+    println("At time T=0, the overlap of wavefunctions is $(ψ_overlap[1])")
     println("")
     
     @time for ind in 1:iterationLimit
@@ -103,10 +110,10 @@ let
         # Vectorize the correlation matrix to store all information
         # Czz[index, :] = vec(tmpCzz')
 
-        # Apply the kicked transverse field gate
-        ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
-        normalize!(ψ_copy)
-        append!(ψ_overlap, abs(inner(ψ, ψ_copy)))        
+        # # Apply the kicked transverse field gate
+        # ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
+        # normalize!(ψ_copy)
+        # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))        
        
         # Apply the Ising interaction plus longitudinal field gate using a smaller time step
         for tmpInd in 1 : timeSlice
@@ -122,7 +129,7 @@ let
     # @show size(Czz)
     
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit).h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Longitudinal_Only_Random.h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz

@@ -7,9 +7,9 @@ using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex
 using Base: Float64
 using Base: product
+using Random
+
 ITensors.disable_warn_order()
-
-
 
 
 # Sample and reset one two-site MPS
@@ -172,7 +172,7 @@ let
     N = 18
     cutoff = 1E-8
     tau = 0.5
-    h = 10.0                                    # an integrability-breaking longitudinal field h 
+    h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
     floquet_time = 8.0                                        # floquet time = Δτ * circuit_time
@@ -423,12 +423,13 @@ let
 
     
     # Initialize the wavefunction
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = MPS(s, states)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = MPS(s, states)
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
-    # ψ = randomMPS(s, states, linkdims = 2)
+    Random.seed!(200)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
+    ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
 
     # Locate the central site
@@ -457,18 +458,18 @@ let
             # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
             # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSz
 
-            # Apply kicked gate at integer times
-            if ind % 2 == 1
-                ψ_copy = apply(kick_gate, ψ_copy; cutoff)
-                normalize!(ψ_copy)
-                println("")
-                println("")
-                println("Applying the kicked Ising gate at time $(ind)!")
-                tmp_overlap = abs(inner(ψ, ψ_copy))
-                @show tmp_overlap
-                println("")
-                println("")
-            end
+            # # Apply kicked gate at integer times
+            # if ind % 2 == 1
+            #     ψ_copy = apply(kick_gate, ψ_copy; cutoff)
+            #     normalize!(ψ_copy)
+            #     println("")
+            #     println("")
+            #     println("Applying the kicked Ising gate at time $(ind)!")
+            #     tmp_overlap = abs(inner(ψ, ψ_copy))
+            #     @show tmp_overlap
+            #     println("")
+            #     println("")
+            # end
 
             # Apply a sequence of two-site gates
             tmp_parity = (ind - 1) % 2
@@ -574,7 +575,7 @@ let
     # @show Sz
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Test2.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Longitudinal_Only_Test3.h5", "w")
     write(file, "Sz", Sz)
     # write(file, "Sx", Sx)
     # write(file, "Cxx", Cxx)
