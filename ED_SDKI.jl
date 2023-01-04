@@ -71,7 +71,8 @@ let
     # Initializa the wavefunction as a random MPS
     Random.seed!(200)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2)
+    # ψ = randomMPS(s, states, linkdims = 2)
+    ψ = randomMPS(s, linkdims = 2)
     # @show maxlinkdim(ψ)
     ψ_copy = deepcopy(ψ)
     ψ_overlap = Complex{Float64}[]
@@ -79,6 +80,8 @@ let
     # write(wavefunction_file, "Psi", ψ)
     # close(wavefunction_file)
 
+    # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes
+    initial_Sz = expect(ψ_copy, "Sz"; sites = 1: N)
 
     # Compute local observables
     Sx = complex(zeros(iterationLimit, N))
@@ -127,9 +130,16 @@ let
 
     # @show size(ψ_overlap)
     # @show size(Czz)
+
+    println("################################################################################")
+    println("################################################################################")
+    println("Information of the initial random MPS")
+    @show initial_Sz
+    println("################################################################################")
+    println("################################################################################")
     
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Longitudinal_Only_Random.h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Longitudinal_Only_Random_QN_Link2.h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz
@@ -137,6 +147,7 @@ let
     write(file, "Cyy", Cyy)     # Cyy   
     write(file, "Czz", Czz)     # Czz
     write(file, "Wavefunction Overlap", ψ_overlap);  @show size(ψ_overlap)
+    write(file, "Initial Sz", initial_Sz)
     close(file)
     
     return

@@ -169,13 +169,13 @@ end
 # end
 
 let 
-    N = 18
+    N = 16
     cutoff = 1E-8
     tau = 0.5
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 8.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 7.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
     num_measurements = 2000
@@ -428,12 +428,12 @@ let
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
     Random.seed!(200)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
     # @show maxlinkdim(ψ)
 
-    # Locate the central site
-    # centralSite = div(N, 2)
+    # Take a measurement of the initial random MPS to make the same random MPS is used through all codes
+    initial_Sz = expect(ψ, "Sz"; sites = 1 : N)
     
     for measure_ind in 1 : num_measurements
         println("")
@@ -573,10 +573,18 @@ let
     # @show Sz
     replace!(Sz, 1.0 => 0.5, 2.0 => -0.5)
     # @show Sz
+
+    println("################################################################################")
+    println("################################################################################")
+    println("Information of the initial random MPS")
+    @show initial_Sz
+    println("################################################################################")
+    println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Longitudinal_Only_Test3.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Longitudinal_Only_Random_Test3.h5", "w")
     write(file, "Sz", Sz)
+    write(fiel, "Initial Sz", initial_Sz)
     # write(file, "Sx", Sx)
     # write(file, "Cxx", Cxx)
     # write(file, "Czz", Czz)

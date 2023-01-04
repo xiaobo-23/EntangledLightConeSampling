@@ -123,9 +123,14 @@ let
     Random.seed!(200)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # ψ = randomMPS(s, linkdims = 2)
     ψ_copy = deepcopy(ψ)
     ψ_overlap = Complex{Float64}[] 
 
+
+    # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
+    initial_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
 
     # Compute local observables e.g. Sz, Czz 
     timeSlices = Int(ttotal / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
@@ -184,8 +189,16 @@ let
         append!(ψ_overlap, tmp_overlap)
     end
 
+
+    println("################################################################################")
+    println("################################################################################")
+    println("Information of the initial random MPS")
+    @show initial_Sz
+    println("################################################################################")
+    println("################################################################################")
+
     # Store data into a hdf5 file
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
@@ -193,6 +206,7 @@ let
     write(file, "Cyy", Cyy)
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
+    write(file, "Initial Sz", initial_Sz)
     close(file)
     
     return
