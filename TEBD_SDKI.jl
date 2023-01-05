@@ -6,9 +6,9 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 8
+    N = 20
     cutoff = 1E-8
-    tau = 0.1; ttotal = 12.0
+    tau = 0.1; ttotal = 20.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -102,10 +102,10 @@ let
         push!(kickGates, tmpG)
     end
     
-    # # Initialize the wavefunction a Neel state
-    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    # ψ_copy = copy(ψ)
-    # ψ_overlap = Complex{Float64}[]
+    # Initialize the wavefunction a Neel state
+    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ_copy = copy(ψ)
+    ψ_overlap = Complex{Float64}[]
 
     # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     # ψ = randomMPS(s, states, linkdims = 2)
@@ -119,14 +119,14 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-    # Intialize the wvaefunction as a random MPS
-    Random.seed!(200)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2)
+    # # Intialize the wvaefunction as a random MPS
+    # Random.seed!(200)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     # ψ = randomMPS(s, states, linkdims = 2)
-    # ψ = randomMPS(s, linkdims = 2)
-    ψ_copy = deepcopy(ψ)
-    ψ_overlap = Complex{Float64}[] 
+    # # ψ = randomMPS(s, states, linkdims = 2)
+    # # ψ = randomMPS(s, linkdims = 2)
+    # ψ_copy = deepcopy(ψ)
+    # ψ_overlap = Complex{Float64}[] 
 
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
@@ -160,14 +160,14 @@ let
         println("")
         println("")
 
-        # if (abs((time / tau) % distance) < 1E-8)
-        #     println("")
-        #     println("Apply the kicked gates at integer time $time")
-        #     println("")
-        #     ψ_copy = apply(kickGates, ψ_copy; cutoff)
-        #     normalize!(ψ_copy)
-        #     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-        # end
+        if (abs((time / tau) % distance) < 1E-8)
+            println("")
+            println("Apply the kicked gates at integer time $time")
+            println("")
+            ψ_copy = apply(kickGates, ψ_copy; cutoff)
+            normalize!(ψ_copy)
+            append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+        end
 
         ψ_copy = apply(gates, ψ_copy; cutoff)
         normalize!(ψ_copy)
@@ -198,7 +198,8 @@ let
     println("################################################################################")
 
     # Store data into a hdf5 file
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
+    # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau).h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)

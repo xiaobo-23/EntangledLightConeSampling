@@ -169,13 +169,13 @@ end
 # end
 
 let 
-    N = 16
+    N = 8
     cutoff = 1E-8
     tau = 0.5
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 7.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
     num_measurements = 2000
@@ -427,13 +427,21 @@ let
     # ψ = MPS(s, states)
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
+    
+    
+    # Initializa a random MPS
+    # Random.seed!(200); 
+    # initialization_s = siteinds("S=1/2", 8; conserve_qns = false)
+    # initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : 8]
+    # initialization_ψ = randomMPS(initialization_s, initialization_states, linkdims = 2)
+    # ψ = initialization_ψ[1 : N]
+    # # @show maxlinkdim(ψ)
+
     Random.seed!(200)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
-    # @show maxlinkdim(ψ)
-
-    # Take a measurement of the initial random MPS to make the same random MPS is used through all codes
-    initial_Sz = expect(ψ, "Sz"; sites = 1 : N)
+    initial_Sz = expect(ψ, "Sz"; sites = 1 : N)         # Take measurements of the initial random MPS
+    
     
     for measure_ind in 1 : num_measurements
         println("")
@@ -458,18 +466,18 @@ let
             # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
             # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSz
 
-            # # Apply kicked gate at integer times
-            # if ind % 2 == 1
-            #     ψ_copy = apply(kick_gate, ψ_copy; cutoff)
-            #     normalize!(ψ_copy)
-            #     println("")
-            #     println("")
-            #     println("Applying the kicked Ising gate at time $(ind)!")
-            #     tmp_overlap = abs(inner(ψ, ψ_copy))
-            #     @show tmp_overlap
-            #     println("")
-            #     println("")
-            # end
+            # Apply kicked gate at integer times
+            if ind % 2 == 1
+                ψ_copy = apply(kick_gate, ψ_copy; cutoff)
+                normalize!(ψ_copy)
+                println("")
+                println("")
+                println("Applying the kicked Ising gate at time $(ind)!")
+                tmp_overlap = abs(inner(ψ, ψ_copy))
+                @show tmp_overlap
+                println("")
+                println("")
+            end
 
             # Apply a sequence of two-site gates
             tmp_parity = (ind - 1) % 2
@@ -582,9 +590,9 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Longitudinal_Only_Random_Test3.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Random_Test3.h5", "w")
     write(file, "Sz", Sz)
-    write(fiel, "Initial Sz", initial_Sz)
+    write(file, "Initial Sz", initial_Sz)
     # write(file, "Sx", Sx)
     # write(file, "Cxx", Cxx)
     # write(file, "Czz", Czz)

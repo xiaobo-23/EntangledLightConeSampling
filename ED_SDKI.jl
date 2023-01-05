@@ -71,8 +71,9 @@ let
     # Initializa the wavefunction as a random MPS
     Random.seed!(200)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
-    ψ = randomMPS(s, linkdims = 2)
+    
+    ψ = randomMPS(s, states, linkdims = 2)
+    # ψ = randomMPS(s, linkdims = 2)
     # @show maxlinkdim(ψ)
     ψ_copy = deepcopy(ψ)
     ψ_overlap = Complex{Float64}[]
@@ -113,10 +114,10 @@ let
         # Vectorize the correlation matrix to store all information
         # Czz[index, :] = vec(tmpCzz')
 
-        # # Apply the kicked transverse field gate
-        # ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
-        # normalize!(ψ_copy)
-        # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))        
+        # Apply the kicked transverse field gate
+        ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
+        normalize!(ψ_copy)
+        append!(ψ_overlap, abs(inner(ψ, ψ_copy)))        
        
         # Apply the Ising interaction plus longitudinal field gate using a smaller time step
         for tmpInd in 1 : timeSlice
@@ -139,7 +140,7 @@ let
     println("################################################################################")
     
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Longitudinal_Only_Random_QN_Link2.h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Random.h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz
