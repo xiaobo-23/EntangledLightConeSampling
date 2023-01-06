@@ -437,7 +437,7 @@ let
     # ψ = initialization_ψ[1 : N]
     # # @show maxlinkdim(ψ)
 
-    Random.seed!(200)
+    Random.seed!(12375)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
     initial_Sz = expect(ψ, "Sz"; sites = 1 : N)         # Take measurements of the initial random MPS
@@ -590,7 +590,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Random_Test3.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Random_Update_Test1.h5", "w")
     write(file, "Sz", Sz)
     write(file, "Initial Sz", initial_Sz)
     # write(file, "Sx", Sx)
