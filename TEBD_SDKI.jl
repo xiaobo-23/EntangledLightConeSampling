@@ -6,7 +6,7 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 20
+    N = 18
     cutoff = 1E-8
     tau = 0.1; ttotal = 20.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -119,14 +119,16 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-    # # Intialize the wvaefunction as a random MPS
-    # Random.seed!(200)
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
-    # # ψ = randomMPS(s, states, linkdims = 2)
-    # # ψ = randomMPS(s, linkdims = 2)
-    # ψ_copy = deepcopy(ψ)
-    # ψ_overlap = Complex{Float64}[] 
+    # Intialize the wvaefunction as a random MPS
+    Random.seed!(200)
+    states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2)
+    # ψ = randomMPS(s, linkdims = 2)
+    # Rnadom.seed!(1000)
+
+
+    ψ_copy = deepcopy(ψ)
+    ψ_overlap = Complex{Float64}[] 
 
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
@@ -199,7 +201,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau).h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_X+-.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)

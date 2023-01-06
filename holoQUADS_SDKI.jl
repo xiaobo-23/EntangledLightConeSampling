@@ -169,7 +169,7 @@ end
 # end
 
 let 
-    N = 8
+    N = 18
     cutoff = 1E-8
     tau = 0.5
     h = 0.2                                     # an integrability-breaking longitudinal field h 
@@ -401,13 +401,27 @@ let
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
 
+    # # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
+    # kick_gate = ITensor[]
+    # for ind in 1 : N
+    #     s1 = s[ind]
+    #     hamilt = π / 2 * op("Sx", s1)
+    #     tmpG = exp(-1.0im * hamilt)
+    #     push!(kick_gate, tmpG)
+    # end
+    
+    
+    
     # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
-    kick_gate = ITensor[]
-    for ind in 1 : N
-        s1 = s[ind]
-        hamilt = π / 2 * op("Sx", s1)
-        tmpG = exp(-1.0im * hamilt)
-        push!(kick_gate, tmpG)
+    function build_kick_gates(upper_bound :: Int)
+        kick_gate = ITensor[]
+        for ind in 1 : upper_bound
+            s1 = s[ind]
+            hamilt = π / 2 * op("Sx", s1)
+            tmpG = exp(-1.0im * hamilt)
+            push!(kick_gate, tmpG)
+        end
+        return kick_gate
     end
     
     
@@ -437,10 +451,12 @@ let
     # ψ = initialization_ψ[1 : N]
     # # @show maxlinkdim(ψ)
 
-    Random.seed!(12375)
+    Random.seed!(200)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
     initial_Sz = expect(ψ, "Sz"; sites = 1 : N)         # Take measurements of the initial random MPS
+    Random.seed!(9999999)
     
     
     for measure_ind in 1 : num_measurements
@@ -466,9 +482,30 @@ let
             # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
             # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSz
 
+            # # Apply kicked gate at integer times
+            # if ind % 2 == 1
+            #     ψ_copy = apply(kick_gate, ψ_copy; cutoff)
+            #     normalize!(ψ_copy)
+            #     println("")
+            #     println("")
+            #     println("Applying the kicked Ising gate at time $(ind)!")
+            #     tmp_overlap = abs(inner(ψ, ψ_copy))
+            #     @show tmp_overlap
+            #     println("")
+            #     println("")
+            # end
+
+            # Apply a sequence of two-site gates
+            tmp_parity = (ind - 1) % 2
+            tmp_num_gates = Int(circuit_time / 2) - floor(Int, (ind - 1) / 2) 
+            print(""); @show tmp_num_gates; print("")
+
+
             # Apply kicked gate at integer times
             if ind % 2 == 1
-                ψ_copy = apply(kick_gate, ψ_copy; cutoff)
+                tmp_kick_gate = build_kick_gates(tmp_num_gates)
+                ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
+                # ψ_copy = apply(kick_gate, ψ_copy; cutoff)
                 normalize!(ψ_copy)
                 println("")
                 println("")
@@ -478,11 +515,6 @@ let
                 println("")
                 println("")
             end
-
-            # Apply a sequence of two-site gates
-            tmp_parity = (ind - 1) % 2
-            tmp_num_gates = Int(circuit_time / 2) - floor(Int, (ind - 1) / 2) 
-            print(""); @show tmp_num_gates; print("")
             
             tmp_two_site_gates = ITensor[]
             tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity)
@@ -518,7 +550,6 @@ let
         @show tmp_overlap
         println("")
         println("")
-
 
         # @time for ind₁ in 1 : Int(N / 2) - 1
         #     gate_seeds = []
@@ -590,7 +621,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Random_Update_Test1.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Random_Test3.h5", "w")
     write(file, "Sz", Sz)
     write(file, "Initial Sz", initial_Sz)
     # write(file, "Sx", Sx)
