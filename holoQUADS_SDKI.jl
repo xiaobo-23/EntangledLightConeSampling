@@ -169,13 +169,13 @@ end
 # end
 
 let 
-    N = 18
+    N = 4
     cutoff = 1E-8
     tau = 0.5
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 1.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
     num_measurements = 2000
@@ -413,10 +413,10 @@ let
     
     
     # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
-    function build_kick_gates(upper_bound :: Int)
+    function build_kick_gates(starting_index :: Int, ending_index :: Int)
         kick_gate = ITensor[]
-        for ind in 1 : upper_bound
-            s1 = s[ind]
+        for ind in starting_index : ending_index
+            s1 = s[ind]; @show ind
             hamilt = π / 2 * op("Sx", s1)
             tmpG = exp(-1.0im * hamilt)
             push!(kick_gate, tmpG)
@@ -437,8 +437,11 @@ let
 
     
     # Initialize the wavefunction
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = MPS(s, states)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = MPS(s, states)
+    initial_Sz = expect(ψ, "Sz"; sites = 1 : N)
+    # Random.seed!(10000)
+
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
     
@@ -451,12 +454,12 @@ let
     # ψ = initialization_ψ[1 : N]
     # # @show maxlinkdim(ψ)
 
-    Random.seed!(200)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2)
-    initial_Sz = expect(ψ, "Sz"; sites = 1 : N)         # Take measurements of the initial random MPS
-    Random.seed!(9999999)
+    # Random.seed!(200)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # initial_Sz = expect(ψ, "Sz"; sites = 1 : N)         # Take measurements of the initial random MPS
+    # Random.seed!(1234567)
     
     
     for measure_ind in 1 : num_measurements
@@ -503,7 +506,8 @@ let
 
             # Apply kicked gate at integer times
             if ind % 2 == 1
-                tmp_kick_gate = build_kick_gates(tmp_num_gates)
+                tmp_kick_gate = build_kick_gates(1, 2 * tmp_num_gates + 1); @show 2 * tmp_num_gates + 1
+                # tmp_kick_gate = build_kick_gates(1, N)
                 ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                 # ψ_copy = apply(kick_gate, ψ_copy; cutoff)
                 normalize!(ψ_copy)
@@ -621,7 +625,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Random_Test3.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_AFM_Correction3.h5", "w")
     write(file, "Sz", Sz)
     write(file, "Initial Sz", initial_Sz)
     # write(file, "Sx", Sx)

@@ -65,15 +65,15 @@ let
     
     # # Initialize the wavefunction
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
-    # ψ = MPS(s, states)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = MPS(s, states)
     # ψ_copy = copy(ψ)
     # ψ_overlap = Complex{Float64}[]
     
     # Initializa the wavefunction as a random MPS
-    Random.seed!(200)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2)
+    # Random.seed!(200)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = randomMPS(s, states, linkdims = 2)
     # ψ = randomMPS(s, linkdims = 2)
     # @show maxlinkdim(ψ)
 
@@ -142,7 +142,7 @@ let
     println("################################################################################")
     
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Random.h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_AFM.h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz

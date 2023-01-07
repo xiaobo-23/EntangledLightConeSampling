@@ -121,7 +121,8 @@ let
 
     # Intialize the wvaefunction as a random MPS
     Random.seed!(200)
-    states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
     # ψ = randomMPS(s, linkdims = 2)
     # Rnadom.seed!(1000)
@@ -201,7 +202,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_X+-.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Random.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
