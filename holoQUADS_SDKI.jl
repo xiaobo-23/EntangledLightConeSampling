@@ -169,13 +169,13 @@ end
 # end
 
 let 
-    N = 4
+    N = 8
     cutoff = 1E-8
     tau = 0.5
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 1.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = Int(floquet_time / tau)
     @show floquet_time, circuit_time
     num_measurements = 2000
@@ -365,7 +365,8 @@ let
                 coeff₂ = 1
             end
 
-            hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
+            # hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
+            hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau / 2 * hj)
             push!(gates, Gj)
         end
@@ -520,27 +521,27 @@ let
                 println("")
             end
             
-            tmp_two_site_gates = ITensor[]
-            tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity)
-            println("")
-            println("")
-            @show sizeof(tmp_two_site_gates)
-            println("")
-            println("")
+            # tmp_two_site_gates = ITensor[]
+            # tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity)
             # println("")
-            # @show tmp_two_site_gates 
-            # @show typeof(tmp_two_site_gates)
             # println("")
+            # @show sizeof(tmp_two_site_gates)
+            # println("")
+            # println("")
+            # # println("")
+            # # @show tmp_two_site_gates 
+            # # @show typeof(tmp_two_site_gates)
+            # # println("")
 
-            ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-            normalize!(ψ_copy)
-            # println("")
-            # println("")
-            # println("Appling the Ising gate plus longitudinal fields.")
-            # tmp_overlap = abs(inner(ψ, ψ_copy))
-            # @show tmp_overlap
-            # println("")
-            # println("")
+            # ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+            # normalize!(ψ_copy)
+            # # println("")
+            # # println("")
+            # # println("Appling the Ising gate plus longitudinal fields.")
+            # # tmp_overlap = abs(inner(ψ, ψ_copy))
+            # # @show tmp_overlap
+            # # println("")
+            # # println("")
         end
 
         println("")
@@ -625,7 +626,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_AFM_Correction3.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Kick_Only_AFM_Test3.h5", "w")
     write(file, "Sz", Sz)
     write(file, "Initial Sz", initial_Sz)
     # write(file, "Sx", Sx)

@@ -16,10 +16,10 @@ let
 
     # Define the Ising model Hamiltonian with longitudinal field 
     ampoA = OpSum()
-    for ind in 1 : (N - 1)
-        ampoA += π, "Sz", ind, "Sz", ind + 1
-        # ampoA += 2 * h, "Sz", ind
-    end
+    # for ind in 1 : (N - 1)
+    #     ampoA += π, "Sz", ind, "Sz", ind + 1
+    #     # ampoA += 2 * h, "Sz", ind
+    # end
     # ampoA += 2 * h, "Sz", N
     for ind in 1 : N
         ampoA += 2 * h, "Sz", ind
@@ -142,7 +142,7 @@ let
     println("################################################################################")
     
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_AFM.h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Rotations_Only_AFM.h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz
