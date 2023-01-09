@@ -63,28 +63,28 @@ let
     expHamiltonian₁ = exp(-1.0im * τ * Hamiltonian₁)
     expHamiltonian₂ = exp(-1.0im * Hamiltonian₂)
     
-    # # Initialize the wavefunction
+    # # Initialize the wavefunction as a Neel state
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = MPS(s, states)
-    # ψ_copy = copy(ψ)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = MPS(s, states)
+    # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
     
     # Initializa the wavefunction as a random MPS
-    # Random.seed!(200)
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
+    Random.seed!(200)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2); # show maxlinkdim(ψ)
     # ψ = randomMPS(s, linkdims = 2)
-    # @show maxlinkdim(ψ)
-
     ψ_copy = deepcopy(ψ)
     ψ_overlap = Complex{Float64}[]
+    
+    # Store the initial wvaefunction in a HDF5 file
     # wavefunction_file = h5open("random_MPS.h5", "w")
     # write(wavefunction_file, "Psi", ψ)
     # close(wavefunction_file)
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes
-    initial_Sz = expect(ψ_copy, "Sz"; sites = 1: N)
+    Sz₀ = expect(ψ_copy, "Sz"; sites = 1: N)
 
     # Compute local observables
     Sx = complex(zeros(iterationLimit, N))
@@ -119,7 +119,10 @@ let
         # Apply the kicked transverse field gate
         ψ_copy = apply(expHamiltonian₂, ψ_copy; cutoff)
         normalize!(ψ_copy)
-        append!(ψ_overlap, abs(inner(ψ, ψ_copy)))        
+        append!(ψ_overlap, abs(inner(ψ, ψ_copy)))      
+        # tmpSx = expect(ψ_copy, "Sx"); @show tmpSx
+        # tmpSy = expect(ψ_copy, "Sy"); @show tmpSy
+        # tmpSz = expect(ψ_copy, "Sz"); @show tmpSz
        
         # Apply the Ising interaction plus longitudinal field gate using a smaller time step
         for tmpInd in 1 : timeSlice
@@ -129,6 +132,14 @@ let
             # Compute the overlap of wavefunctions < Psi(t) | Psi(0) >
             append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         end
+        
+        # println("")
+        # println("")
+        # tmpSx = expect(ψ_copy, "Sx"); @show tmpSx
+        # tmpSy = expect(ψ_copy, "Sy"); @show tmpSy
+        # tmpSz = expect(ψ_copy, "Sz"); @show tmpSz
+        # println("")
+        # println("")
     end
 
     # @show size(ψ_overlap)
@@ -137,12 +148,12 @@ let
     println("################################################################################")
     println("################################################################################")
     println("Information of the initial random MPS")
-    @show initial_Sz
+    @show Sz₀
     println("################################################################################")
     println("################################################################################")
     
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Rotations_Only_AFM.h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Rotations_Only_Random_TESTING.h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz
@@ -150,7 +161,7 @@ let
     write(file, "Cyy", Cyy)     # Cyy   
     write(file, "Czz", Czz)     # Czz
     write(file, "Wavefunction Overlap", ψ_overlap);  @show size(ψ_overlap)
-    write(file, "Initial Sz", initial_Sz)
+    write(file, "Initial Sz", Sz₀)
     close(file)
     
     return

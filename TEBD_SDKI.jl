@@ -68,9 +68,9 @@ let
         if (ind - 1 < 1E-8)
             tmp1 = 2 
             tmp2 = 1
-        elseif (abs(ind - (N - 1)) < 1E-8)
-            tmp1 = 1
-            tmp2 = 2
+        # elseif (abs(ind - (N - 1)) < 1E-8)
+        #     tmp1 = 1
+        #     tmp2 = 2
         else
             tmp1 = 1
             tmp2 = 1
@@ -83,7 +83,6 @@ let
 
         # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        # println(typeof(hj))
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
@@ -103,17 +102,12 @@ let
         push!(kickGates, tmpG)
     end
     
-    # Initialize the wavefunction a Neel state
-    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = MPS(s, states)
-    ψ_copy = deepcopy(ψ)
-    ψ_overlap = Complex{Float64}[]
-
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
-    # ψ = randomMPS(s, states, linkdims = 2)
-    # @show eltype(ψ), eltype(ψ[1])
-    # @show maxlinkdim(ψ)
+    # # Initialize the wavefunction as a Neel state
+    # # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = MPS(s, states)
+    # ψ_copy = deepcopy(ψ)
+    # ψ_overlap = Complex{Float64}[]
 
     # Initialize the random MPS by reading in from a file
     # wavefunction_file = h5open("random_MPS.h5", "r")
@@ -122,16 +116,20 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-    # # Intialize the wvaefunction as a random MPS
-    # Random.seed!(200)
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
+    # Intialize the wvaefunction as a random MPS
+    Random.seed!(200)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2)
     # # ψ = randomMPS(s, linkdims = 2)
     # # Rnadom.seed!(1000)
+    # @show eltype(ψ), eltype(ψ[1])
+    # @show maxlinkdim(ψ)
+    ψ_copy = deepcopy(ψ)
+    ψ_overlap = Complex{Float64}[]
+
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
-    initial_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+    Sz₀ = expect(ψ_copy, "Sz"; sites = 1 : N)
 
     # Compute local observables e.g. Sz, Czz 
     timeSlices = Int(ttotal / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
@@ -168,15 +166,23 @@ let
             ψ_copy = apply(kickGates, ψ_copy; cutoff)
             normalize!(ψ_copy)
             append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+
+            # println("")
+            # println("")
+            # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx
+            # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy
+            # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz
+            # println("")
+            # println("")
         end
 
         ψ_copy = apply(gates, ψ_copy; cutoff)
         normalize!(ψ_copy)
 
         # Local observables e.g. Sx, Sz
-        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx
-        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy
-        tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz
+        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx; @show tmpSx
+        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy; @show tmpSy
+        tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz; @show tmpSz
 
         # Spin correlaiton functions e.g. Cxx, Czz
         tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[Int(N / 2), :]
@@ -194,13 +200,13 @@ let
     println("################################################################################")
     println("################################################################################")
     println("Information of the initial random MPS")
-    @show initial_Sz
+    @show Sz₀
     println("################################################################################")
     println("################################################################################")
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_Random_TESTING.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
@@ -208,7 +214,7 @@ let
     write(file, "Cyy", Cyy)
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
-    write(file, "Initial Sz", initial_Sz)
+    write(file, "Initial Sz", Sz₀)
     close(file)
     
     return
