@@ -413,8 +413,6 @@ let
     #     push!(kick_gate, tmpG)
     # end
     
-    
-    
     # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
     function build_kick_gates(starting_index :: Int, ending_index :: Int)
         kick_gate = ITensor[]
@@ -426,7 +424,6 @@ let
         end
         return kick_gate
     end
-    
     
     # Compute local observables e.g. Sz, Czz 
     # timeSlices = Int(floquet_time / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
@@ -556,17 +553,73 @@ let
             end
         end
 
-        # println("")
-        # println("")
-        # tmp_overlap = abs(inner(ψ, ψ_copy))
-        # @show tmp_overlap
-        # println("")
-        # Sz[measure_ind, 1:2] = sample(ψ_copy, 1)
-        # println("")
-        # tmp_overlap = abs(inner(ψ, ψ_copy))
-        # @show tmp_overlap
-        # println("")
-        # println("")
+        println("")
+        println("")
+        tmp_overlap = abs(inner(ψ, ψ_copy))
+        @show tmp_overlap
+        println("")
+        Sz[measure_ind, 1:2] = sample(ψ_copy, 1)
+        println("")
+        tmp_overlap = abs(inner(ψ, ψ_copy))
+        @show tmp_overlap
+        println("")
+        println("")
+
+        @time for ind₁ in 1 : Int(N / 2) - 1
+            gate_seeds = []
+            for gate_ind in 1 : circuit_time
+                tmp_ind = (2 * ind₁ - gate_ind + N) % N
+                if tmp_ind == 0
+                    tmp_ind = N
+                end
+                push!(gate_seeds, tmp_ind)
+            end
+            println("")
+            println("")
+            @show gate_seeds
+            println("")
+            println("")
+
+            for ind₂ in 1 : circuit_time
+                # tmp_overlap = abs(inner(ψ, ψ_copy))
+                # println("The inner product is: $tmp_overlap")
+                # append!(ψ_overlap, tmp_overlap)
+
+                # # Local observables e.g. Sx, Sz
+                # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx; # Sx[index, :] = tmpSx
+                # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
+                # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSzz
+
+                # Apply kicked gate at integer times
+                if ind₂ % 2 == 1
+                    ψ_copy = apply(kick_gate, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
+                    println("")
+                    tmp_overlap = abs(inner(ψ, ψ_copy))
+                    @show tmp_overlap
+                    println("")
+                end
+
+                # Apply a sequence of two-site gates
+                # tmp_two_site_gates = ITensor[]
+                tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
+                # println("")
+                # @show tmp_two_site_gates 
+                # @show typeof(tmp_two_site_gates)
+                # println("")
+
+                ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+                normalize!(ψ_copy)
+                # println("")
+                # tmp_overlap = abs(inner(ψ, ψ_copy))
+                # @show tmp_overlap
+                # println("")
+            end
+            Sz[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1) 
+            # println("")
+            # @show abs(inner(ψ, ψ_copy))
+            # println("")
+        end
 
         # @time for ind₁ in 1 : Int(N / 2) - 1
         #     gate_seeds = []
@@ -628,7 +681,7 @@ let
     # @show typeof(Sz)
     # @show Sz
     replace!(Sz, 1.0 => 0.5, 2.0 => -0.5)
-    # @show Sz
+     
 
     println("################################################################################")
     println("################################################################################")
