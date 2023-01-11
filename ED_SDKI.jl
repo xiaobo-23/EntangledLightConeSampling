@@ -104,9 +104,9 @@ let
     
     @time for ind in 1:iterationLimit
         # Compute local observables e.g. Sz
-        tmpSx = expect(ψ_copy, "Sx"); Sx[ind, :] = tmpSx; @show size(tmpSx)
-        tmpSy = expect(ψ_copy, "Sy"); Sy[ind, :] = tmpSy; @show size(tmpSy)
-        tmpSz = expect(ψ_copy, "Sz"); Sz[ind, :] = tmpSz; @show size(tmpSz)
+        tmpSx = expect(ψ_copy, "Sx"); Sx[ind, :] = tmpSx; @show (size(tmpSx), tmpSx)
+        tmpSy = expect(ψ_copy, "Sy"); Sy[ind, :] = tmpSy; @show (size(tmpSy), tmpSy)
+        tmpSz = expect(ψ_copy, "Sz"); Sz[ind, :] = tmpSz; @show (size(tmpSz), tmpSz)
 
         # Compute spin correlation functions e.g. Czz
         tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[ind, :] = tmpCxx[Int(N / 2), :]; @show size(tmpCxx')

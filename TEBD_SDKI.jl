@@ -68,9 +68,9 @@ let
         if (ind - 1 < 1E-8)
             tmp1 = 2 
             tmp2 = 1
-        # elseif (abs(ind - (N - 1)) < 1E-8)
-        #     tmp1 = 1
-        #     tmp2 = 2
+        elseif (abs(ind - (N - 1)) < 1E-8)
+            tmp1 = 1
+            tmp2 = 2
         else
             tmp1 = 1
             tmp2 = 1
@@ -102,12 +102,12 @@ let
         push!(kickGates, tmpG)
     end
     
-    # # Initialize the wavefunction as a Neel state
-    # # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = MPS(s, states)
-    # ψ_copy = deepcopy(ψ)
-    # ψ_overlap = Complex{Float64}[]
+    # Initialize the wavefunction as a Neel state
+    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = MPS(s, states)
+    ψ_copy = deepcopy(ψ)
+    ψ_overlap = Complex{Float64}[]
 
     # Initialize the random MPS by reading in from a file
     # wavefunction_file = h5open("random_MPS.h5", "r")
@@ -116,16 +116,16 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-    # Intialize the wvaefunction as a random MPS
-    Random.seed!(200)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2)
-    # # ψ = randomMPS(s, linkdims = 2)
-    # # Rnadom.seed!(1000)
-    # @show eltype(ψ), eltype(ψ[1])
-    # @show maxlinkdim(ψ)
-    ψ_copy = deepcopy(ψ)
-    ψ_overlap = Complex{Float64}[]
+    # # Intialize the wvaefunction as a random MPS
+    # Random.seed!(200)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # # # ψ = randomMPS(s, linkdims = 2)
+    # # # Rnadom.seed!(1000)
+    # # @show eltype(ψ), eltype(ψ[1])
+    # # @show maxlinkdim(ψ)
+    # ψ_copy = deepcopy(ψ)
+    # ψ_overlap = Complex{Float64}[]
 
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
@@ -206,7 +206,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_Random_TESTING.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM_TESTING.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
