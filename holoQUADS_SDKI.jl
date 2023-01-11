@@ -65,17 +65,22 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
+        '''
+            # 1/11/2022
+            # Comment: the reset procedure needs to be revised 
+            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, up>. 
+        '''
         # @show m[ind]
-        if n - 1 < 1E-8
-            # tmpReset = ITensor(projn0_Matrix, s, s')
-            tmpReset = ITensor(projn0_Matrix, tmpS, tmpS')
-        else
-            # tmpReset = ITensor(projnLower_Matrix, s, s')
-            tmpReset = ITensor(projnLower_Matrix, tmpS, tmpS')
-        end
-        m[ind] *= tmpReset
-        noprime!(m[ind])
-        # @show m[ind]
+        # if n - 1 < 1E-8
+        #     # tmpReset = ITensor(projn0_Matrix, s, s')
+        #     tmpReset = ITensor(projn0_Matrix, tmpS, tmpS')
+        # else
+        #     # tmpReset = ITensor(projnLower_Matrix, s, s')
+        #     tmpReset = ITensor(projnLower_Matrix, tmpS, tmpS')
+        # end
+        # m[ind] *= tmpReset
+        # noprime!(m[ind])
+        # # @show m[ind]
     end
     println("")
     println("")
@@ -471,11 +476,11 @@ let
     # Sz = Vector{Float64}[]
 
 
-    # Initialize the wavefunction
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = MPS(s, states)
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # Random.seed!(10000)
+    # # Initialize the wavefunction
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = MPS(s, states)
+    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
+    # # Random.seed!(10000)
 
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
@@ -488,12 +493,12 @@ let
     # ψ = initialization_ψ[1 : N]
     # # @show maxlinkdim(ψ)
 
-    # Random.seed!(200)
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
-    # Random.seed!(10000)
+    Random.seed!(200)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
+    Random.seed!(10000)
 
 
     for measure_ind in 1 : num_measurements
@@ -727,7 +732,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Rotations_Only_AFM_Diagonal_TESTING2.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Rotations_Only_Random_Diagonal_TESTING2.h5", "w")
     # write(file, "Sz", Sz)
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
