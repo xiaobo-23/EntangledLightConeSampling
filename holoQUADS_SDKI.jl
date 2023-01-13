@@ -70,17 +70,17 @@ function sample(m::MPS, j::Int)
             # Comment: the reset procedure needs to be revised 
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, up>. 
         '''
+        @show m[ind]
+        if n - 1 < 1E-8
+            # tmpReset = ITensor(projn0_Matrix, s, s')
+            tmpReset = ITensor(projn0_Matrix, tmpS, tmpS')
+        else
+            # tmpReset = ITensor(projnLower_Matrix, s, s')
+            tmpReset = ITensor(projnLower_Matrix, tmpS, tmpS')
+        end
+        m[ind] *= tmpReset
+        noprime!(m[ind])
         # @show m[ind]
-        # if n - 1 < 1E-8
-        #     # tmpReset = ITensor(projn0_Matrix, s, s')
-        #     tmpReset = ITensor(projn0_Matrix, tmpS, tmpS')
-        # else
-        #     # tmpReset = ITensor(projnLower_Matrix, s, s')
-        #     tmpReset = ITensor(projnLower_Matrix, tmpS, tmpS')
-        # end
-        # m[ind] *= tmpReset
-        # noprime!(m[ind])
-        # # @show m[ind]
     end
     println("")
     println("")
@@ -719,8 +719,6 @@ let
         #     # println("")
         # end
     end
-    
-
     # replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
      
 
@@ -732,7 +730,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Rotations_Only_Random_Diagonal_TESTING2.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Rotations_Only_Random_Diagonal_TESTING.h5", "w")
     # write(file, "Sz", Sz)
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
