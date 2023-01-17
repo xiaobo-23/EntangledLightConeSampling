@@ -136,18 +136,18 @@ let
     Sx = complex(zeros(timeSlices, N))
     Sy = complex(zeros(timeSlices, N))
     Sz = complex(zeros(timeSlices, N))
-    Cxx = complex(zeros(timeSlices, N)) 
-    Cyy = complex(zeros(timeSlices, N))
-    Czz = complex(zeros(timeSlices, N))
+    Cxx = complex(zeros(timeSlices, N * N)) 
+    Cyy = complex(zeros(timeSlices, N * N))
+    Czz = complex(zeros(timeSlices, N * N))
 
     # Take measurements of the initial setting before time evolution
     tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[1, :] = tmpSx
     tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[1, :] = tmpSy
     tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[1, :] = tmpSz
 
-    tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N); Cxx[1, :] = tmpCxx[Int(N / 2), :]
-    tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N); Cyy[1, :] = tmpCyy[Int(N / 2), :]
-    tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N); Czz[1, :] = tmpCzz[Int(N / 2), :]
+    tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N); Cxx[1, :] = tmpCxx[:]
+    tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N); Cyy[1, :] = tmpCyy[:]
+    tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N); Czz[1, :] = tmpCzz[:]
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
 
     distance = Int(1.0 / tau); index = 2
@@ -185,9 +185,10 @@ let
         tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz; @show tmpSz
 
         # Spin correlaiton functions e.g. Cxx, Czz
-        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[Int(N / 2), :]
-        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[Int(N / 2), :]
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[Int(N / 2), :]
+        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[:]
+        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[:]
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[:]
+        
         # Czz[index, :] = vec(tmpCzz')
         index += 1
 
@@ -218,4 +219,4 @@ let
     close(file)
     
     return
-end 
+end  
