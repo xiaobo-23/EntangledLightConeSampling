@@ -92,9 +92,9 @@ let
     Sz = complex(zeros(iterationLimit, N))
 
     # Compute spin correlation functions
-    Cxx = complex(zeros(iterationLimit, N))
-    Cyy = complex(zeros(iterationLimit, N))
-    Czz = complex(zeros(iterationLimit, N))
+    Cxx = complex(zeros(iterationLimit, N * N))
+    Cyy = complex(zeros(iterationLimit, N * N))
+    Czz = complex(zeros(iterationLimit, N * N))
 
     # Compute the overlap of wavefunctions before starting real-time evolution
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
@@ -104,14 +104,14 @@ let
     
     @time for ind in 1:iterationLimit
         # Compute local observables e.g. Sz
-        tmpSx = expect(ψ_copy, "Sx"); Sx[ind, :] = tmpSx; @show (size(tmpSx), tmpSx)
-        tmpSy = expect(ψ_copy, "Sy"); Sy[ind, :] = tmpSy; @show (size(tmpSy), tmpSy)
-        tmpSz = expect(ψ_copy, "Sz"); Sz[ind, :] = tmpSz; @show (size(tmpSz), tmpSz)
+        tmpSx = expect(ψ_copy, "Sx"); Sx[ind, :] = tmpSx; # @show (size(tmpSx), tmpSx)
+        tmpSy = expect(ψ_copy, "Sy"); Sy[ind, :] = tmpSy; # @show (size(tmpSy), tmpSy)
+        tmpSz = expect(ψ_copy, "Sz"); Sz[ind, :] = tmpSz; # @show (size(tmpSz), tmpSz)
 
         # Compute spin correlation functions e.g. Czz
-        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[ind, :] = tmpCxx[Int(N / 2), :]; @show size(tmpCxx')
-        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[ind, :] = tmpCyy[Int(N / 2), :]; @show size(tmpCyy')
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[ind, :] = tmpCzz[Int(N / 2), :]; @show size(tmpCzz')
+        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[ind, :] = tmpCxx[:]; # @show size(tmpCxx')
+        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[ind, :] = tmpCyy[:]; # @show size(tmpCyy')
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[ind, :] = tmpCzz[:]; # @show size(tmpCzz')
         
         # Vectorize the correlation matrix to store all information
         # Czz[index, :] = vec(tmpCzz')
