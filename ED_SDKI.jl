@@ -63,20 +63,20 @@ let
     expHamiltonian₁ = exp(-1.0im * τ * Hamiltonian₁)
     expHamiltonian₂ = exp(-1.0im * Hamiltonian₂)
     
-    # # Initialize the wavefunction as a Neel state
+    ## Initialize the wavefunction as a Neel state
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = MPS(s, states)
-    # ψ_copy = deepcopy(ψ)
-    # ψ_overlap = Complex{Float64}[]
-    
-    # Initializa the wavefunction as a random MPS
-    Random.seed!(200)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2); # show maxlinkdim(ψ)
-    # ψ = randomMPS(s, linkdims = 2)
+    ψ = MPS(s, states)
     ψ_copy = deepcopy(ψ)
     ψ_overlap = Complex{Float64}[]
+    
+    # # Initializa the wavefunction as a random MPS
+    # Random.seed!(200)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = randomMPS(s, states, linkdims = 2); # show maxlinkdim(ψ)
+    # # ψ = randomMPS(s, linkdims = 2)
+    # ψ_copy = deepcopy(ψ)
+    # ψ_overlap = Complex{Float64}[]
     
     # Store the initial wvaefunction in a HDF5 file
     # wavefunction_file = h5open("random_MPS.h5", "w")
@@ -111,7 +111,7 @@ let
         # Compute spin correlation functions e.g. Czz
         tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx", sites = 1 : N); Cxx[ind, :] = tmpCxx[:]; # @show size(tmpCxx')
         tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy", sites = 1 : N); Cyy[ind, :] = tmpCyy[:]; # @show size(tmpCyy')
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[ind, :] = tmpCzz[:]; # @show size(tmpCzz')
+        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz", sites = 1 : N); Czz[ind, :] = tmpCzz[:]; #0 @show size(tmpCzz')
         
         # Vectorize the correlation matrix to store all information
         # Czz[index, :] = vec(tmpCzz')
@@ -153,7 +153,7 @@ let
     println("################################################################################")
     
     # Save measurements into a hdf5 file
-    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Rotations_Only_Random_TESTING.h5", "w")
+    file = h5open("Data/ED_N$(N)_h$(h)_Iteration$(iterationLimit)_Rotations_Only_AFM.h5", "w")
     write(file, "Sx", Sx)       # Sx
     write(file, "Sy", Sy)       # Sy
     write(file, "Sz", Sz)       # Sz

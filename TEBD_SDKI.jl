@@ -8,7 +8,7 @@ ITensors.disable_warn_order()
 let 
     N = 8
     cutoff = 1E-8
-    tau = 0.1; ttotal = 20.0
+    tau = 0.1; ttotal = 10.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -188,7 +188,7 @@ let
         tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[:]
         tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[:]
         tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[:]
-        
+
         # Czz[index, :] = vec(tmpCzz')
         index += 1
 
@@ -207,7 +207,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM_TESTING.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)

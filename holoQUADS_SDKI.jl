@@ -26,14 +26,13 @@ function sample(m::MPS, j::Int)
         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
     end
 
-    projn0_Matrix = [1  0; 0  0]
-    projnLower_Matrix = [0  0; 1  0]
-    # @show projectionMatrix, sizeof(projectionMatrix)
+    # Take measurements and reset the two-site MPS to |up, down> Neel state
+    # Need to be modified based on the initialization of MPS
+    projn_up_matrix = [1  0; 0  0]; lower_up_matrix = [0  0; 1  0]
+    projn_dn_matrix = [0  0; 0  1]; raise_dn_matrix = [0  1; 0  0]
+    
     result = zeros(Int, 2)
     A = m[j]
-    # @show A
-    # @show m[j]
-
     for ind in j:j+1
         tmpS = siteind(m, ind)
         d = dim(tmpS)
@@ -45,8 +44,6 @@ function sample(m::MPS, j::Int)
         pn = 0.0
 
         while n <= d
-            # @show A
-            # @show m[ind]
             projn = ITensor(tmpS)
             projn[tmpS => n] = 1.0
             An = A * dag(projn)
@@ -66,17 +63,23 @@ function sample(m::MPS, j::Int)
         end
 
         '''
-            # 1/11/2022
+            # 01/27/2022
             # Comment: the reset procedure needs to be revised 
-            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, up>. 
+            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
         @show m[ind]
         if n - 1 < 1E-8
-            # tmpReset = ITensor(projn0_Matrix, s, s')
-            tmpReset = ITensor(projn0_Matrix, tmpS, tmpS')
+            if ind % 2 == 0
+                tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
+            else
+                tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
+            end
         else
-            # tmpReset = ITensor(projnLower_Matrix, s, s')
-            tmpReset = ITensor(projnLower_Matrix, tmpS, tmpS')
+            if ind % 2 == 1
+                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+            else
+                tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
+            end
         end
         m[ind] *= tmpReset
         noprime!(m[ind])
@@ -89,6 +92,85 @@ function sample(m::MPS, j::Int)
     println("")
     return result
 end 
+
+# # Sample and reset one two-site MPS
+# function sample(m::MPS, j::Int)
+#     mpsLength = length(m)
+
+#     # Move the orthogonality center of the MPS to site j
+#     orthogonalize!(m, j)
+#     if orthocenter(m) != j
+#         error("sample: MPS m must have orthocenter(m) == 1")
+#     end
+#     # Check the normalization of the MPS
+#     if abs(1.0 - norm(m[j])) > 1E-8
+#         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
+#     end
+
+#     projn0_Matrix = [1  0; 0  0]
+#     projnLower_Matrix = [0  0; 1  0]
+#     # @show projectionMatrix, sizeof(projectionMatrix)
+#     result = zeros(Int, 2)
+#     A = m[j]
+#     # @show A
+#     # @show m[j]
+
+#     for ind in j:j+1
+#         tmpS = siteind(m, ind)
+#         d = dim(tmpS)
+#         pdisc = 0.0
+#         r = rand()
+
+#         n = 1
+#         An = ITensor()
+#         pn = 0.0
+
+#         while n <= d
+#             # @show A
+#             # @show m[ind]
+#             projn = ITensor(tmpS)
+#             projn[tmpS => n] = 1.0
+#             An = A * dag(projn)
+#             pn = real(scalar(dag(An) * An))
+#             pdisc += pn
+
+#             (r < pdisc) && break
+#             n += 1
+#         end
+#         result[ind - j + 1] = n
+#         # @show result[ind - j + 1]
+#         # @show An
+
+#         if ind < mpsLength
+#             A = m[ind + 1] * An
+#             A *= (1. / sqrt(pn))
+#         end
+
+#         '''
+#             # 1/11/2022
+#             # Comment: the reset procedure needs to be revised 
+#             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, up>. 
+#         '''
+#         @show m[ind]
+#         if n - 1 < 1E-8
+#             # tmpReset = ITensor(projn0_Matrix, s, s')
+#             tmpReset = ITensor(projn0_Matrix, tmpS, tmpS')
+#         else
+#             # tmpReset = ITensor(projnLower_Matrix, s, s')
+#             tmpReset = ITensor(projnLower_Matrix, tmpS, tmpS')
+#         end
+#         m[ind] *= tmpReset
+#         noprime!(m[ind])
+#         # @show m[ind]
+#     end
+#     println("")
+#     println("")
+#     println("Measure sites $j and $(j+1)!")
+#     println("")
+#     println("")
+#     return result
+# end 
+
 
 # # Implement a long-range two-site gate
 # function long_range_gate(tmp_s, position_index::Int)
@@ -186,7 +268,8 @@ let
     @show floquet_time, circuit_time
     num_measurements = 1
 
-    # Implement a long-range two-site gate
+    # 01/27/2023
+    # Modify the long-range two-site gate: prefactor in the exponentiation
     function long_range_gate(tmp_s, position_index::Int)
         s1 = tmp_s[1]
         s2 = tmp_s[position_index]
@@ -194,7 +277,8 @@ let
         # Notice the difference in coefficients due to the system is half-infinite chain
         # hj = π * op("Sz", s1) * op("Sz", s2) + 2 * h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
         hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * tau / 2 * hj)
+        Gj = exp(-1.0im * tau * hj)
+        # Gj = exp(-1.0im * tau / 2 * hj)
         # @show hj
         # @show Gj
         # @show inds(Gj)
@@ -238,8 +322,6 @@ let
         # @show position_index
         bondIndices[position_index - 1] = inds(V)[3]
         # @show (bondIndices[1], bondIndices[n - 1])
-
-        
 
         #####################################################################################################################################
         # Construct the long-range two-site gate as an MPO
@@ -468,19 +550,19 @@ let
     '''
         # Measure expectation values of the wavefunction during time evolution
     '''
-    Sx = complex(zeros(circuit_time + 4, N))
-    Sy = complex(zeros(circuit_time + 4, N))
-    Sz = complex(zeros(circuit_time + 4, N))
+    Sx = complex(zeros(Int(floquet_time) * Int(N / 2) + 1, N))
+    Sy = complex(zeros(Int(floquet_time) * Int(N / 2) + 1, N))
+    Sz = complex(zeros(Int(floquet_time) * Int(N / 2) + 1, N))
     # Sx = Vector{Float64}[]
     # Sy = Vector{Float64}[]
     # Sz = Vector{Float64}[]
 
 
-    # # Initialize the wavefunction
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = MPS(s, states)
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # # Random.seed!(10000)
+    # Initialize the wavefunction
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = MPS(s, states)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
+    # Random.seed!(10000)
 
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
@@ -493,12 +575,12 @@ let
     # ψ = initialization_ψ[1 : N]
     # # @show maxlinkdim(ψ)
 
-    Random.seed!(200)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2)
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
-    Random.seed!(10000)
+    # Random.seed!(200)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
+    # Random.seed!(10000)
 
 
     for measure_ind in 1 : num_measurements
@@ -608,11 +690,11 @@ let
         println("")
         println("")
 
-        Sx[4, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-        Sy[4, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-        Sz[4, :] = expect(ψ_copy, "Sz"; sites = 1 : N); @show real(Sz[4, :]) 
+        Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
+        Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
+        Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
 
-        @time for ind₁ in 1 : 2
+        @time for ind₁ in 1 : 3
             gate_seeds = []
             for gate_ind in 1 : circuit_time
                 tmp_ind = (2 * ind₁ - gate_ind + N) % N
@@ -649,9 +731,10 @@ let
                 # println("")
 
                 if ind₂ % 2 == 0
-                    Sx[Int(ind₂ / 2) + 3 * ind₁ + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-                    Sy[Int(ind₂ / 2) + 3 * ind₁ + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-                    Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
+                    Sx[Int(ind₂ / 2) + Int(floquet_time) * ind₁ + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
+                    Sy[Int(ind₂ / 2) + Int(floquet_time) * ind₁ + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
+                    Sz[Int(ind₂ / 2) + Int(floquet_time) * ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); 
+                    # @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
                 end
 
                 # if ind₂ % 2 == 0
@@ -730,7 +813,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Measure$(num_measurements)_Rotations_Only_Random_Diagonal_TESTING.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_AFM.h5", "w")
     # write(file, "Sz", Sz)
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
