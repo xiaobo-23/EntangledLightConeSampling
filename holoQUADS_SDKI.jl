@@ -256,13 +256,13 @@ end
 # end
 
 let 
-    N = 8
+    N = 12
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     # circuit_time = Int(floquet_time / (0.5 * tau))
     @show floquet_time, circuit_time
@@ -550,9 +550,9 @@ let
     '''
         # Measure expectation values of the wavefunction during time evolution
     '''
-    Sx = complex(zeros(Int(floquet_time) * Int(N / 2) + 1, N))
-    Sy = complex(zeros(Int(floquet_time) * Int(N / 2) + 1, N))
-    Sz = complex(zeros(Int(floquet_time) * Int(N / 2) + 1, N))
+    Sx = complex(zeros(Int(floquet_time) * Int(N / 2), N))
+    Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
+    Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     # Sx = Vector{Float64}[]
     # Sy = Vector{Float64}[]
     # Sz = Vector{Float64}[]
@@ -690,11 +690,11 @@ let
         println("")
         println("")
 
-        Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-        Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-        Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
+        # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
+        # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
+        # Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
 
-        @time for ind₁ in 1 : 3
+        @time for ind₁ in 1 : 5
             gate_seeds = []
             for gate_ind in 1 : circuit_time
                 tmp_ind = (2 * ind₁ - gate_ind + N) % N
@@ -731,9 +731,10 @@ let
                 # println("")
 
                 if ind₂ % 2 == 0
-                    Sx[Int(ind₂ / 2) + Int(floquet_time) * ind₁ + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-                    Sy[Int(ind₂ / 2) + Int(floquet_time) * ind₁ + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-                    Sz[Int(ind₂ / 2) + Int(floquet_time) * ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); 
+                    Sx[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
+                    Sy[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
+                    Sz[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sz"; sites = 1 : N);
+                    @show Int(ind₂/2) + Int(floquet_time) * ind₁
                     # @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
                 end
 
@@ -814,7 +815,6 @@ let
     
     # Store data in hdf5 file
     file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_AFM.h5", "w")
-    # write(file, "Sz", Sz)
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)

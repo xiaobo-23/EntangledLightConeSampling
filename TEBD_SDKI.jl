@@ -6,7 +6,7 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 8
+    N = 12
     cutoff = 1E-8
     tau = 0.1; ttotal = 10.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -70,7 +70,8 @@ let
             tmp2 = 1
         elseif (abs(ind - (N - 1)) < 1E-8)
             tmp1 = 1
-            tmp2 = 2
+            tmp2 = 1                # TO COMPARE WITH A HALF-INFINITE chain
+            # tmp2 = 2
         else
             tmp1 = 1
             tmp2 = 1
@@ -207,7 +208,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM_Half_Infinite.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
