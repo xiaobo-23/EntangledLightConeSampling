@@ -256,13 +256,13 @@ end
 # end
 
 let 
-    N = 12
+    N = 8
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     # circuit_time = Int(floquet_time / (0.5 * tau))
     @show floquet_time, circuit_time
@@ -694,7 +694,7 @@ let
         # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
         # Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
 
-        @time for ind₁ in 1 : 5
+        @time for ind₁ in 1 : 3
             gate_seeds = []
             for gate_ind in 1 : circuit_time
                 tmp_ind = (2 * ind₁ - gate_ind + N) % N
