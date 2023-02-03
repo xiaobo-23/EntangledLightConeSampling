@@ -535,6 +535,18 @@ let
         return two_site_kick_gate
     end    
 
+    
+    # Check the overlap between time-evolved wavefunction and the original wavefunction
+    function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
+        overlap = abs(inner(tmp_ψ₁, tmp_ψ₂))
+        println("")
+        println("")
+        @show overlap
+        println("")
+        println("")
+        return overlap
+    end
+
     '''
         # Sample from the time-evolved wavefunction and store the measurements
     '''
@@ -627,18 +639,12 @@ let
             # Apply kicked gate at integer times
             if ind % 2 == 1
                 tmp_kick_gate = build_kick_gates(1, 2 * tmp_num_gates + 1); @show 2 * tmp_num_gates + 1
-                # tmp_kick_gate = build_kick_gates(1, N)
                 ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                 normalize!(ψ_copy)
                 # ψ_copy = apply(kick_gate, ψ_copy; cutoff)
-
-                println("")
-                println("")
+                
                 println("Applying the kicked Ising gate at time $(ind)!")
-                tmp_overlap = abs(inner(ψ, ψ_copy))
-                @show tmp_overlap
-                println("")
-                println("")
+                compute_overlap(ψ, ψ_copy)
             end
             
             tmp_two_site_gates = ITensor[]
@@ -678,17 +684,9 @@ let
             # end
         end
 
-        println("")
-        println("")
-        tmp_overlap = abs(inner(ψ, ψ_copy))
-        @show tmp_overlap
-        println("")
+        compute_overlap(ψ,ψ_copy)
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        println("")
-        tmp_overlap = abs(inner(ψ, ψ_copy))
-        @show tmp_overlap
-        println("")
-        println("")
+        compute_overlap(ψ,ψ_copy)
 
         # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
         # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
@@ -746,83 +744,27 @@ let
             end
             Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
         end
-
-        # @time for ind₁ in 1 : Int(N / 2) - 1
-        #     gate_seeds = []
-        #     for gate_ind in 1 : circuit_time
-        #         tmp_ind = (2 * ind₁ - gate_ind + N) % N
-        #         if tmp_ind == 0
-        #             tmp_ind = N
-        #         end
-        #         push!(gate_seeds, tmp_ind)
-        #     end
-        #     println("")
-        #     println("")
-        #     @show gate_seeds
-        #     println("")
-        #     println("")
-
-        #     for ind₂ in 1 : circuit_time
-        #         # tmp_overlap = abs(inner(ψ, ψ_copy))
-        #         # println("The inner product is: $tmp_overlap")
-        #         # append!(ψ_overlap, tmp_overlap)
-
-        #         # # Local observables e.g. Sx, Sz
-        #         # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx; # Sx[index, :] = tmpSx
-        #         # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy; # Sy[index, :] = tmpSy
-        #         # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz; # Sz[index, :] = tmpSzz
-
-        #         # Apply kicked gate at integer times
-        #         if ind₂ % 2 == 1
-        #             ψ_copy = apply(kick_gate, ψ_copy; cutoff)
-        #             normalize!(ψ_copy)
-        #             println("")
-        #             tmp_overlap = abs(inner(ψ, ψ_copy))
-        #             @show tmp_overlap
-        #             println("")
-        #         end
-
-        #         # Apply a sequence of two-site gates
-        #         # tmp_two_site_gates = ITensor[]
-        #         tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
-        #         # println("")
-        #         # @show tmp_two_site_gates 
-        #         # @show typeof(tmp_two_site_gates)
-        #         # println("")
-
-        #         ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-        #         normalize!(ψ_copy)
-        #         # println("")
-        #         # tmp_overlap = abs(inner(ψ, ψ_copy))
-        #         # @show tmp_overlap
-        #         # println("")
-        #     end
-        #     Sz[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1) 
-        #     # println("")
-        #     # @show abs(inner(ψ, ψ_copy))
-        #     # println("")
-        # end
     end
     # replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
      
 
     println("################################################################################")
     println("################################################################################")
-    println("Information of the initial random MPS")
+    println("Projection in the Sz basis of the initial MPS")
     @show Sz₀
     println("################################################################################")
     println("################################################################################")
     
-    # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_AFM.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    # write(file, "Cxx", Cxx)
-    # write(file, "Czz", Czz)
-    # write(file, "Wavefunction Overlap", ψ_overlap)
-    close(file)
+    # # Store data in hdf5 file
+    # file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_AFM.h5", "w")
+    # write(file, "Initial Sz", Sz₀)
+    # write(file, "Sx", Sx)
+    # write(file, "Sy", Sy)
+    # write(file, "Sz", Sz)
+    # # write(file, "Cxx", Cxx)
+    # # write(file, "Czz", Czz)
+    # # write(file, "Wavefunction Overlap", ψ_overlap)
+    # close(file)
 
     return
 end  
