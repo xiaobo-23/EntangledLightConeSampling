@@ -6,9 +6,9 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 8
+    N = 32
     cutoff = 1E-8
-    tau = 0.1; ttotal = 10.0
+    tau = 0.1; ttotal = 8.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -70,8 +70,8 @@ let
             tmp2 = 1
         elseif (abs(ind - (N - 1)) < 1E-8)
             tmp1 = 1
-            tmp2 = 1                # TO COMPARE WITH A HALF-INFINITE chain
-            # tmp2 = 2
+            tmp2 = 2
+            # tmp2 = 1                # TO COMPARE WITH A HALF-INFINITE chain\
         else
             tmp1 = 1
             tmp2 = 1
@@ -82,8 +82,8 @@ let
         # println("Site index is $(ind) and the conditional sentence is $(ind - (N - 1))")
         # println("")
 
-        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
@@ -189,6 +189,7 @@ let
         tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[:]
         tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[:]
         tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[:]
+        @show tmpCzz[1, :], tmpCzz[2, :]
 
         # Czz[index, :] = vec(tmpCzz')
         index += 1
@@ -198,17 +199,16 @@ let
         append!(ψ_overlap, tmp_overlap)
     end
 
-
     println("################################################################################")
     println("################################################################################")
-    println("Information of the initial random MPS")
+    println("Projective measurements of the initial MPS in the Sz basis")
     @show Sz₀
     println("################################################################################")
     println("################################################################################")
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM_Half_Infinite.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_AFM_Correlation_Function.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
