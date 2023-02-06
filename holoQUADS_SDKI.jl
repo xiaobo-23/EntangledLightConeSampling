@@ -39,7 +39,7 @@ function sample(m::MPS, j::Int)
         pdisc = 0.0
         r = rand()
 
-        n = 1
+        n = 1 
         An = ITensor()
         pn = 0.0
 
@@ -62,28 +62,28 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        # '''
-        #     # 01/27/2022
-        #     # Comment: the reset procedure needs to be revised 
-        #     # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
-        # '''
-        # @show m[ind]
-        # if n - 1 < 1E-8
-        #     if ind % 2 == 0
-        #         tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
-        #     end
-        # else
-        #     if ind % 2 == 1
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
-        #     end
-        # end
-        # m[ind] *= tmpReset
-        # noprime!(m[ind])
-        # @show m[ind]
+        '''
+            # 01/27/2022
+            # Comment: the reset procedure needs to be revised 
+            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+        '''
+        @show m[ind]
+        if n - 1 < 1E-8
+            if ind % 2 == 1
+                tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
+            else
+                tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
+            end
+        else
+            if ind % 2 == 0
+                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+            else
+                tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
+            end
+        end
+        m[ind] *= tmpReset
+        noprime!(m[ind])
+        @show m[ind]
     end
     println("")
     println("")
@@ -256,15 +256,14 @@ end
 # end
 
 let 
-    N = 8
+    N = 12
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
-    # circuit_time = Int(floquet_time / (0.5 * tau))
     @show floquet_time, circuit_time
     num_measurements = 2000
 
@@ -274,12 +273,10 @@ let
         s1 = tmp_s[1]
         s2 = tmp_s[position_index]
         
-        # Notice the difference in coefficients due to the system is half-infinite chain
-        # hj = π * op("Sz", s1) * op("Sz", s2) + 2 * h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        # Use bulk coefficients to define this long-range gate
+        # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau * hj)
-        # Gj = exp(-1.0im * tau / 2 * hj)
         # @show hj
         # @show Gj
         # @show inds(Gj)
@@ -454,9 +451,9 @@ let
                 coeff₂ = 1
             end
 
-            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
             # Gj = exp(-1.0im * tau / 2 * hj)
-            # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau * hj)
             push!(gates, Gj)
         end
@@ -482,8 +479,8 @@ let
             s1 = tmp_sites[initialPosition]
             s2 = tmp_sites[initialPosition - 1]
             # hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
-            hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+            # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+            hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau * hj)                   # Correcting the factor in the exponentiation
             push!(gates, Gj)
         end
@@ -558,7 +555,7 @@ let
     # Cxx = complex(zeros(timeSlices, N))
     # Czz = complex(zeros(timeSlices, N))
     # Sz = complex(zeros(num_measurements, N))
-    Sz_sample = real(zeros(num_measurements, N))
+    Sz_sample = real(zeros(num_measurements, 2 * N))
 
     '''
         # Measure expectation values of the wavefunction during time evolution
@@ -566,16 +563,12 @@ let
     Sx = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
-    # Sx = Vector{Float64}[]
-    # Sy = Vector{Float64}[]
-    # Sz = Vector{Float64}[]
 
-
-    # # Initialize the wavefunction
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = MPS(s, states)
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # # Random.seed!(10000)
+    # Initialize the wavefunction
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = MPS(s, states)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
+    # Random.seed!(10000)
 
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
@@ -588,15 +581,15 @@ let
     # ψ = initialization_ψ[1 : N]
     # # @show maxlinkdim(ψ)
 
-    Random.seed!(1234567)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
-    ψ = randomMPS(s, states, linkdims = 2)
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
-    Random.seed!(8000000)
+    # Random.seed!(1234567)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
+    # Random.seed!(8000000)
 
 
-    # Random.seed!(666666)
+    Random.seed!(12345678)
     for measure_ind in 1 : num_measurements
         println("")
         println("")
@@ -688,7 +681,7 @@ let
         # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
         # Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
 
-        @time for ind₁ in 1 : 3
+        @time for ind₁ in 1 : 11
             gate_seeds = []
             for gate_ind in 1 : circuit_time
                 tmp_ind = (2 * ind₁ - gate_ind + N) % N
@@ -738,7 +731,9 @@ let
                 #     push!(Sz, expect(ψ_copy, "Sz"; sites = 1 : N))
                 # end
             end
-            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            index_to_sample = (2 * ind₁ + 1) % N
+            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
         end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
@@ -752,7 +747,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Sample_AFM_Seed1_v3.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_Sample_AFM_v1.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
