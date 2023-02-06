@@ -71,7 +71,7 @@ let
         elseif (abs(ind - (N - 1)) < 1E-8)
             tmp1 = 1
             tmp2 = 2
-            # tmp2 = 1                # TO COMPARE WITH A HALF-INFINITE chain\
+            # tmp2 = 1                # TO COMPARE WITH A HALF-INFINITE CHAIN
         else
             tmp1 = 1
             tmp2 = 1
@@ -82,8 +82,8 @@ let
         # println("Site index is $(ind) and the conditional sentence is $(ind - (N - 1))")
         # println("")
 
-        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
@@ -118,7 +118,7 @@ let
     # ψ_overlap = Complex{Float64}[]
 
     # Intialize the wvaefunction as a random MPS
-    Random.seed!(200)
+    Random.seed!(1234567)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
     # @show eltype(ψ), eltype(ψ[1])
@@ -206,7 +206,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotation_Only_Random.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Random_Seed1.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
