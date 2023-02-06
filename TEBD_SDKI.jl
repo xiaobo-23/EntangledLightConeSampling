@@ -6,9 +6,9 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 32
+    N = 8
     cutoff = 1E-8
-    tau = 0.1; ttotal = 8.0
+    tau = 0.1; ttotal = 10.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -82,8 +82,8 @@ let
         # println("Site index is $(ind) and the conditional sentence is $(ind - (N - 1))")
         # println("")
 
-        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
@@ -103,12 +103,12 @@ let
         push!(kickGates, tmpG)
     end
     
-    # Initialize the wavefunction as a Neel state
+    # # Initialize the wavefunction as a Neel state
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = MPS(s, states)
-    ψ_copy = deepcopy(ψ)
-    ψ_overlap = Complex{Float64}[]
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = MPS(s, states)
+    # ψ_copy = deepcopy(ψ)
+    # ψ_overlap = Complex{Float64}[]
 
     # Initialize the random MPS by reading in from a file
     # wavefunction_file = h5open("random_MPS.h5", "r")
@@ -117,16 +117,14 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-    # # Intialize the wvaefunction as a random MPS
-    # Random.seed!(200)
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
-    # # # ψ = randomMPS(s, linkdims = 2)
-    # # # Rnadom.seed!(1000)
-    # # @show eltype(ψ), eltype(ψ[1])
-    # # @show maxlinkdim(ψ)
-    # ψ_copy = deepcopy(ψ)
-    # ψ_overlap = Complex{Float64}[]
+    # Intialize the wvaefunction as a random MPS
+    Random.seed!(200)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2)
+    # @show eltype(ψ), eltype(ψ[1])
+    # @show maxlinkdim(ψ)
+    ψ_copy = deepcopy(ψ)
+    ψ_overlap = Complex{Float64}[]
 
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
@@ -142,12 +140,12 @@ let
     Czz = complex(zeros(timeSlices, N * N))
 
     # Take measurements of the initial setting before time evolution
-    tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[1, :] = tmpSx
-    tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[1, :] = tmpSy
+    # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[1, :] = tmpSx
+    # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[1, :] = tmpSy
     tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[1, :] = tmpSz
 
-    tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N); Cxx[1, :] = tmpCxx[:]
-    tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N); Cyy[1, :] = tmpCyy[:]
+    # tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N); Cxx[1, :] = tmpCxx[:]
+    # tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N); Cyy[1, :] = tmpCyy[:]
     tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N); Czz[1, :] = tmpCzz[:]
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
 
@@ -181,13 +179,13 @@ let
         normalize!(ψ_copy)
 
         # Local observables e.g. Sx, Sz
-        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx; @show tmpSx
-        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy; @show tmpSy
+        # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx; @show tmpSx
+        # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy; @show tmpSy
         tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz; @show tmpSz
 
         # Spin correlaiton functions e.g. Cxx, Czz
-        tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[:]
-        tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[:]
+        # tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[:]
+        # tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[:]
         tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[:]
         @show tmpCzz[1, :], tmpCzz[2, :]
 
@@ -208,7 +206,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_AFM_Correlation_Function.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotation_Only_Random.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
