@@ -67,29 +67,44 @@ function sample(m::MPS, j::Int)
             # Comment: the reset procedure needs to be revised 
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
-        @show m[ind]
-        if n - 1 < 1E-8
-            if ind % 2 == 1
+        # @show m[ind]
+        # if n - 1 < 1E-8
+        #     if ind % 2 == 1
+        #         tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
+        #     else
+        #         tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
+        #     end
+        # else
+        #     if ind % 2 == 0
+        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+        #     else
+        #         tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
+        #     end
+        # end
+
+        if ind % 2 == 1
+            if n == 1
                 tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-            else
-                tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
-            end
-        else
-            if ind % 2 == 0
-                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
             else
                 tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
             end
+        else
+            if n == 1
+                tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
+            else
+                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+            end
         end
+        
         m[ind] *= tmpReset
         noprime!(m[ind])
-        @show m[ind]
+        # @show m[ind]
     end
-    println("")
-    println("")
-    println("Measure sites $j and $(j+1)!")
-    println("")
-    println("")
+    # println("")
+    # println("")
+    # println("Measure sites $j and $(j+1)!")
+    # println("")
+    # println("")
     return result
 end 
 
@@ -265,7 +280,7 @@ let
     floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     @show floquet_time, circuit_time
-    num_measurements = 2000
+    num_measurements = 2 
 
     # 01/27/2023
     # Modify the long-range two-site gate: prefactor in the exponentiation
@@ -724,16 +739,19 @@ let
                     @show Int(ind₂/2) + Int(floquet_time) * ind₁
                     # @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
                 end
-
-                # if ind₂ % 2 == 0
-                #     push!(Sx, expect(ψ_copy, "Sx"; sites = 1 : N))
-                #     push!(Sy, expect(ψ_copy, "Sy"; sites = 1 : N))
-                #     push!(Sz, expect(ψ_copy, "Sz"; sites = 1 : N))
-                # end
             end
             index_to_sample = (2 * ind₁ + 1) % N
+            println("############################################################################")
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            @show index_to_sample
+            @show tmp_Sz[index_to_sample : index_to_sample + 1]
+            println("****************************************************************************")
             Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
             # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            println("############################################################################")
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            @show tmp_Sz[index_to_sample : index_to_sample + 1]
+            println("****************************************************************************")
         end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
@@ -746,18 +764,18 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_Sample_AFM_v1.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    # write(file, "Cxx", Cxx)
-    # write(file, "Cyy", Cyy)
-    # write(file, "Czz", Czz)
-    write(file, "Sz_sample", Sz_sample)
-    # write(file, "Wavefunction Overlap", ψ_overlap)
-    close(file)
+    # # Store data in hdf5 file
+    # file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_Sample_AFM_v1.h5", "w")
+    # write(file, "Initial Sz", Sz₀)
+    # write(file, "Sx", Sx)
+    # write(file, "Sy", Sy)
+    # write(file, "Sz", Sz)
+    # # write(file, "Cxx", Cxx)
+    # # write(file, "Cyy", Cyy)
+    # # write(file, "Czz", Czz)
+    # write(file, "Sz_sample", Sz_sample)
+    # # write(file, "Wavefunction Overlap", ψ_overlap)
+    # close(file)
 
     return
 end  
