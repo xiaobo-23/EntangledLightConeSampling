@@ -1,6 +1,5 @@
-## 11/28/2022
-## Implement the holographic quantum circuit for the kicked Ising model
-## Test first two sites which is built based on the corner case
+## 02/07/2023
+## Implement the holographic quantum circuit for the Heisenberg model
 
 using ITensors
 using ITensors.HDF5
@@ -10,6 +9,7 @@ using Base: product
 using Random
  
 ITensors.disable_warn_order()
+
 
 
 # Sample and reset one two-site MPS
@@ -63,24 +63,8 @@ function sample(m::MPS, j::Int)
         end
 
         '''
-            # 01/27/2022
-            # Comment: the reset procedure needs to be revised 
-            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+            # Reset the MPS to its initial state for the purpose of reuse
         '''
-        # @show m[ind]
-        # if n - 1 < 1E-8
-        #     if ind % 2 == 1
-        #         tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
-        #     end
-        # else
-        #     if ind % 2 == 0
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
-        #     end
-        # end
 
         if ind % 2 == 1
             if n == 1
@@ -108,167 +92,12 @@ function sample(m::MPS, j::Int)
     return result
 end 
 
-# # Sample and reset one two-site MPS
-# function sample(m::MPS, j::Int)
-#     mpsLength = length(m)
 
-#     # Move the orthogonality center of the MPS to site j
-#     orthogonalize!(m, j)
-#     if orthocenter(m) != j
-#         error("sample: MPS m must have orthocenter(m) == 1")
-#     end
-#     # Check the normalization of the MPS
-#     if abs(1.0 - norm(m[j])) > 1E-8
-#         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
-#     end
-
-#     projn0_Matrix = [1  0; 0  0]
-#     projnLower_Matrix = [0  0; 1  0]
-#     # @show projectionMatrix, sizeof(projectionMatrix)
-#     result = zeros(Int, 2)
-#     A = m[j]
-#     # @show A
-#     # @show m[j]
-
-#     for ind in j:j+1
-#         tmpS = siteind(m, ind)
-#         d = dim(tmpS)
-#         pdisc = 0.0
-#         r = rand()
-
-#         n = 1
-#         An = ITensor()
-#         pn = 0.0
-
-#         while n <= d
-#             # @show A
-#             # @show m[ind]
-#             projn = ITensor(tmpS)
-#             projn[tmpS => n] = 1.0
-#             An = A * dag(projn)
-#             pn = real(scalar(dag(An) * An))
-#             pdisc += pn
-
-#             (r < pdisc) && break
-#             n += 1
-#         end
-#         result[ind - j + 1] = n
-#         # @show result[ind - j + 1]
-#         # @show An
-
-#         if ind < mpsLength
-#             A = m[ind + 1] * An
-#             A *= (1. / sqrt(pn))
-#         end
-
-#         '''
-#             # 1/11/2022
-#             # Comment: the reset procedure needs to be revised 
-#             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, up>. 
-#         '''
-#         @show m[ind]
-#         if n - 1 < 1E-8
-#             # tmpReset = ITensor(projn0_Matrix, s, s')
-#             tmpReset = ITensor(projn0_Matrix, tmpS, tmpS')
-#         else
-#             # tmpReset = ITensor(projnLower_Matrix, s, s')
-#             tmpReset = ITensor(projnLower_Matrix, tmpS, tmpS')
-#         end
-#         m[ind] *= tmpReset
-#         noprime!(m[ind])
-#         # @show m[ind]
-#     end
-#     println("")
-#     println("")
-#     println("Measure sites $j and $(j+1)!")
-#     println("")
-#     println("")
-#     return result
-# end 
-
-
-# # Implement a long-range two-site gate
-# function long_range_gate(tmp_s, position_index::Int)
-#     s1 = tmp_s[1]
-#     s2 = tmp_s[position_index]
+function construct_corner_layer(starting_index :: Int, ending_index :: Int)
     
-#     # Notice the difference in coefficients due to the system is half-infinite chain
-#     hj = π * op("Sz", s1) * op("Sz", s2) + 2 * h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-#     Gj = exp(-1.0im * tau / 2 * hj)
-#     # @show hj
-#     # @show Gj
-#     @show inds(Gj)
+end
 
-#     # Benchmark gate that employs swap operations
-#     benchmarkGate = ITensor[]
-#     push!(benchmarkGate, Gj)
-    
-#     # for ind in 1 : n
-#     #     @show s[ind], s[ind]'
-#     # end
 
-#     U, S, V = svd(Gj, (tmp_s[1], tmp_s[1]'))
-#     @show norm(U*S*V - Gj)
-#     # @show S
-#     # @show U
-#     # @show V
-
-#     # Absorb the S matrix into the U matrix on the left
-#     U = U * S
-#     # @show U
-
-#     # Make a vector to store the bond indices
-#     bondIndices = Vector(undef, n - 1)
-
-#     # Grab the bond indices of U and V matrices
-#     if hastags(inds(U)[3], "Link,v") != true           # The original tag of this index of U matrix should be "Link,u".  But we absorbed S matrix into the U matrix.
-#         error("SVD: fail to grab the bond indice of matrix U by its tag!")
-#     else 
-#         replacetags!(U, "Link,v", "i1")
-#     end
-#     # @show U
-#     bondIndices[1] = inds(U)[3]
-
-#     if hastags(inds(V)[3], "Link,v") != true
-#         error("SVD: fail to grab the bond indice of matrix V by its tag!")
-#     else
-#         replacetags!(V, "Link,v", "i" * string(n))
-#     end
-#     # @show V
-#     @show position_index
-#     bondIndices[position_index - 1] = inds(V)[3]
-#     # @show (bondIndices[1], bondIndices[n - 1])
-
-    
-
-#     #####################################################################################################################################
-#     # Construct the long-range two-site gate as an MPO
-#     longrangeGate = MPO(n)
-#     longrangeGate[1] = U
-
-#     for ind in 2 : position_index - 1
-#         # Set up site indices
-#         if abs(ind - (position_index - 1)) > 1E-8
-#             bondString = "i" * string(ind)
-#             bondIndices[ind] = Index(4, bondString)
-#         end
-
-#         # Make the identity tensor
-#         # @show s[ind], s[ind]'
-#         tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
-#         longrangeGate[ind] = tmpIdentity
-
-#         # @show sizeof(longrangeGate)
-#         # @show longrangeGate
-#     end
-
-#     @show typeof(V), V
-#     longrangeGate[position_index] = V
-#     # @show sizeof(longrangeGate)
-#     # @show longrangeGate
-#     @show typeof(longrangeGate), typeof(benchmarkGate)
-#     #####################################################################################################################################
-# end
 
 let 
     N = 12

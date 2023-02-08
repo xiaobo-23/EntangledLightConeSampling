@@ -28,13 +28,29 @@ function sample(m::MPS, j::Int)
 
     # Take measurements and reset the two-site MPS to |up, down> Neel state
     # Need to be modified based on the initialization of MPS
-    projn_up_matrix = [1  0; 0  0]; lower_up_matrix = [0  0; 1  0]
-    projn_dn_matrix = [0  0; 0  1]; raise_dn_matrix = [0  1; 0  0]
+    projn_up_matrix = [
+        1  0 
+        0  0
+    ] 
+    S⁻_matrix = [
+        0  0
+        1  0
+    ]
+    projn_dn_matrix = [
+        0  0 
+        0  1
+    ] 
+    S⁺_matrix = [
+        0  1 
+        0  0
+    ]
     
     result = zeros(Int, 2)
     A = m[j]
     for ind in j:j+1
         tmpS = siteind(m, ind)
+        # println("Before taking measurements")
+        # @show(m[ind])
         d = dim(tmpS)
         pdisc = 0.0
         r = rand()
@@ -82,22 +98,40 @@ function sample(m::MPS, j::Int)
         #     end
         # end
 
-        if ind % 2 == 1
-            if n == 1
-                tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-            else
-                tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
-            end
+        if n - 1 < 1E-8
+            println("")
+            println("")
+            println("n is 1!")
+            println("")
+            println("")
+            tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
         else
-            if n == 1
-                tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
-            else
-                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
-            end
+            println("")
+            println("")
+            println("n is 2!")
+            println("")
+            println("")
+            tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
         end
         
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
+        #     else
+        #         tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
+        #     end
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
+        #     else
+        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+        #     end
+        # end
+        # println("After taking measurements")
+        # @show m[ind]
         m[ind] *= tmpReset
         noprime!(m[ind])
+        # println("After resetting")
         # @show m[ind]
     end
     # println("")

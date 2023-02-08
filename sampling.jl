@@ -173,11 +173,11 @@ let
     end
     @show entropy
 
-    # Store data into a hdf5 file
-    file = h5open("Data/Sample_Test_Random_L50_Chi32.h5", "w")
-    write(file, "Sz", Sz)
-    write(file, "entropy", entropy)
-    close(file)
+    # # Store data into a hdf5 file
+    # file = h5open("Data/Sample_Test_Random_L50_Chi32.h5", "w")
+    # write(file, "Sz", Sz)
+    # write(file, "entropy", entropy)
+    # close(file)
     
     return
 end 
