@@ -98,37 +98,35 @@ function sample(m::MPS, j::Int)
         #     end
         # end
 
-        if n - 1 < 1E-8
-            println("")
-            println("")
-            println("n is 1!")
-            println("")
-            println("")
-            tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-        else
-            println("")
-            println("")
-            println("n is 2!")
-            println("")
-            println("")
-            tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
-        end
-        
-        # if ind % 2 == 1
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
-        #     end
+        # if n - 1 < 1E-8
+        #     println("")
+        #     println("")
+        #     println("n is 1!")
+        #     println("")
+        #     println("")
+        #     tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
         # else
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
-        #     end
+        #     println("")
+        #     println("")
+        #     println("n is 2!")
+        #     println("")
+        #     println("")
+        #     tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
         # end
-        # println("After taking measurements")
-        # @show m[ind]
+        
+        if ind % 2 == 1
+            if n - 1 < 1E-8
+                tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
+            else
+                tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
+            end
+        else
+            if n - 1 < 1E-8
+                tmpReset = ITensor(S⁺_matrix, tmpS, tmpS')
+            else
+                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+            end
+        end
         m[ind] *= tmpReset
         noprime!(m[ind])
         # println("After resetting")
@@ -314,7 +312,7 @@ let
     floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     @show floquet_time, circuit_time
-    num_measurements = 2 
+    num_measurements = 2000 
 
     # 01/27/2023
     # Modify the long-range two-site gate: prefactor in the exponentiation
@@ -638,7 +636,7 @@ let
     # Random.seed!(8000000)
 
 
-    Random.seed!(12345678)
+    Random.seed!(6789200)
     for measure_ind in 1 : num_measurements
         println("")
         println("")
@@ -798,18 +796,18 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # # Store data in hdf5 file
-    # file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_Sample_AFM_v1.h5", "w")
-    # write(file, "Initial Sz", Sz₀)
-    # write(file, "Sx", Sx)
-    # write(file, "Sy", Sy)
-    # write(file, "Sz", Sz)
-    # # write(file, "Cxx", Cxx)
-    # # write(file, "Cyy", Cyy)
-    # # write(file, "Czz", Czz)
-    # write(file, "Sz_sample", Sz_sample)
-    # # write(file, "Wavefunction Overlap", ψ_overlap)
-    # close(file)
+    # Store data in hdf5 file
+    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_Sample_AFM_v3.h5", "w")
+    write(file, "Initial Sz", Sz₀)
+    write(file, "Sx", Sx)
+    write(file, "Sy", Sy)
+    write(file, "Sz", Sz)
+    # write(file, "Cxx", Cxx)
+    # write(file, "Cyy", Cyy)
+    # write(file, "Czz", Czz)
+    write(file, "Sz_sample", Sz_sample)
+    # write(file, "Wavefunction Overlap", ψ_overlap)
+    close(file)
 
     return
 end  
