@@ -28,7 +28,7 @@ function sample(m::MPS, j::Int)
 
     # Take measurements and reset the two-site MPS to |up, down> Neel state
     # Need to be modified based on the initialization of MPS
-    projn_up_matrix = [
+    ProjnUp_matrix = [
         1  0 
         0  0
     ] 
@@ -36,7 +36,7 @@ function sample(m::MPS, j::Int)
         0  0
         1  0
     ]
-    projn_dn_matrix = [
+    ProjnDn_matrix = [
         0  0 
         0  1
     ] 
@@ -116,7 +116,7 @@ function sample(m::MPS, j::Int)
         
         if ind % 2 == 1
             if n - 1 < 1E-8
-                tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
+                tmpReset = ITensor(ProjnUp_matrix, tmpS, tmpS')
             else
                 tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
             end
@@ -124,7 +124,7 @@ function sample(m::MPS, j::Int)
             if n - 1 < 1E-8
                 tmpReset = ITensor(S⁺_matrix, tmpS, tmpS')
             else
-                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+                tmpReset = ITensor(ProjnDn_matrix, tmpS, tmpS')
             end
         end
         m[ind] *= tmpReset
