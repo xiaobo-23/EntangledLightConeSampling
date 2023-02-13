@@ -28,7 +28,7 @@ function sample(m::MPS, j::Int)
 
     # Take measurements and reset the two-site MPS to |up, down> Neel state
     # Need to be modified based on the initialization of MPS
-    ProjnUp_matrix = [
+    projn_up_matrix = [
         1  0 
         0  0
     ] 
@@ -36,7 +36,7 @@ function sample(m::MPS, j::Int)
         0  0
         1  0
     ]
-    ProjnDn_matrix = [
+    projn_dn_matrix = [
         0  0 
         0  1
     ] 
@@ -83,48 +83,33 @@ function sample(m::MPS, j::Int)
             # Comment: the reset procedure needs to be revised 
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
-        # @show m[ind]
-        # if n - 1 < 1E-8
-        #     if ind % 2 == 1
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8
         #         tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
         #     else
-        #         tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
+        #         tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
         #     end
         # else
-        #     if ind % 2 == 0
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(S⁺_matrix, tmpS, tmpS')
         #     else
-        #         tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
+        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
         #     end
         # end
 
-        # if n - 1 < 1E-8
-        #     println("")
-        #     println("")
-        #     println("n is 1!")
-        #     println("")
-        #     println("")
-        #     tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-        # else
-        #     println("")
-        #     println("")
-        #     println("n is 2!")
-        #     println("")
-        #     println("")
-        #     tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
-        # end
         
+        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
         if ind % 2 == 1
-            if n - 1 < 1E-8
-                tmpReset = ITensor(ProjnUp_matrix, tmpS, tmpS')
+            if n - 1 < 1E-8             
+                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
+                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
             end
         else
             if n - 1 < 1E-8
-                tmpReset = ITensor(S⁺_matrix, tmpS, tmpS')
+                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(ProjnDn_matrix, tmpS, tmpS')
+                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
             end
         end
         m[ind] *= tmpReset

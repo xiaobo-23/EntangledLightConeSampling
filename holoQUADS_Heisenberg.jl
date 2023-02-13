@@ -5,7 +5,7 @@ using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
-using Base: product
+using Base: product, Float64
 using Random
  
 ITensors.disable_warn_order()
@@ -93,8 +93,17 @@ function sample(m::MPS, j::Int)
 end 
 
 
-function construct_corner_layer(starting_index :: Int, ending_index :: Int)
-    
+function construct_corner_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
+    gate = ITensor[]
+    for j in starting_index : ending_index
+            temp_s1 = temp_site[j]
+            temp_s2 = temp_site[j + 1]
+
+            temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) + 1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
+            temp_Gj = exp(-1.0im * Δτ / 2 * temp_hj)
+            push!(gates, temp_Gj)
+    end
+    return gates
 end
 
 

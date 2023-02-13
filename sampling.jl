@@ -25,7 +25,7 @@ function sample(m::MPS, j::Int)
     projnLower_Matrix = [0  0; 1  0]
     # @show projectionMatrix, sizeof(projectionMatrix)
     result = zeros(Int, 2)
-    A = m[j]
+    A = m[j]; @show typeof(siteinds(m))
     # @show A
     # @show m[j]
 
