@@ -127,10 +127,21 @@ end
 
 
 
+
 # Construct layers of two-site gates for the diagonal part of the holoQUADS circuit
-function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, Δτ :: Float64)
+function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
     gates = ITensor[]
-    
+    if starting_index - 1 < 1E-8
+        tmp_gate = long_range_gate(starting_index, ending_index, Δτ)
+        return tmp_gate
+    else
+        temp_s1 = temp_sites[starting_index]
+        temp_s2 = temp_sites[ending_index]
+        temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
+        temp_Gj = exp(-1.0im * Δτ * temp_hj)
+        push!(gates, temp_Gj)
+    end
+    return gates
 end
 
 
@@ -206,86 +217,44 @@ function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
 end
 
 
+# Compute the overlap between the time-evolved wavefunction and 
+function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
+    overlap = abs(inner(tmp_ψ₁, tmp_ψ₂))
+    println("")
+    println("")
+    @show overlap
+    println("")
+    println("")
+    return overlap
+end
+
 
 
 let 
-    N = 12
+    #####################################################################################################################################
+    ##### Define parameters that will be used in the simulation
+    N = 8; floquet_time = Float((N-2)//2); circuit_time = 2 * Int(floquet_time)
+    tau = 0.1                                               # time step used for Trotter decomposition
     cutoff = 1E-8
-    tau = 1.0
-    h = 0.2                                     # an integrability-breaking longitudinal field h 
-    
-    # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
-    circuit_time = 2 * Int(floquet_time)
     @show floquet_time, circuit_time
-    num_measurements = 2 
-
+    num_measurements = 1 
+    #####################################################################################################################################
     
-    function time_evolution(initialPosition :: Int, numSites :: Int, tmp_sites)
-        # General time evolution using TEBD
-        gates = ITensor[]
-        if initialPosition - 1 < 1E-8
-            tmpGate = long_range_gate(tmp_sites, numSites)
-            # push!(gates, tmpGate)
-            return tmpGate
-        else
-            # if initialPosition - 2 < 1E-8
-            #     coeff₁ = 1
-            #     coeff₂ = 2
-            # else
-            #     coeff₁ = 1
-            #     coeff₂ = 1
-            # end
-            s1 = tmp_sites[initialPosition]
-            s2 = tmp_sites[initialPosition - 1]
-            hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            Gj = exp(-1.0im * tau * hj)                   # Correcting the factor in the exponentiation
-            push!(gates, Gj)
-        end
-        return gates
-    end
-
-    # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
+    # Make an array of 'site' indices && quantum numbers are CONSERVED for the Heisenberg model
     s = siteinds("S=1/2", N; conserve_qns = false)
-
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = MPS(s, states)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
     
+    # Random.seed!(1234567)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ = randomMPS(s, states, linkdims = 2)
+    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
+    # Random.seed!(8000000)
 
-    # Construct a two-site kick gate to apply the transverse Ising fields at integer times
-    # Constructed for the diagonal parts of the holoQUADS circuit
-    function build_two_site_kick_gate(starting_index :: Int, period :: Int)
-        # Index arranged in decreasing order due to the speciifc structure of the diagonal parity
-        two_site_kick_gate = ITensor[]
-        
-        ending_index = (starting_index - 1 + period) % period
-        if ending_index == 0
-            ending_index = period
-        end
-        index_list = [starting_index, ending_index]
-
-        for index in index_list
-            s1 = s[index]
-            hamilt = π / 2 * op("Sx", s1)
-            tmpG = exp(-1.0im * hamilt)
-            push!(two_site_kick_gate, tmpG)
-        end
-        return two_site_kick_gate
-    end    
-
-    
-    # Check the overlap between time-evolved wavefunction and the original wavefunction
-    function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
-        overlap = abs(inner(tmp_ψ₁, tmp_ψ₂))
-        println("")
-        println("")
-        @show overlap
-        println("")
-        println("")
-        return overlap
-    end
-
-    '''
-        # Sample from the time-evolved wavefunction and store the measurements
-    '''
+    #####################################################################################################################################
+    # Sample from the time-evolved wavefunction and store the measurements
+    #####################################################################################################################################
     # timeSlices = Int(floquet_time / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
     # Sx = complex(zeros(timeSlices, N))
     # Sy = complex(zeros(timeSlices, N))
@@ -295,44 +264,22 @@ let
     # Sz = complex(zeros(num_measurements, N))
     Sz_sample = real(zeros(num_measurements, 2 * N))
 
-    '''
-        # Measure expectation values of the wavefunction during time evolution
-    '''
+    #####################################################################################################################################
+    # Sample from the time-evolved wavefunction and store the measurements
+    #####################################################################################################################################    
     Sx = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
 
-    # Initialize the wavefunction
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = MPS(s, states)
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # Random.seed!(10000)
-
-    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    # @show eltype(ψ), eltype(ψ[1])
+    ## Construct the holoQUADS circuit 
+    ## Consider to move this part outside the main function in the near future
     
-    # # Initializa a random MPS
-    # Random.seed!(200); 
-    # initialization_s = siteinds("S=1/2", 8; conserve_qns = false)
-    # initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : 8]
-    # initialization_ψ = randomMPS(initialization_s, initialization_states, linkdims = 2)
-    # ψ = initialization_ψ[1 : N]
-    # # @show maxlinkdim(ψ)
-
-    # Random.seed!(1234567)
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
-    # Random.seed!(8000000)
-
-
-    Random.seed!(12345678)
+    # Random.seed!(2000)
     for measure_ind in 1 : num_measurements
         println("")
         println("")
         println("############################################################################")
-        println("#########           PERFORMING MEASUREMENTS LOOP #$measure_ind           ##############")
+        println("#########          PERFORMING MEASUREMENTS LOOP #$measure_ind          ##############")
         println("############################################################################")
         println("")
         println("")
