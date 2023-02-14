@@ -111,20 +111,100 @@ end
 
 
 
-
-# Construct layers of two-site gates for the corner case
+# Construct layers of two-site gates for the corner part of the holoQAUDS circuit
 function construct_corner_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
-    gate = ITensor[]
+    gates = ITensor[]
     for j in starting_index : ending_index
         temp_s1 = temp_site[j]
         temp_s2 = temp_site[j + 1]
 
-        temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) + 1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
+        temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
         temp_Gj = exp(-1.0im * Δτ * temp_hj)
         push!(gates, temp_Gj)
     end
     return gates
 end
+
+
+
+# Construct layers of two-site gates for the diagonal part of the holoQUADS circuit
+function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, Δτ :: Float64)
+    gates = ITensor[]
+    
+end
+
+
+# 02/14/2023
+# Modify the long-range two-site gate: prefactor in the exponentiation
+function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
+    s1 = tmp_site[1]
+    s2 = tmp_site[position_index]
+    
+    # Define the two-site Hamiltonian and set up a long-range gate
+    hj = op("Sz", s1) * op("Sz", s2) + 1/2 * op("S+", s1) * op("S-", s2) + 1/2 * op("S-", s1) * op("S+", s2)
+    Gj = exp(-1.0im * Δτ * hj)
+
+    # Benchmark gate that employs swap operations
+    benchmarkGate = ITensor[]
+    push!(benchmarkGate, Gj)
+
+
+    U, S, V = svd(Gj, (tmp_site[1], tmp_site[1]'))
+    # @show norm(U*S*V - Gj)
+    # @show S
+    # @show U
+    # @show V
+
+    # Absorb the S matrix into the U matrix on the left
+    U = U * S
+    # @show U
+
+    # Make a vector to store the bond indices
+    bondIndices = Vector(undef, position_index - 1)
+
+    # Grab the bond indices of U and V matrices
+    if hastags(inds(U)[3], "Link,v") != true    # The original tag of this index of U matrix should be "Link,u".  But we absorbed S matrix into the U matrix.
+        error("SVD: fail to grab the bond indice of matrix U by its tag!")
+    else 
+        replacetags!(U, "Link,v", "i1")
+    end
+    # @show U
+    bondIndices[1] = inds(U)[3]
+
+    if hastags(inds(V)[3], "Link,v") != true
+        error("SVD: fail to grab the bond indice of matrix V by its tag!")
+    else
+        replacetags!(V, "Link,v", "i" * string(position_index))
+    end
+    # @show V
+    # @show position_index
+    bondIndices[position_index - 1] = inds(V)[3]
+    # @show (bondIndices[1], bondIndices[n - 1])
+
+    #####################################################################################################################################
+    # Construct the long-range two-site gate as an MPO
+    longrangeGate = MPO(position_index)
+    longrangeGate[1] = U
+
+    for ind in 2 : position_index - 1
+        # Set up site indices
+        if abs(ind - (position_index - 1)) > 1E-8
+            bondString = "i" * string(ind)
+            bondIndices[ind] = Index(4, bondString)
+        end
+
+        # Make the identity tensor
+        # @show s[ind], s[ind]'
+        tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
+        longrangeGate[ind] = tmpIdentity
+    end
+
+    # @show typeof(V), V
+    longrangeGate[position_index] = V
+    #####################################################################################################################################
+    return longrangeGate
+end
+
 
 
 
@@ -139,199 +219,6 @@ let
     circuit_time = 2 * Int(floquet_time)
     @show floquet_time, circuit_time
     num_measurements = 2 
-
-    # 01/27/2023
-    # Modify the long-range two-site gate: prefactor in the exponentiation
-    function long_range_gate(tmp_s, position_index::Int)
-        s1 = tmp_s[1]
-        s2 = tmp_s[position_index]
-        
-        # Use bulk coefficients to define this long-range gate
-        # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * tau * hj)
-        # @show hj
-        # @show Gj
-        # @show inds(Gj)
-
-        # Benchmark gate that employs swap operations
-        benchmarkGate = ITensor[]
-        push!(benchmarkGate, Gj)
-        
-        # for ind in 1 : n
-        #     @show s[ind], s[ind]'
-        # end
-
-        U, S, V = svd(Gj, (tmp_s[1], tmp_s[1]'))
-        # @show norm(U*S*V - Gj)
-        # @show S
-        # @show U
-        # @show V
-
-        # Absorb the S matrix into the U matrix on the left
-        U = U * S
-        # @show U
-
-        # Make a vector to store the bond indices
-        bondIndices = Vector(undef, position_index - 1)
-
-        # Grab the bond indices of U and V matrices
-        if hastags(inds(U)[3], "Link,v") != true           # The original tag of this index of U matrix should be "Link,u".  But we absorbed S matrix into the U matrix.
-            error("SVD: fail to grab the bond indice of matrix U by its tag!")
-        else 
-            replacetags!(U, "Link,v", "i1")
-        end
-        # @show U
-        bondIndices[1] = inds(U)[3]
-
-        if hastags(inds(V)[3], "Link,v") != true
-            error("SVD: fail to grab the bond indice of matrix V by its tag!")
-        else
-            replacetags!(V, "Link,v", "i" * string(position_index))
-        end
-        # @show V
-        # @show position_index
-        bondIndices[position_index - 1] = inds(V)[3]
-        # @show (bondIndices[1], bondIndices[n - 1])
-
-        #####################################################################################################################################
-        # Construct the long-range two-site gate as an MPO
-        longrangeGate = MPO(position_index)
-        longrangeGate[1] = U
-
-        for ind in 2 : position_index - 1
-            # Set up site indices
-            if abs(ind - (position_index - 1)) > 1E-8
-                bondString = "i" * string(ind)
-                bondIndices[ind] = Index(4, bondString)
-            end
-
-            # Make the identity tensor
-            # @show s[ind], s[ind]'
-            tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
-            longrangeGate[ind] = tmpIdentity
-
-            # @show sizeof(longrangeGate)
-            # @show longrangeGate
-        end
-
-        # @show typeof(V), V
-        longrangeGate[position_index] = V
-        # @show sizeof(longrangeGate)
-        # @show longrangeGate
-        # @show typeof(longrangeGate), typeof(benchmarkGate)
-        #####################################################################################################################################
-        return longrangeGate
-    end
-    
-    
-    ###############################################################################################################################
-    ## Constructing gates used in the TEBD algorithm
-    ###############################################################################################################################
-    # # Construct a two-site gate that implements Ising interaction and longitudinal field
-    # gates = ITensor[]
-    # for ind in 1:(N - 1)
-    #     s1 = s[ind]
-    #     s2 = s[ind + 1]
-
-    #     if (ind - 1 < 1E-8)
-    #         tmp1 = 2 
-    #         tmp2 = 1
-    #     elseif (abs(ind - (N - 1)) < 1E-8)
-    #         tmp1 = 1
-    #         tmp2 = 2
-    #     else
-    #         tmp1 = 1
-    #         tmp2 = 1
-    #     end
-
-    #     println("")
-    #     println("Coefficients are $(tmp1) and $(tmp2)")
-    #     println("Site index is $(ind) and the conditional sentence is $(ind - (N - 1))")
-    #     println("")
-
-    #     hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-    #     Gj = exp(-1.0im * tau / 2 * hj)
-    #     push!(gates, Gj)
-    # end
-    # # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
-    # append!(gates, reverse(gates))
-
-
-    # # Construct the transverse field as the kicked gate
-    # ampo = OpSum()
-    # for ind in 1 : N
-    #     ampo += π/2, "Sx", ind
-    # end
-    # Hₓ = MPO(ampo, s)
-    # Hamiltonianₓ = Hₓ[1]
-    # for ind in 2 : N
-    #     Hamiltonianₓ *= Hₓ[ind]
-    # end
-    # expHamiltoinianₓ = exp(-1.0im * Hamiltonianₓ)
-    
-
-    #################################################################################################################################################
-    # Construct the holographic quantum dynamics simulation (holoQUADS) circuit
-    #################################################################################################################################################
-    # Construct time evolution for one floquet time step
-    # function timeEvolutionCorner(numGates :: Int, numSites :: Int, tmp_gates)
-    #     # In the corner case, two-site gates are applied to site 1 --> site N
-    #     # gates = ITensor[]
-    #     if 2 * numGates >= numSites
-    #         error("the number of time evolution gates is larger than what can be accommodated based on the number of sites!")
-    #     end
-
-    #     for ind₁ in 1:2
-    #         for ind₂ in 1:numGates
-    #             parity = (ind₁ - 1) % 2
-    #             s1 = s[2 * ind₂ - parity]; @show inds(s1)
-    #             s2 = s[2 * ind₂ + 1 - parity]; @show inds(s2)
-
-    #             if 2 * ind₂ - parity - 1 < 1E-8
-    #                 coeff₁ = 2
-    #                 coeff₂ = 1
-    #             else
-    #                 coeff₁ = 1
-    #                 coeff₂ = 1
-    #             end
-
-    #             hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
-    #             Gj = exp(-1.0im * tau / 2 * hj)
-    #             push!(tmp_gates, Gj)
-    #         end
-    #     end
-    #     # return gates
-    # end
-
-
-    # Construct time evolution for one floquet time step
-    function time_evolution_corner(num_gates :: Int, parity :: Int)
-        # Time evolution using TEBD for the corner case
-        gates = ITensor[]
-
-        for ind₁ in 1 : num_gates
-            s1 = s[2 * ind₁ - parity]
-            s2 = s[2 * ind₁ + 1 - parity]
-            @show inds(s1)
-            @show inds(s2)
-
-            if 2 * ind₁ - parity - 1 < 1E-8
-                coeff₁ = 2
-                coeff₂ = 1
-            else
-                coeff₁ = 1
-                coeff₂ = 1
-            end
-
-            # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            # Gj = exp(-1.0im * tau / 2 * hj)
-            hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            Gj = exp(-1.0im * tau * hj)
-            push!(gates, Gj)
-        end
-        return gates
-    end
 
     
     function time_evolution(initialPosition :: Int, numSites :: Int, tmp_sites)
@@ -351,8 +238,6 @@ let
             # end
             s1 = tmp_sites[initialPosition]
             s2 = tmp_sites[initialPosition - 1]
-            # hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
-            # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
             hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau * hj)                   # Correcting the factor in the exponentiation
             push!(gates, Gj)
@@ -363,27 +248,7 @@ let
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
 
-    # # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
-    # kick_gate = ITensor[]
-    # for ind in 1 : N
-    #     s1 = s[ind]
-    #     hamilt = π / 2 * op("Sx", s1)
-    #     tmpG = exp(-1.0im * hamilt)
-    #     push!(kick_gate, tmpG)
-    # end
     
-    # Construct a multi-site kicked gate to apply the transverse Ising fields at integer times
-    # Constructed for the corner part of the holoQAUDS circuit
-    function build_kick_gates(starting_index :: Int, ending_index :: Int)
-        kick_gate = ITensor[]
-        for ind in starting_index : ending_index
-            s1 = s[ind]; @show ind
-            hamilt = π / 2 * op("Sx", s1)
-            tmpG = exp(-1.0im * hamilt)
-            push!(kick_gate, tmpG)
-        end
-        return kick_gate
-    end
 
     # Construct a two-site kick gate to apply the transverse Ising fields at integer times
     # Constructed for the diagonal parts of the holoQUADS circuit
