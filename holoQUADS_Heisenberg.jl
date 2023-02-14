@@ -21,15 +21,34 @@ function sample(m::MPS, j::Int)
     if orthocenter(m) != j
         error("sample: MPS m must have orthocenter(m) == 1")
     end
+    
     # Check the normalization of the MPS
     if abs(1.0 - norm(m[j])) > 1E-8
         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
     end
+ 
+    '''
+        # Take measurements of two-site MPS and reset the MPS to its initial state
+    '''
+    projn_up_matrix = [
+        1  0 
+        0  0
+    ]
+    
+    S⁻_matrix = [
+        0  0 
+        1  0
+    ]
 
-    # Take measurements and reset the two-site MPS to |up, down> Neel state
-    # Need to be modified based on the initialization of MPS
-    projn_up_matrix = [1  0; 0  0]; lower_up_matrix = [0  0; 1  0]
-    projn_dn_matrix = [0  0; 0  1]; raise_dn_matrix = [0  1; 0  0]
+    projn_dn_matrix = [
+        0  0 
+        0  1
+    ] 
+    
+    S⁺_matrix = [
+        0  1 
+        0  0
+    ]
     
     result = zeros(Int, 2)
     A = m[j]
@@ -62,21 +81,18 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        '''
-            # Reset the MPS to its initial state for the purpose of reuse
-        '''
-
+        # Resetting procedure
         if ind % 2 == 1
             if n == 1
-                tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
+                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(raise_dn_matrix, tmpS, tmpS')
+                tmpReset = ITensor(raise_dn_matrix, tmpS', tmpS)
             end
         else
             if n == 1
-                tmpReset = ITensor(lower_up_matrix, tmpS, tmpS')
+                tmpReset = ITensor(lower_up_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
+                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
             end
         end
         
@@ -93,15 +109,19 @@ function sample(m::MPS, j::Int)
 end 
 
 
+
+
+
+# Construct layers of two-site gates for the corner case
 function construct_corner_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
     gate = ITensor[]
     for j in starting_index : ending_index
-            temp_s1 = temp_site[j]
-            temp_s2 = temp_site[j + 1]
+        temp_s1 = temp_site[j]
+        temp_s2 = temp_site[j + 1]
 
-            temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) + 1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
-            temp_Gj = exp(-1.0im * Δτ / 2 * temp_hj)
-            push!(gates, temp_Gj)
+        temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) + 1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
+        temp_Gj = exp(-1.0im * Δτ * temp_hj)
+        push!(gates, temp_Gj)
     end
     return gates
 end
