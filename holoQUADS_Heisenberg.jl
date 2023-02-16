@@ -115,8 +115,8 @@ end
 function construct_corner_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
     gates = ITensor[]
     for j in starting_index : 2 : ending_index
-        temp_s1 = temp_site[j]
-        temp_s2 = temp_site[j + 1]
+        temp_s1 = temp_sites[j]
+        temp_s2 = temp_sites[j + 1]
 
         temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
         temp_Gj = exp(-1.0im * Δτ * temp_hj)
@@ -293,18 +293,45 @@ let
         println("The overlap of wavefuctions @T=0 is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
 
-
         
-        @time for ind in 1 : circuit_time
-            number_of_gates = div(N - 2, 2) - div(ind - 1, 2)
-            tmp_start = isodd(ind) ? 2 : 1
-            # if ind % 2 == 1
-            #     tmp_start = 2
-            # else
-            #     tmp_start = 1
-            # end
-            tmp_end = tmp_start + 2 * number_of_gates
-            @show tmp_start, tmp_end, number_of_gates
+        @time for ind₁ in 1 : Int(floquet_time)
+            number_of_gates = div(N, 2) - ind₁
+            # corner_gates = []
+            for ind₂ in 1 : steps_in_unit_time
+                tmp_starting_index = 2
+                tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
+                corner_gates = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                # println("")
+                # println("")
+                # @show abs(inner(ψ, ψ_copy))
+                # println("")
+                # println("")
+                ψ_copy = apply(corner_gates, ψ_copy; cutoff)
+                # println("")
+                # println("")
+                # @show abs(inner(ψ, ψ_copy))
+                # println("")
+                # println("")
+
+                temp_starting_index = 1
+                tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
+                corner_gates = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                # println("")
+                # println("")
+                # @show abs(inner(ψ, ψ_copy))
+                # println("")
+                # println("")
+                ψ_copy = apply(corner_gates, ψ_copy; cutoff)
+                # println("")
+                # println("")
+                # @show abs(inner(ψ,ψ_copy))
+                # println("")
+                # println("")
+            end
+
+            # tmp_start = isodd(ind) ? 2 : 1 
+            # tmp_end = tmp_start + 2 * number_of_gates - 1
+            # @show tmp_start, tmp_end, number_of_gates
 
             # # Apply a sequence of two-site gates
             # tmp_parity = (ind - 1) % 2
