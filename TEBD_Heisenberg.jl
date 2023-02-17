@@ -3,10 +3,10 @@ using ITensors
 using ITensors.HDF5
 
 let 
-    N = 8
+    N = 100
     cutoff = 1E-8
     tau = 0.1
-    ttotal = 10.0
+    ttotal = 5.0
 
     # Make an array of 'site' indices
     s = siteinds("S=1/2", N; conserve_qns = true)

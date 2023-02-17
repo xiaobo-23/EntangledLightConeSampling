@@ -115,6 +115,7 @@ end
 function construct_corner_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
     gates = ITensor[]
     for j in starting_index : 2 : ending_index
+        @show starting_index, j, j + 1
         temp_s1 = temp_sites[j]
         temp_s2 = temp_sites[j + 1]
 
@@ -234,8 +235,8 @@ let
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
     N = 8; floquet_time = convert(Float64, (N - 2) // 2); circuit_time = 2 * Int(floquet_time)
-    N_half_infinite = 2 * N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
-    tau = 0.1                                                                                  # time step used for Trotter decomposition
+    N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
+    tau = 0.01                                                                                  # time step used for Trotter decomposition
     steps_in_unit_time = Int(1.0 / tau); @show steps_in_unit_time
     cutoff = 1E-8
     @show floquet_time, circuit_time
@@ -269,9 +270,9 @@ let
     #####################################################################################################################################
     # Sample from the time-evolved wavefunction and store the measurements
     #####################################################################################################################################    
-    Sx = complex(zeros(Int(floquet_time) * div(N, 2), N))
-    Sy = complex(zeros(Int(floquet_time) * div(N, 2), N))
-    Sz = complex(zeros(Int(floquet_time) * div(N, 2), N))
+    Sx = complex(zeros(Int(floquet_time) * div(N_half_infinite, 2), N))
+    Sy = complex(zeros(Int(floquet_time) * div(N_half_infinite, 2), N))
+    Sz = complex(zeros(Int(floquet_time) * div(N_half_infinite, 2), N))
 
     # ## Construct the holoQUADS circuit 
     # ## Consider to move this part outside the main function in the near future
@@ -301,28 +302,28 @@ let
             for ind₂ in 1 : steps_in_unit_time
                 tmp_starting_index = 2
                 tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-                corner_gates = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                corner_gates_even = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
                 # println("")
                 # println("")
                 # @show abs(inner(ψ, ψ_copy))
                 # println("")
                 # println("")
-                ψ_copy = apply(corner_gates, ψ_copy; cutoff)
+                ψ_copy = apply(corner_gates_even, ψ_copy; cutoff)
                 # println("")
                 # println("")
                 # @show abs(inner(ψ, ψ_copy))
                 # println("")
                 # println("")
 
-                temp_starting_index = 1
+                tmp_starting_index = 1
                 tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-                corner_gates = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                corner_gates_odd = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
                 # println("")
                 # println("")
                 # @show abs(inner(ψ, ψ_copy))
                 # println("")
                 # println("")
-                ψ_copy = apply(corner_gates, ψ_copy; cutoff)
+                ψ_copy = apply(corner_gates_odd, ψ_copy; cutoff)
                 # println("")
                 # println("")
                 # @show abs(inner(ψ,ψ_copy))
@@ -330,14 +331,19 @@ let
                 # println("")
             end
             normalize!(ψ_copy)
+            if measure_ind - 1 < 1E-8
+                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                Sz[ind₁, :] = tmp_Sz
+                @show ind₁, tmp_Sz
+            end
         end
-        compute_overlap(ψ, ψ_copy)
-        tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-        @show tmp_Sz
+        # compute_overlap(ψ, ψ_copy)
+        # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+        # @show tmp_Sz
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        compute_overlap(ψ, ψ_copy)
-        tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-        @show tmp_Sz
+        # compute_overlap(ψ, ψ_copy)
+        # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+        # @show tmp_Sz
 
 
         @time for ind₁ in 1 : N_diagonal_circuit
@@ -381,52 +387,17 @@ let
                     ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
                 end
                 normalize!(ψ_copy)
-                println("")
-                @show expect(ψ_copy, "Sz"; sites = 1 : N)
+                if measure_ind - 1 < 1E-8
+                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                    Sz[Int(floquet_time) * ind₁ + ind₂, :] = tmp_Sz
+                    println(""); @show tmp_Sz
+                end
+                # println("")
+                # @show expect(ψ_copy, "Sz"; sites = 1 : N)
                 Sz_sample[measure_ind, 2 * ind₂ + 1 : 2 * ind₂ + 2] = sample(ψ_copy, 2 * ind₂ + 1)
-                @show expect(ψ_copy, "Sz"; sites = 1 : N)
-                println("")
+                # @show expect(ψ_copy, "Sz"; sites = 1 : N)
+                # println("")
             end
-
-            # for ind₂ in 1 : circuit_time
-            #     # Apply the kicked gate at integer time
-            #     if ind₂ % 2 == 1
-            #         tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
-            #         ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
-            #         normalize!(ψ_copy)
-            #     end
-
-            #     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-            #     tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
-            #     ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-            #     normalize!(ψ_copy)
-            #     # println("")
-            #     # println("")
-            #     # @show tmp_two_site_gates 
-            #     # @show typeof(tmp_two_site_gates)
-            #     # println("")
-            #     # println("")
-
-            #     if measure_ind == 0 && ind₂ % 2 == 0
-            #         Sx[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-            #         Sy[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-            #         Sz[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sz"; sites = 1 : N);
-            #         @show Int(ind₂/2) + Int(floquet_time) * ind₁
-            #         # @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
-            #     end
-            # end
-            # index_to_sample = (2 * ind₁ + 1) % N
-            # println("############################################################################")
-            # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            # @show index_to_sample
-            # @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            # println("****************************************************************************")
-            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
-            # # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-            # println("############################################################################")
-            # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            # @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            # println("****************************************************************************")
         end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
@@ -439,18 +410,18 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # # # Store data in hdf5 file
-    # # file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_Sample_AFM_v1.h5", "w")
-    # # write(file, "Initial Sz", Sz₀)
-    # # write(file, "Sx", Sx)
-    # # write(file, "Sy", Sy)
-    # # write(file, "Sz", Sz)
-    # # # write(file, "Cxx", Cxx)
-    # # # write(file, "Cyy", Cyy)
-    # # # write(file, "Czz", Czz)
-    # # write(file, "Sz_sample", Sz_sample)
-    # # # write(file, "Wavefunction Overlap", ψ_overlap)
-    # # close(file)
+    # Store data in hdf5 file
+    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_AFM_Initialization.h5", "w")
+    write(file, "Initial Sz", Sz₀)
+    # write(file, "Sx", Sx)
+    # write(file, "Sy", Sy)
+    write(file, "Sz", Sz)
+    # write(file, "Cxx", Cxx)
+    # write(file, "Cyy", Cyy)
+    # write(file, "Czz", Czz)
+    write(file, "Sz_sample", Sz_sample)
+    # write(file, "Wavefunction Overlap", ψ_overlap)
+    close(file)
 
     return
 end  
