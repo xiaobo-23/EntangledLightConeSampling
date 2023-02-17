@@ -234,9 +234,10 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 3.0
-    tau = 0.1                                                                      # time step used for Trotter decomposition
-    N = Int(floquet_time / tau) * 2 + 2
+    floquet_time = 3.0; circuit_time = 2 * Int(floquet_time)
+    tau = 0.1                                                                                 # time step used for Trotter decomposition
+    N_time_slice = Int(floquet_time / tau) * 2
+    N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
     steps_in_unit_time = Int(1.0 / tau); @show steps_in_unit_time
     cutoff = 1E-8
@@ -271,9 +272,9 @@ let
     #####################################################################################################################################
     # Sample from the time-evolved wavefunction and store the measurements
     #####################################################################################################################################    
-    Sx = complex(zeros(Int(floquet_time) * div(N_half_infinite, 2), N))
-    Sy = complex(zeros(Int(floquet_time) * div(N_half_infinite, 2), N))
-    Sz = complex(zeros(Int(floquet_time) * div(N_half_infinite, 2), N))
+    Sx = complex(zeros(div(N_half_infinite, 2), N))
+    Sy = complex(zeros(div(N_half_infinite, 2), N))
+    Sz = complex(zeros(div(N_half_infinite, 2), N))
 
     # ## Construct the holoQUADS circuit 
     # ## Consider to move this part outside the main function in the near future
@@ -297,59 +298,32 @@ let
         append!(ψ_overlap, tmp_overlap)
 
         
-        @time for ind₁ in 1 : Int(floquet_time)
-            number_of_gates = div(N, 2) - ind₁
-            # corner_gates = []
-            for ind₂ in 1 : steps_in_unit_time
-                tmp_starting_index = 2
-                tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-                corner_gates_even = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
-                # println("")
-                # println("")
-                # @show abs(inner(ψ, ψ_copy))
-                # println("")
-                # println("")
-                ψ_copy = apply(corner_gates_even, ψ_copy; cutoff)
-                # println("")
-                # println("")
-                # @show abs(inner(ψ, ψ_copy))
-                # println("")
-                # println("")
+        @time for ind₁ in 1 : div(N_time_slice, 2)
+            number_of_gates = div(N, 2) - ind₁; @show number_of_gates
 
-                tmp_starting_index = 1
-                tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-                corner_gates_odd = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
-                # println("")
-                # println("")
-                # @show abs(inner(ψ, ψ_copy))
-                # println("")
-                # println("")
-                ψ_copy = apply(corner_gates_odd, ψ_copy; cutoff)
-                # println("")
-                # println("")
-                # @show abs(inner(ψ,ψ_copy))
-                # println("")
-                # println("")
-            end
-            normalize!(ψ_copy)
-            if measure_ind - 1 < 1E-8
-                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-                Sz[ind₁, :] = tmp_Sz
-                @show ind₁, tmp_Sz
-            end
+            tmp_starting_index = 2
+            tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
+            corner_gates_even = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+            ψ_copy = apply(corner_gates_even, ψ_copy; cutoff)
+
+            tmp_starting_index = 1
+            tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
+            corner_gates_odd = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+            ψ_copy = apply(corner_gates_odd, ψ_copy; cutoff) 
+
+            normalize!(ψ_copy) 
         end
-        # compute_overlap(ψ, ψ_copy)
-        # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-        # @show tmp_Sz
-        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        # compute_overlap(ψ, ψ_copy)
-        # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-        # @show tmp_Sz
 
+        if measure_ind - 1 < 1E-8
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            Sz[1, :] = tmp_Sz
+        end
+        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        
 
         @time for ind₁ in 1 : N_diagonal_circuit
             gate_seeds = []
-            for gate_ind in 1 : circuit_time
+            for gate_ind in 1 : N_time_slice
                 tmp_ind = (2 * ind₁ - gate_ind + N) % N
                 if tmp_ind == 0
                     tmp_ind = N
@@ -365,40 +339,35 @@ let
             println("")
 
 
-            for ind₂ in 1 : Int(floquet_time)
-                for ind₃ in 1 : steps_in_unit_time
-                    if gate_seeds[2 * ind₂ - 1] - 1 < 1E-8
-                        tmp_ending_index = N
-                    else
-                        tmp_ending_index = gate_seeds[2 * ind₂ - 1] - 1
-                    end
-
-                    diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂ - 1], tmp_ending_index, s, tau)
-                    compute_overlap(ψ, ψ_copy)
-                    ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
-                    compute_overlap(ψ, ψ_copy)
-
-                    if gate_seeds[2 * ind₂] - 1 < 1E-8
-                        tmp_ending_index = N
-                    else
-                        tmp_ending_index = gate_seeds[2 * ind₂] - 1
-                    end
-
-                    diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂], tmp_ending_index, s, tau)
-                    ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
+            for ind₂ in 1 : div(N_time_slice, 2)
+                if gate_seeds[2 * ind₂ - 1] - 1 < 1E-8
+                    tmp_ending_index = N
+                else
+                    tmp_ending_index = gate_seeds[2 * ind₂ - 1] - 1
                 end
+
+                diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂ - 1], tmp_ending_index, s, tau)
+                compute_overlap(ψ, ψ_copy)
+                ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
+                compute_overlap(ψ, ψ_copy)
+
+                if gate_seeds[2 * ind₂] - 1 < 1E-8
+                    tmp_ending_index = N
+                else
+                    tmp_ending_index = gate_seeds[2 * ind₂] - 1
+                end
+
+                diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂], tmp_ending_index, s, tau)
+                ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
                 normalize!(ψ_copy)
-                if measure_ind - 1 < 1E-8
-                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-                    Sz[Int(floquet_time) * ind₁ + ind₂, :] = tmp_Sz
-                    println(""); @show tmp_Sz
-                end
-                # println("")
-                # @show expect(ψ_copy, "Sz"; sites = 1 : N)
-                Sz_sample[measure_ind, 2 * ind₂ + 1 : 2 * ind₂ + 2] = sample(ψ_copy, 2 * ind₂ + 1)
-                # @show expect(ψ_copy, "Sz"; sites = 1 : N)
-                # println("")
             end
+
+            if measure_ind - 1 < 1E-8
+                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                Sz[ind₁ + 1, :] = tmp_Sz
+                println(""); @show tmp_Sz
+            end
+            Sz_sample[measure_ind, 2 * ind₂ + 1 : 2 * ind₂ + 2] = sample(ψ_copy, 2 * ind₂ + 1)
         end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
