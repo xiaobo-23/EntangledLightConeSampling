@@ -86,11 +86,11 @@ function sample(m::MPS, j::Int)
             if n == 1
                 tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(raise_dn_matrix, tmpS', tmpS)
+                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
             end
         else
             if n == 1
-                tmpReset = ITensor(lower_up_matrix, tmpS', tmpS)
+                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
             else
                 tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
             end
@@ -132,7 +132,8 @@ end
 function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
     gates = ITensor[]
     if starting_index - 1 < 1E-8
-        tmp_gate = long_range_gate(starting_index, ending_index, Δτ)
+        @show starting_index, ending_index
+        tmp_gate = long_range_gate(temp_sites, ending_index, Δτ)
         return tmp_gate
     else
         temp_s1 = temp_sites[starting_index]
@@ -158,7 +159,6 @@ function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
     # Benchmark gate that employs swap operations
     benchmarkGate = ITensor[]
     push!(benchmarkGate, Gj)
-
 
     U, S, V = svd(Gj, (tmp_site[1], tmp_site[1]'))
     # @show norm(U*S*V - Gj)
@@ -206,7 +206,7 @@ function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
 
         # Make the identity tensor
         # @show s[ind], s[ind]'
-        tmpIdentity = delta(s[ind], s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
+        tmpIdentity = delta(tmp_site[ind], tmp_site[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
         longrangeGate[ind] = tmpIdentity
     end
 
@@ -377,7 +377,7 @@ let
                         tmp_ending_index = gate_seeds[2 * ind₂] - 1
                     end
 
-                    diagonal_gate = construct_diagonal_layer(gate_seed[2 * ind₂], tmp_ending_index, s, tau)
+                    diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂], tmp_ending_index, s, tau)
                     ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
                 end
                 normalize!(ψ_copy)
@@ -429,15 +429,15 @@ let
             # println("****************************************************************************")
         end
     end
-    # replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
+    replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
      
 
-    # println("################################################################################")
-    # println("################################################################################")
-    # println("Projection in the Sz basis of the initial MPS")
-    # @show Sz₀
-    # println("################################################################################")
-    # println("################################################################################")
+    println("################################################################################")
+    println("################################################################################")
+    println("Projection in the Sz basis of the initial MPS")
+    @show Sz₀
+    println("################################################################################")
+    println("################################################################################")
     
     # # # Store data in hdf5 file
     # # file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_Rotations_Only_Sample_AFM_v1.h5", "w")
