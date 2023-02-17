@@ -239,7 +239,7 @@ let
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
-    steps_in_unit_time = Int(1.0 / tau); @show steps_in_unit_time
+    # steps_in_unit_time = Int(1.0 / tau); @show steps_in_unit_time
     cutoff = 1E-8
     @show floquet_time, circuit_time
     @show typeof(floquet_time), typeof(circuit_time)
@@ -310,9 +310,8 @@ let
             tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
             corner_gates_odd = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
             ψ_copy = apply(corner_gates_odd, ψ_copy; cutoff) 
-
-            normalize!(ψ_copy) 
         end
+        normalize!(ψ_copy) 
 
         if measure_ind - 1 < 1E-8
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
@@ -359,8 +358,8 @@ let
 
                 diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂], tmp_ending_index, s, tau)
                 ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
-                normalize!(ψ_copy)
             end
+            normalize!(ψ_copy)
 
             if measure_ind - 1 < 1E-8
                 tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
