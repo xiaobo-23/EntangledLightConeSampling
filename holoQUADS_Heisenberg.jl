@@ -367,7 +367,7 @@ let
                 Sz[ind₁ + 1, :] = tmp_Sz
                 println(""); @show tmp_Sz
             end
-            Sz_sample[measure_ind, 2 * ind₂ + 1 : 2 * ind₂ + 2] = sample(ψ_copy, 2 * ind₂ + 1)
+            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
         end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
