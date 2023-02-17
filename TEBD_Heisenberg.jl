@@ -1,12 +1,12 @@
 ## Implement time evolution block decimation (TEBD) for the one-dimensional Heisenberg model
-## Preparation for the implementation of TEBD for the self-dula kicked Ising (SDKI) model
 using ITensors
+using ITensors.HDF5
 
 let 
-    N = 100
+    N = 8
     cutoff = 1E-8
     tau = 0.1
-    ttotal = 5.0
+    ttotal = 10.0
 
     # Make an array of 'site' indices
     s = siteinds("S=1/2", N; conserve_qns = true)
@@ -27,19 +27,47 @@ let
     append!(gates, reverse(gates))
 
     # Initialize the wavefunction
-    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ₀ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    ψ = deepcopy(ψ₀)
 
-    central_site = div(N, 2)
-
-    # Compute <Sz> at each time step and apply the gates to go to the next step
+    # Take and store the local measurements
+    number_of_measurements = Int(ttotal / tau) + 1
+    Sx = complex(zeros(number_of_measurements, N))
+    Sy = complex(zeros(number_of_measurements, N))
+    Sz = complex(zeros(number_of_measurements, N))
+    Overlap = complex(zeros(number_of_measurements))
+    # Using TEBD to evolve the wavefunction in real time && taking measurements of local observables
+    
+    index = 1
     @time for time in 0.0:tau:ttotal
-        Sz = expect(ψ, "Sz", site = central_site)
-        println("At time step $time, Sz is $Sz")
+        # tmp_Sx = expect(ψ, "Sx", sites = 1 : N)
+        # Sx[index, :] = tmp_Sx
+        # tmp_Sy = epxect(ψ, "Sy", sites = 1 : N)
+        # Sy[index, :] = tmp_Sy
+        tmp_Sz = expect(ψ, "Sz", sites = 1 : N)
+        Sz[index, :] = tmp_Sz
+
+        tmp_overlap = abs(inner(ψ, ψ₀))
+        Overlap[index] = tmp_overlap
+        index += 1
+
+        println("")
+        println("At time step $time, Sz is $tmp_Sz")
+        @show tmp_overlap
+        println("")
 
         time ≈ ttotal && break
+        @show time
         ψ = apply(gates, ψ; cutoff)
         normalize!(ψ)
     end
+
+    file = h5open("Data/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(tau)_AFM_Initialization.h5", "w")
+    # write(file, "Sx", Sx)
+    # write(file, "Sy", Sy)
+    write(file, "Sz", Sz)
+    write(file, "Overlap", Overlap)
+    close(file)
 
     return
 end 
