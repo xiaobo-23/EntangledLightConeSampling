@@ -234,15 +234,13 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 3.0; circuit_time = 2 * Int(floquet_time)
+    floquet_time = 2.0
     tau = 0.1                                                                                 # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
-    # steps_in_unit_time = Int(1.0 / tau); @show steps_in_unit_time
     cutoff = 1E-8
-    @show floquet_time, circuit_time
-    @show typeof(floquet_time), typeof(circuit_time)
+    @show floquet_time, typeof(floquet_time)
     num_measurements = 1 
     #####################################################################################################################################
     
@@ -299,7 +297,7 @@ let
 
         
         @time for ind₁ in 1 : div(N_time_slice, 2)
-            number_of_gates = div(N, 2) - ind₁; @show number_of_gates
+            number_of_gates = div(N_time_slice, 2) - (ind₁ - 1); @show number_of_gates
 
             tmp_starting_index = 2
             tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
