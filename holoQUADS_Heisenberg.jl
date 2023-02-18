@@ -234,7 +234,7 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 2.0
+    floquet_time = 3.0
     tau = 0.1                                                                                 # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
@@ -315,7 +315,8 @@ let
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
             Sz[1, :] = tmp_Sz
         end
-        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        # Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        # normalize!(ψ_copy)
         
 
         @time for ind₁ in 1 : N_diagonal_circuit
@@ -343,9 +344,9 @@ let
                     tmp_ending_index = gate_seeds[2 * ind₂ - 1] - 1
                 end
 
-                diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂ - 1], tmp_ending_index, s, tau)
+                diagonal_gate₁ = construct_diagonal_layer(gate_seeds[2 * ind₂ - 1], tmp_ending_index, s, tau)
                 compute_overlap(ψ, ψ_copy)
-                ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
+                ψ_copy = apply(diagonal_gate₁, ψ_copy; cutoff)
                 compute_overlap(ψ, ψ_copy)
 
                 if gate_seeds[2 * ind₂] - 1 < 1E-8
@@ -354,8 +355,8 @@ let
                     tmp_ending_index = gate_seeds[2 * ind₂] - 1
                 end
 
-                diagonal_gate = construct_diagonal_layer(gate_seeds[2 * ind₂], tmp_ending_index, s, tau)
-                ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
+                diagonal_gate₂ = construct_diagonal_layer(gate_seeds[2 * ind₂], tmp_ending_index, s, tau)
+                ψ_copy = apply(diagonal_gate₂, ψ_copy; cutoff)
             end
             normalize!(ψ_copy)
 
@@ -364,7 +365,8 @@ let
                 Sz[ind₁ + 1, :] = tmp_Sz
                 println(""); @show tmp_Sz
             end
-            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            # normalize!(ψ_copy)
         end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
