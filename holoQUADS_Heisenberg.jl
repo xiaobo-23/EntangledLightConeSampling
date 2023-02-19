@@ -234,8 +234,8 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 3.0
-    tau = 0.1                                                                                 # time step used for Trotter decomposition
+    floquet_time = 1.0
+    tau = 0.1                                                                              # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
