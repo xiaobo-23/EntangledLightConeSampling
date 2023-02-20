@@ -83,20 +83,6 @@ function sample(m::MPS, j::Int)
             # Comment: the reset procedure needs to be revised 
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
-        # if ind % 2 == 1
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(projn_up_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(S⁻_matrix, tmpS, tmpS')
-        #     end
-        # else
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(S⁺_matrix, tmpS, tmpS')
-        #     else
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS, tmpS')
-        #     end
-        # end
-
         
         # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
         if ind % 2 == 1

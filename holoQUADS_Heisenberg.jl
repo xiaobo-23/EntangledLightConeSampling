@@ -83,13 +83,13 @@ function sample(m::MPS, j::Int)
 
         # Resetting procedure
         if ind % 2 == 1
-            if n == 1
+            if n - 1 < 1E-8
                 tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
             else
                 tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
             end
         else
-            if n == 1
+            if n - 1 < 1E-8
                 tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
             else
                 tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
@@ -100,15 +100,8 @@ function sample(m::MPS, j::Int)
         noprime!(m[ind])
         # @show m[ind]
     end
-    # println("")
-    # println("")
-    # println("Measure sites $j and $(j+1)!")
-    # println("")
-    # println("")
     return result
 end 
-
-
 
 
 # Construct layers of two-site gates for the corner part of the holoQAUDS circuit
@@ -125,8 +118,6 @@ function construct_corner_layer(starting_index :: Int, ending_index :: Int, temp
     end
     return gates
 end
-
-
 
 
 # Construct layers of two-site gates for the diagonal part of the holoQUADS circuit
@@ -234,8 +225,8 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 1.0
-    tau = 0.1                                                                              # time step used for Trotter decomposition
+    floquet_time = 1.5
+    tau = 0.1                                                                                  # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
@@ -312,10 +303,16 @@ let
         normalize!(ψ_copy) 
 
         if measure_ind - 1 < 1E-8
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            tmp_Sz = expect(ψ_copy, "Sz", sites = 1 : N)
             Sz[1, :] = tmp_Sz
         end
-        # Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        println("")
+        @show expect(ψ_copy, "Sz", sites = 1 : N)
+        println("")
+        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        println("")
+        @show expect(ψ_copy, "Sz", sites = 1 : N)
+        println("")
         # normalize!(ψ_copy)
         
 
@@ -365,7 +362,13 @@ let
                 Sz[ind₁ + 1, :] = tmp_Sz
                 println(""); @show tmp_Sz
             end
-            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            println("")
+            @show expect(ψ_copy, "Sz", sites = 1 : N)
+            println("")
+            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            println("")
+            @show expect(ψ_copy, "Sz", sites = 1 : N)
+            println("")
             # normalize!(ψ_copy)
         end
     end
@@ -380,7 +383,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_tau$(tau)_AFM_Initialization.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_tau$(tau)_AFM_Initialization_Sample.h5", "w")
     write(file, "Initial Sz", Sz₀)
     # write(file, "Sx", Sx)
     # write(file, "Sy", Sy)
