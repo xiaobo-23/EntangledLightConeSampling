@@ -12,6 +12,98 @@ ITensors.disable_warn_order()
 
 
 
+# # Sample and reset one two-site MPS
+# function sample(m::MPS, j::Int)
+#     mpsLength = length(m)
+
+#     # Move the orthogonality center of the MPS to site j
+#     orthogonalize!(m, j)
+#     if orthocenter(m) != j
+#         error("sample: MPS m must have orthocenter(m) == 1")
+#     end
+    
+#     # Check the normalization of the MPS
+#     if abs(1.0 - norm(m[j])) > 1E-8
+#         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
+#     end
+ 
+#     '''
+#         # Take measurements of two-site MPS and reset the MPS to its initial state
+#     '''
+#     projn_up_matrix = [
+#         1  0 
+#         0  0
+#     ]
+    
+#     S⁻_matrix = [
+#         0  0 
+#         1  0
+#     ]
+
+#     projn_dn_matrix = [
+#         0  0 
+#         0  1
+#     ] 
+    
+#     S⁺_matrix = [
+#         0  1 
+#         0  0
+#     ]
+    
+#     result = zeros(Int, 2)
+#     A = m[j]
+#     for ind in j:j+1
+#         tmpS = siteind(m, ind)
+#         d = dim(tmpS)
+#         pdisc = 0.0
+#         r = rand()
+
+#         n = 1 
+#         An = ITensor()
+#         pn = 0.0
+
+#         while n <= d
+#             projn = ITensor(tmpS)
+#             projn[tmpS => n] = 1.0
+#             An = A * dag(projn)
+#             pn = real(scalar(dag(An) * An))
+#             pdisc += pn
+
+#             (r < pdisc) && break
+#             n += 1
+#         end
+#         result[ind - j + 1] = n
+#         # @show result[ind - j + 1]
+#         # @show An
+
+#         if ind < mpsLength
+#             A = m[ind + 1] * An
+#             A *= (1. / sqrt(pn))
+#         end
+
+#         # Resetting procedure
+#         if ind % 2 == 1
+#             if n - 1 < 1E-8
+#                 tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+#             else
+#                 tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+#             end
+#         else
+#             if n - 1 < 1E-8
+#                 tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+#             else
+#                 tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+#             end
+#         end
+        
+#         m[ind] *= tmpReset
+#         noprime!(m[ind])
+#         # @show m[ind]
+#     end
+#     return result
+# end 
+
+
 # Sample and reset one two-site MPS
 function sample(m::MPS, j::Int)
     mpsLength = length(m)
@@ -21,30 +113,25 @@ function sample(m::MPS, j::Int)
     if orthocenter(m) != j
         error("sample: MPS m must have orthocenter(m) == 1")
     end
-    
     # Check the normalization of the MPS
     if abs(1.0 - norm(m[j])) > 1E-8
         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
     end
- 
-    '''
-        # Take measurements of two-site MPS and reset the MPS to its initial state
-    '''
+
+    # Take measurements and reset the two-site MPS to |up, down> Neel state
+    # Need to be modified based on the initialization of MPS
     projn_up_matrix = [
         1  0 
         0  0
-    ]
-    
+    ] 
     S⁻_matrix = [
-        0  0 
+        0  0
         1  0
     ]
-
     projn_dn_matrix = [
         0  0 
         0  1
     ] 
-    
     S⁺_matrix = [
         0  1 
         0  0
@@ -54,6 +141,8 @@ function sample(m::MPS, j::Int)
     A = m[j]
     for ind in j:j+1
         tmpS = siteind(m, ind)
+        # println("Before taking measurements")
+        # @show(m[ind])
         d = dim(tmpS)
         pdisc = 0.0
         r = rand()
@@ -81,9 +170,15 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        # Resetting procedure
+        '''
+            # 01/27/2022
+            # Comment: the reset procedure needs to be revised 
+            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+        '''
+        
+        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
         if ind % 2 == 1
-            if n - 1 < 1E-8
+            if n - 1 < 1E-8             
                 tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
             else
                 tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
@@ -95,11 +190,16 @@ function sample(m::MPS, j::Int)
                 tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
             end
         end
-        
         m[ind] *= tmpReset
         noprime!(m[ind])
+        # println("After resetting")
         # @show m[ind]
     end
+    # println("")
+    # println("")
+    # println("Measure sites $j and $(j+1)!")
+    # println("")
+    # println("")
     return result
 end 
 
@@ -128,6 +228,7 @@ function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, te
         tmp_gate = long_range_gate(temp_sites, ending_index, Δτ)
         return tmp_gate
     else
+        @show starting_index, ending_index
         temp_s1 = temp_sites[starting_index]
         temp_s2 = temp_sites[ending_index]
         temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
@@ -225,8 +326,8 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 1.5
-    tau = 0.1                                                                                  # time step used for Trotter decomposition
+    floquet_time = 2.0
+    tau = 0.05                                                                                  # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
@@ -289,16 +390,22 @@ let
         
         @time for ind₁ in 1 : div(N_time_slice, 2)
             number_of_gates = div(N_time_slice, 2) - (ind₁ - 1); @show number_of_gates
+            for tmp_index in [2, 1]
+                tmp_starting_index = tmp_index
+                tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
+                corner_gate = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                ψ_copy = apply(corner_gate, ψ_copy; cutoff)
+            end
 
-            tmp_starting_index = 2
-            tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-            corner_gates_even = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
-            ψ_copy = apply(corner_gates_even, ψ_copy; cutoff)
+            # tmp_starting_index = 2
+            # tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
+            # corner_gates_even = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+            # ψ_copy = apply(corner_gates_even, ψ_copy; cutoff)
 
-            tmp_starting_index = 1
-            tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-            corner_gates_odd = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
-            ψ_copy = apply(corner_gates_odd, ψ_copy; cutoff) 
+            # tmp_starting_index = 1
+            # tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
+            # corner_gates_odd = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+            # ψ_copy = apply(corner_gates_odd, ψ_copy; cutoff) 
         end
         normalize!(ψ_copy) 
 
@@ -306,13 +413,13 @@ let
             tmp_Sz = expect(ψ_copy, "Sz", sites = 1 : N)
             Sz[1, :] = tmp_Sz
         end
-        println("")
-        @show expect(ψ_copy, "Sz", sites = 1 : N)
-        println("")
-        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        println("")
-        @show expect(ψ_copy, "Sz", sites = 1 : N)
-        println("")
+        # println("")
+        # @show expect(ψ_copy, "Sz", sites = 1 : N)
+        # println("")
+        # Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        # println("")
+        # @show expect(ψ_copy, "Sz", sites = 1 : N)
+        # println("")
         # normalize!(ψ_copy)
         
 
@@ -335,25 +442,17 @@ let
 
 
             for ind₂ in 1 : div(N_time_slice, 2)
-                if gate_seeds[2 * ind₂ - 1] - 1 < 1E-8
-                    tmp_ending_index = N
-                else
-                    tmp_ending_index = gate_seeds[2 * ind₂ - 1] - 1
-                end
-
-                diagonal_gate₁ = construct_diagonal_layer(gate_seeds[2 * ind₂ - 1], tmp_ending_index, s, tau)
-                compute_overlap(ψ, ψ_copy)
-                ψ_copy = apply(diagonal_gate₁, ψ_copy; cutoff)
-                compute_overlap(ψ, ψ_copy)
-
-                if gate_seeds[2 * ind₂] - 1 < 1E-8
-                    tmp_ending_index = N
-                else
-                    tmp_ending_index = gate_seeds[2 * ind₂] - 1
-                end
-
-                diagonal_gate₂ = construct_diagonal_layer(gate_seeds[2 * ind₂], tmp_ending_index, s, tau)
-                ψ_copy = apply(diagonal_gate₂, ψ_copy; cutoff)
+                for tmp_index in [2 * ind₂ - 1, 2 * ind₂]
+                    tmp_starting_index = gate_seeds[tmp_index]
+                    if tmp_starting_index - 1 < 1E-8
+                        tmp_ending_index = N
+                    else
+                        tmp_ending_index = tmp_starting_index - 1
+                    end
+                    @show tmp_starting_index, tmp_ending_index
+                    diagonal_gate = construct_diagonal_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                    ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
+                end 
             end
             normalize!(ψ_copy)
 
@@ -362,13 +461,13 @@ let
                 Sz[ind₁ + 1, :] = tmp_Sz
                 println(""); @show tmp_Sz
             end
-            println("")
-            @show expect(ψ_copy, "Sz", sites = 1 : N)
-            println("")
-            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-            println("")
-            @show expect(ψ_copy, "Sz", sites = 1 : N)
-            println("")
+            # println("")
+            # @show expect(ψ_copy, "Sz", sites = 1 : N)
+            # # println("")
+            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            # println("")
+            # @show expect(ψ_copy, "Sz", sites = 1 : N)
+            # println("")
             # normalize!(ψ_copy)
         end
     end

@@ -3,7 +3,7 @@ using ITensors
 using ITensors.HDF5
 
 let 
-    N = 100
+    N = 500
     cutoff = 1E-8
     tau = 0.1
     ttotal = 5.0
