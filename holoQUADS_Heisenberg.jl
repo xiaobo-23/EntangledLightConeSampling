@@ -7,12 +7,12 @@ using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
 using Base: product, Float64
 using Random
- 
 ITensors.disable_warn_order()
 
 
 
-# # Sample and reset one two-site MPS
+
+ # # Sample and reset one two-site MPS
 # function sample(m::MPS, j::Int)
 #     mpsLength = length(m)
 
@@ -326,7 +326,7 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 2.0
+    floquet_time = 1.5
     tau = 0.05                                                                                  # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
@@ -365,7 +365,7 @@ let
     Sx = complex(zeros(div(N_half_infinite, 2), N))
     Sy = complex(zeros(div(N_half_infinite, 2), N))
     Sz = complex(zeros(div(N_half_infinite, 2), N))
-    Sz_Reset = complex(zeros(div(N_half_infinite, 2)), N)
+    Sz_Reset = complex(zeros(div(N_half_infinite, 2), N))
 
     # ## Construct the holoQUADS circuit 
     # ## Consider to move this part outside the main function in the near future
@@ -403,13 +403,11 @@ let
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
             Sz[1, :] = tmp_Sz
         end
-        # println("")
-        # @show expect(ψ_copy, "Sz", sites = 1 : N)
-        # println("")
-        # Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        # println("")
-        # @show expect(ψ_copy, "Sz", sites = 1 : N)
-        # println("")
+        # Sz_sample[measure_ind, 1 : 2] = sample(ψ_copy, 1)
+        # if measure_ind - 1 < 1E-8
+        #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+        #     Sz_Reset[1, :] = tmp_Sz
+        # end
         # normalize!(ψ_copy)
         
 
@@ -425,39 +423,36 @@ let
             println("")
             println("")
             println("#########################################################################################")
-            @show gate_seeds
+            @show size(gate_seeds)[1]
             println("#########################################################################################")
             println("")
             println("")
 
 
-            for ind₂ in 1 : div(N_time_slice, 2)
-                for tmp_index in [2 * ind₂ - 1, 2 * ind₂]
-                    tmp_starting_index = gate_seeds[tmp_index]
-                    if tmp_starting_index - 1 < 1E-8
-                        tmp_ending_index = N
-                    else
-                        tmp_ending_index = tmp_starting_index - 1
-                    end
-                    @show tmp_starting_index, tmp_ending_index
-                    diagonal_gate = construct_diagonal_layer(tmp_starting_index, tmp_ending_index, s, tau)
-                    ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
-                end 
+            for ind₂ in 1 : N_time_slice
+                tmp_starting_index = gate_seeds[ind₂]
+                if tmp_starting_index - 1 < 1E-8
+                    tmp_ending_index = N
+                else
+                    tmp_ending_index = tmp_starting_index - 1
+                end
+                @show tmp_starting_index, tmp_ending_index
+                diagonal_gate = construct_diagonal_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
             end
-            normalize!(ψ_copy)
+            normalize!(ψ_copy) 
 
             if measure_ind - 1 < 1E-8
                 tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
                 Sz[ind₁ + 1, :] = tmp_Sz
                 println(""); @show tmp_Sz
             end
-            # println("")
-            # @show expect(ψ_copy, "Sz", sites = 1 : N)
-            # # println("")
             # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-            # println("")
-            # @show expect(ψ_copy, "Sz", sites = 1 : N)
-            # println("")
+            # if measure_ind - 1 < 1E-8
+            #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            #     Sz_Reset[ind₁ + 1, :] = tmp_Sz
+            #     println(""); @show tmp_Sz
+            # end
             # normalize!(ψ_copy)
         end
     end
@@ -472,7 +467,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_tau$(tau)_AFM_Initialization_Sample.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_tau$(tau)_AFM_Initialization_Sample&Reset.h5", "w")
     write(file, "Initial Sz", Sz₀)
     # write(file, "Sx", Sx)
     # write(file, "Sy", Sy)
