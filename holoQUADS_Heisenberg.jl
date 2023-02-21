@@ -365,6 +365,7 @@ let
     Sx = complex(zeros(div(N_half_infinite, 2), N))
     Sy = complex(zeros(div(N_half_infinite, 2), N))
     Sz = complex(zeros(div(N_half_infinite, 2), N))
+    Sz_Reset = complex(zeros(div(N_half_infinite, 2)), N)
 
     # ## Construct the holoQUADS circuit 
     # ## Consider to move this part outside the main function in the near future
@@ -387,7 +388,6 @@ let
         println("The overlap of wavefuctions @T=0 is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
 
-        
         @time for ind₁ in 1 : div(N_time_slice, 2)
             number_of_gates = div(N_time_slice, 2) - (ind₁ - 1); @show number_of_gates
             for tmp_index in [2, 1]
@@ -396,21 +396,11 @@ let
                 corner_gate = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
                 ψ_copy = apply(corner_gate, ψ_copy; cutoff)
             end
-
-            # tmp_starting_index = 2
-            # tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-            # corner_gates_even = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
-            # ψ_copy = apply(corner_gates_even, ψ_copy; cutoff)
-
-            # tmp_starting_index = 1
-            # tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-            # corner_gates_odd = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
-            # ψ_copy = apply(corner_gates_odd, ψ_copy; cutoff) 
         end
         normalize!(ψ_copy) 
 
         if measure_ind - 1 < 1E-8
-            tmp_Sz = expect(ψ_copy, "Sz", sites = 1 : N)
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
             Sz[1, :] = tmp_Sz
         end
         # println("")
