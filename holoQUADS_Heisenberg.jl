@@ -1,3 +1,4 @@
+using HDF5: file
 ## 02/07/2023
 ## Implement the holographic quantum circuit for the Heisenberg model
 
@@ -8,11 +9,10 @@ using Base: Float64
 using Base: product, Float64
 using Random
 ITensors.disable_warn_order()
+include('sample_and_reset.jl')
 
 
-
-
- # # Sample and reset one two-site MPS
+# # Sample and reset one two-site MPS
 # function sample(m::MPS, j::Int)
 #     mpsLength = length(m)
 
@@ -104,104 +104,104 @@ ITensors.disable_warn_order()
 # end 
 
 
-# Sample and reset one two-site MPS
-function sample(m::MPS, j::Int)
-    mpsLength = length(m)
+# # Sample and reset one two-site MPS
+# function sample(m::MPS, j::Int)
+#     mpsLength = length(m)
 
-    # Move the orthogonality center of the MPS to site j
-    orthogonalize!(m, j)
-    if orthocenter(m) != j
-        error("sample: MPS m must have orthocenter(m) == 1")
-    end
-    # Check the normalization of the MPS
-    if abs(1.0 - norm(m[j])) > 1E-8
-        error("sample: MPS is not normalized, norm=$(norm(m[1]))")
-    end
+#     # Move the orthogonality center of the MPS to site j
+#     orthogonalize!(m, j)
+#     if orthocenter(m) != j
+#         error("sample: MPS m must have orthocenter(m) == 1")
+#     end
+#     # Check the normalization of the MPS
+#     if abs(1.0 - norm(m[j])) > 1E-8
+#         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
+#     end
 
-    # Take measurements and reset the two-site MPS to |up, down> Neel state
-    # Need to be modified based on the initialization of MPS
-    projn_up_matrix = [
-        1  0 
-        0  0
-    ] 
-    S⁻_matrix = [
-        0  0
-        1  0
-    ]
-    projn_dn_matrix = [
-        0  0 
-        0  1
-    ] 
-    S⁺_matrix = [
-        0  1 
-        0  0
-    ]
+#     # Take measurements and reset the two-site MPS to |up, down> Neel state
+#     # Need to be modified based on the initialization of MPS
+#     projn_up_matrix = [
+#         1  0 
+#         0  0
+#     ] 
+#     S⁻_matrix = [
+#         0  0
+#         1  0
+#     ]
+#     projn_dn_matrix = [
+#         0  0 
+#         0  1
+#     ] 
+#     S⁺_matrix = [
+#         0  1 
+#         0  0
+#     ]
     
-    result = zeros(Int, 2)
-    A = m[j]
-    for ind in j:j+1
-        tmpS = siteind(m, ind)
-        # println("Before taking measurements")
-        # @show(m[ind])
-        d = dim(tmpS)
-        pdisc = 0.0
-        r = rand()
+#     result = zeros(Int, 2)
+#     A = m[j]
+#     for ind in j:j+1
+#         tmpS = siteind(m, ind)
+#         # println("Before taking measurements")
+#         # @show(m[ind])
+#         d = dim(tmpS)
+#         pdisc = 0.0
+#         r = rand()
 
-        n = 1 
-        An = ITensor()
-        pn = 0.0
+#         n = 1 
+#         An = ITensor()
+#         pn = 0.0
 
-        while n <= d
-            projn = ITensor(tmpS)
-            projn[tmpS => n] = 1.0
-            An = A * dag(projn)
-            pn = real(scalar(dag(An) * An))
-            pdisc += pn
+#         while n <= d
+#             projn = ITensor(tmpS)
+#             projn[tmpS => n] = 1.0
+#             An = A * dag(projn)
+#             pn = real(scalar(dag(An) * An))
+#             pdisc += pn
 
-            (r < pdisc) && break
-            n += 1
-        end
-        result[ind - j + 1] = n
-        # @show result[ind - j + 1]
-        # @show An
+#             (r < pdisc) && break
+#             n += 1
+#         end
+#         result[ind - j + 1] = n
+#         # @show result[ind - j + 1]
+#         # @show An
 
-        if ind < mpsLength
-            A = m[ind + 1] * An
-            A *= (1. / sqrt(pn))
-        end
+#         if ind < mpsLength
+#             A = m[ind + 1] * An
+#             A *= (1. / sqrt(pn))
+#         end
 
-        '''
-            # 01/27/2022
-            # Comment: the reset procedure needs to be revised 
-            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
-        '''
+#         '''
+#             # 01/27/2022
+#             # Comment: the reset procedure needs to be revised 
+#             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+#         '''
         
-        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
-        if ind % 2 == 1
-            if n - 1 < 1E-8             
-                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-            end
-        else
-            if n - 1 < 1E-8
-                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-            end
-        end
-        m[ind] *= tmpReset
-        noprime!(m[ind])
-        # println("After resetting")
-        # @show m[ind]
-    end
-    # println("")
-    # println("")
-    # println("Measure sites $j and $(j+1)!")
-    # println("")
-    # println("")
-    return result
-end 
+#         # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+#         if ind % 2 == 1
+#             if n - 1 < 1E-8             
+#                 tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+#             else
+#                 tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+#             end
+#         else
+#             if n - 1 < 1E-8
+#                 tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+#             else
+#                 tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+#             end
+#         end
+#         m[ind] *= tmpReset
+#         noprime!(m[ind])
+#         # println("After resetting")
+#         # @show m[ind]
+#     end
+#     # println("")
+#     # println("")
+#     # println("Measure sites $j and $(j+1)!")
+#     # println("")
+#     # println("")
+#     return result
+# end 
 
 
 # Construct layers of two-site gates for the corner part of the holoQAUDS circuit
@@ -326,14 +326,14 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 1.5
+    floquet_time = 2.0
     tau = 0.05                                                                                  # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
     cutoff = 1E-8
     @show floquet_time, typeof(floquet_time)
-    num_measurements = 1 
+    num_measurements = 1
     #####################################################################################################################################
     
     # Make an array of 'site' indices && quantum numbers are CONSERVED for the Heisenberg model
@@ -403,11 +403,11 @@ let
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
             Sz[1, :] = tmp_Sz
         end
-        # Sz_sample[measure_ind, 1 : 2] = sample(ψ_copy, 1)
-        # if measure_ind - 1 < 1E-8
-        #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-        #     Sz_Reset[1, :] = tmp_Sz
-        # end
+        Sz_sample[measure_ind, 1 : 2] = sample(ψ_copy, 1)
+        if measure_ind - 1 < 1E-8
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            Sz_Reset[1, :] = tmp_Sz
+        end
         # normalize!(ψ_copy)
         
 
@@ -447,12 +447,12 @@ let
                 Sz[ind₁ + 1, :] = tmp_Sz
                 println(""); @show tmp_Sz
             end
-            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-            # if measure_ind - 1 < 1E-8
-            #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            #     Sz_Reset[ind₁ + 1, :] = tmp_Sz
-            #     println(""); @show tmp_Sz
-            # end
+            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            if measure_ind - 1 < 1E-8
+                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                Sz_Reset[ind₁ + 1, :] = tmp_Sz
+                println(""); @show tmp_Sz
+            end
             # normalize!(ψ_copy)
         end
     end
@@ -472,10 +472,11 @@ let
     # write(file, "Sx", Sx)
     # write(file, "Sy", Sy)
     write(file, "Sz", Sz)
+    write(file, "Sz after reset", Sz_Reset)
     # write(file, "Cxx", Cxx)
     # write(file, "Cyy", Cyy)
     # write(file, "Czz", Czz)
-    write(file, "Sz_sample", Sz_sample)
+    write(file, "Sz samples", Sz_sample)
     # write(file, "Wavefunction Overlap", ψ_overlap)
     close(file)
 

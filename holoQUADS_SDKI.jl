@@ -8,11 +8,11 @@ using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
 using Base: product
 using Random
- 
-ITensors.disable_warn_order()
+ ITensors.disable_warn_order()
 
 
-# Sample and reset one two-site MPS
+
+ # Sample and reset one two-site MPS
 function sample(m::MPS, j::Int)
     mpsLength = length(m)
 
@@ -83,7 +83,7 @@ function sample(m::MPS, j::Int)
             # Comment: the reset procedure needs to be revised 
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
-        
+
         # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
         if ind % 2 == 1
             if n - 1 < 1E-8             
