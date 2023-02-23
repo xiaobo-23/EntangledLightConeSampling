@@ -250,8 +250,8 @@ function long_range_gate(tmp_s, position_index::Int)
     return longrangeGate
 end
 
-# Construct a multi-site kicked gate to apply the transverse Ising fields at integer times
-# Constructed for the corner part of the holoQAUDS circuit
+# Constructing the gate that applies the transverse Ising fields to multiple sites
+# Used in the corner part of the holoQUADS circuit
 function build_kick_gates(starting_index :: Int, ending_index :: Int)
     kick_gate = ITensor[]
     for ind in starting_index : ending_index
@@ -263,12 +263,46 @@ function build_kick_gates(starting_index :: Int, ending_index :: Int)
     return kick_gate
 end
 
+# Construct the gate to apply transverse Ising fields to two sites at integer times
+# Used in the diaognal part of the holoQUADS circuit
+function build_two_site_kick_gate(starting_index :: Int, period :: Int)
+    # Index arranged in decreasing order due to the speciifc structure of the diagonal parity
+    two_site_kick_gate = ITensor[]
+    
+    ending_index = (starting_index - 1 + period) % period
+    if ending_index == 0
+        ending_index = period
+    end
+    index_list = [starting_index, ending_index]
+
+    for index in index_list
+        s1 = s[index]
+        hamilt = π / 2 * op("Sx", s1)
+        tmpG = exp(-1.0im * hamilt)
+        push!(two_site_kick_gate, tmpG)
+    end
+    return two_site_kick_gate
+end    
+
+
+# Check the overlap between time-evolved wavefunction and the original wavefunction
+function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
+    overlap = abs(inner(tmp_ψ₁, tmp_ψ₂))
+    println("")
+    println("")
+    @show overlap
+    println("")
+    println("")
+    return overlap
+end
+
 
 let 
     N = 12
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
+    
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
     floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
@@ -280,6 +314,7 @@ let
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
 
+    
     # # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
     # kick_gate = ITensor[]
     # for ind in 1 : N
@@ -288,44 +323,11 @@ let
     #     tmpG = exp(-1.0im * hamilt)
     #     push!(kick_gate, tmpG)
     # end
-    
-
-    # Construct a two-site kick gate to apply the transverse Ising fields at integer times
-    # Constructed for the diagonal parts of the holoQUADS circuit
-    function build_two_site_kick_gate(starting_index :: Int, period :: Int)
-        # Index arranged in decreasing order due to the speciifc structure of the diagonal parity
-        two_site_kick_gate = ITensor[]
         
-        ending_index = (starting_index - 1 + period) % period
-        if ending_index == 0
-            ending_index = period
-        end
-        index_list = [starting_index, ending_index]
-
-        for index in index_list
-            s1 = s[index]
-            hamilt = π / 2 * op("Sx", s1)
-            tmpG = exp(-1.0im * hamilt)
-            push!(two_site_kick_gate, tmpG)
-        end
-        return two_site_kick_gate
-    end    
-
     
-    # Check the overlap between time-evolved wavefunction and the original wavefunction
-    function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
-        overlap = abs(inner(tmp_ψ₁, tmp_ψ₂))
-        println("")
-        println("")
-        @show overlap
-        println("")
-        println("")
-        return overlap
-    end
-
-    '''
-        # Sample from the time-evolved wavefunction and store the measurements
-    '''
+    # '''
+    #     # Sample from the time-evolved wavefunction and store the measurements
+    # '''
     # timeSlices = Int(floquet_time / tau) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
     # Sx = complex(zeros(timeSlices, N))
     # Sy = complex(zeros(timeSlices, N))
