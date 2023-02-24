@@ -318,7 +318,6 @@ let
         end
         # normalize!(ψ_copy)
         
-
         @time for ind₁ in 1 : N_diagonal_circuit
             gate_seeds = []
             for gate_ind in 1 : N_time_slice
@@ -335,7 +334,6 @@ let
             println("#########################################################################################")
             println("")
             println("")
-
 
             for ind₂ in 1 : N_time_slice
                 tmp_starting_index = gate_seeds[ind₂]
