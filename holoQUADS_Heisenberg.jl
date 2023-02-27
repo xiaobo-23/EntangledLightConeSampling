@@ -235,7 +235,7 @@ let
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
     floquet_time = 2.0
-    tau = 0.025                                                                                  # time step used for Trotter decomposition
+    tau = 0.05                                                                                 # time step used for Trotter decomposition
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
     N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
@@ -373,7 +373,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_tau$(tau)_AFM_Initialization_Sample_and_Reset.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_tau$(tau)_AFM_Initialization_Sample.h5", "w")
     write(file, "Initial Sz", Sz₀)
     # write(file, "Sx", Sx)
     # write(file, "Sy", Sy)
