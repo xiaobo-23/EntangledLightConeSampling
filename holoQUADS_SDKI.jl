@@ -284,7 +284,6 @@ function build_two_site_kick_gate(starting_index :: Int, period :: Int)
     return two_site_kick_gate
 end    
 
-
 # Check the overlap between time-evolved wavefunction and the original wavefunction
 function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
     overlap = abs(inner(tmp_ψ₁, tmp_ψ₂))
@@ -296,20 +295,17 @@ function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
     return overlap
 end
 
-
 let 
     N = 12
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
-    
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
     floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     @show floquet_time, circuit_time
     num_measurements = 2000 
-
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -337,9 +333,9 @@ let
     # Sz = complex(zeros(num_measurements, N))
     Sz_sample = real(zeros(num_measurements, 2 * N))
 
-    '''
-        # Measure expectation values of the wavefunction during time evolution
-    '''
+    # '''
+    #     # Measure expectation values of the wavefunction during time evolution
+    # '''
     Sx = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
@@ -365,16 +361,14 @@ let
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     # # states = [isodd(n) ? "X+" : "X-" for n = 1 : N]
     # ψ = randomMPS(s, states, linkdims = 2)
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                    # Take measurements of the initial random MPS
+    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                  
     # Random.seed!(8000000)
-
-
     Random.seed!(6789200)
     for measure_ind in 1 : num_measurements
         println("")
         println("")
         println("############################################################################")
-        println("#########           PERFORMING MEASUREMENTS LOOP #$measure_ind           ##############")
+        println("#########   PERFORMING MEASUREMENTS LOOP #$measure_ind                      ")
         println("############################################################################")
         println("")
         println("")
