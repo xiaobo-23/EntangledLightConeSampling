@@ -6,7 +6,7 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 32
+    N = 12
     cutoff = 1E-8
     tau = 0.1; ttotal = 10.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -82,8 +82,8 @@ let
         # println("Site index is $(ind) and the conditional sentence is $(ind - (N - 1))")
         # println("")
 
-        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau / 2 * hj)
         push!(gates, Gj)
     end
@@ -206,7 +206,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_Rotations_Only_AFM.h5", "w")
+    file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_AFM_FULL.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
