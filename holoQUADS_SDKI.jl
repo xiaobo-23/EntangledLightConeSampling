@@ -112,7 +112,7 @@ function sample(m::MPS, j::Int)
 end 
 
 
-## Construct the corner part of the holoQUADS circuit for the SDKI model
+# Construct the left corner of the holoQUADS circuit for the holoQUADS model
 function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
     # Time evolution using TEBD for the corner case
     gates = ITensor[]
@@ -139,8 +139,6 @@ function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
     end
     return gates
 end
-
-
 
 
 # Check the overlap between time-evolved wavefunction and the original wavefunction
