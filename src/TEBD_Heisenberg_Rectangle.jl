@@ -5,7 +5,7 @@ using ITensors.HDF5
 let 
     N = 200
     cutoff = 1E-8
-    tau = 0.1
+    tau = 0.025
     ttotal = 5.0
 
     # Make an array of 'site' indices
@@ -17,12 +17,6 @@ let
 
     # Construct the layer with div(N, 2) - 1 two-site gates
     for ind in 2 : 2 : (N - 2)
-        println("")
-        println("")
-        @show ind
-        println("")
-        println("")
-
         s1 = s[ind]
         s2 = s[ind + 1]
         hj = op("Sz", s1) * op("Sz", s2) + 
@@ -34,12 +28,6 @@ let
 
     # Construct the layer with div(N, 2) two-site gates
     for ind in 1 : 2 : (N - 1)
-        println("")
-        println("")
-        @show ind
-        println("")
-        println("")
-
         s1 = s[ind]
         s2 = s[ind + 1]
         hj = op("Sz", s1) * op("Sz", s2) + 
@@ -59,8 +47,7 @@ let
     Sy = complex(zeros(number_of_measurements, N))
     Sz = complex(zeros(number_of_measurements, N))
     Overlap = complex(zeros(number_of_measurements))
-    
-    
+     
     # Using TEBD to evolve the wavefunction in real time && taking measurements of local observables
     index = 1
     @time for time in 0.0:tau:ttotal
