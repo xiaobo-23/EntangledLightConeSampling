@@ -12,7 +12,7 @@ let
     s = siteinds("S=1/2", N; conserve_qns = true)
 
     
-    # Construct layers of two-site gates for TEBD
+    # Construct layers of two-site gates used in TEBD
     gates = ITensor[]
 
     # Construct the layer with div(N, 2) - 1 two-site gates

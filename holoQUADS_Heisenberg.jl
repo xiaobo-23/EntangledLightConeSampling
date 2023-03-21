@@ -147,6 +147,15 @@ function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, te
 end
 
 
+# Construct layers of two-site gates for the right corner part of the holoQUADS circuit
+function construct_right_corner_layer(starting_index :: Int, number_of_gates :: Int, temp_sites, Δτ :: Float64) 
+    gates = ITensor[]
+    for ind in 1 : number_of_gates
+        
+    end
+
+end
+
 # 02/14/2023
 # Modify the long-range two-site gate: prefactor in the exponentiation
 function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
