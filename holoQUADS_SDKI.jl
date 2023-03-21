@@ -385,10 +385,13 @@ let
     # '''
     #     # Measure expectation values of the wavefunction during time evolution
     # '''
-    Sx = complex(zeros(Int(floquet_time) * Int(N / 2), N))
-    Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
-    Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
-    Sz_Reset = complex(zeros(Int(N/2), N))
+    # Sx = complex(zeros(Int(floquet_time) * Int(N / 2), N))
+    # Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
+    # Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
+    # Sz_Reset = complex(zeros(Int(N/2), N))
+    Sx = complex(zeros(2, N))
+    Sy = complex(zeros(2, N))
+    Sz = complex(zeros(2, N))
 
     # Initialize the wavefunction
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
@@ -415,8 +418,6 @@ let
     # Random.seed!(8000000)
     Random.seed!(6789200)
     for measure_ind in 1 : num_measurements
-        println("")
-        println("")
         println("############################################################################")
         println("#########   PERFORMING MEASUREMENTS LOOP #$measure_ind                      ")
         println("############################################################################")
@@ -485,11 +486,11 @@ let
             ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
 
-            if measure_ind == 1 && ind % 2 == 0
-                Sx[Int(ind / 2), :] = expect(ψ_copy, "Sx"; sites = 1 : N)
-                Sy[Int(ind / 2), :] = expect(ψ_copy, "Sy"; sites = 1 : N) 
-                Sz[Int(ind / 2), :] = expect(ψ_copy, "Sz"; sites = 1 : N); @show Sz[Int(ind / 2), :]
-            end
+            # if measure_ind == 1 && ind % 2 == 0
+            #     Sx[Int(ind / 2), :] = expect(ψ_copy, "Sx"; sites = 1 : N)
+            #     Sy[Int(ind / 2), :] = expect(ψ_copy, "Sy"; sites = 1 : N) 
+            #     Sz[Int(ind / 2), :] = expect(ψ_copy, "Sz"; sites = 1 : N); @show Sz[Int(ind / 2), :]
+            # end
             # if ind % 2 == 0
             #     push!(Sx, expect(ψ_copy, "Sx"; sites = 1 : N))
             #     push!(Sy, expect(ψ_copy, "Sy"; sites = 1 : N))
@@ -497,19 +498,22 @@ let
             # end
         end
 
-        compute_overlap(ψ, ψ_copy)
+        # compute_overlap(ψ, ψ_copy)
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        compute_overlap(ψ, ψ_copy)
-        if measure_ind - 1 < 1E-8
-            Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
-        end
-        println("")
-        println("")
-        println("Yeah!")
-        @show Sz_Reset[1, :]
-        println("")
-        println("")
 
+        # compute_overlap(ψ, ψ_copy)
+        if measure_ind - 1 < 1E-8
+            Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
+            Sy[1, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
+            Sz[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+            # Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+        end
+        # println("")
+        # println("")
+        # println("Yeah!")
+        # @show Sz_Reset[1, :]
+        # println("")
+        # println("")
 
         #**************************************************************************************************************************************
         # Code up the right corner for the specific case without diagonal part. 
@@ -535,6 +539,17 @@ let
             end
         end
 
+
+        if measure_ind - 1 < 1E-8
+            Sx[2, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
+            Sy[2, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
+            Sz[2, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+        end
+
+        for ind in 3 : 2 : N
+            @show ind
+            Sz_sample[measure_ind, ind : ind + 1] = sample(ψ_copy, ind)
+        end
 
         # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
         # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
@@ -617,19 +632,19 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # # Store data in hdf5 file
-    # file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_AFM_FULL.h5", "w")
-    # write(file, "Initial Sz", Sz₀)
-    # write(file, "Sx", Sx)
-    # write(file, "Sy", Sy)
-    # write(file, "Sz", Sz)
-    # # write(file, "Cxx", Cxx)
-    # # write(file, "Cyy", Cyy)
-    # # write(file, "Czz", Czz)
-    # write(file, "Sz_sample", Sz_sample)
+    # Store data in hdf5 file
+    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_Random.h5", "w")
+    write(file, "Initial Sz", Sz₀)
+    write(file, "Sx", Sx)
+    write(file, "Sy", Sy)
+    write(file, "Sz", Sz)
+    # write(file, "Cxx", Cxx)
+    # write(file, "Cyy", Cyy)
+    # write(file, "Czz", Czz)
+    write(file, "Sz_sample", Sz_sample)
     # write(file, "Sz_Reset", Sz_Reset)
-    # # write(file, "Wavefunction Overlap", ψ_overlap)
-    # close(file)
+    # write(file, "Wavefunction Overlap", ψ_overlap)
+    close(file)
 
     return
 end  
