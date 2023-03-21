@@ -78,30 +78,30 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        '''
-            # 01/27/2022
-            # Comment: the reset procedure needs to be revised 
-            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
-        '''
+        # '''
+        #     # 01/27/2022
+        #     # Comment: the reset procedure needs to be revised 
+        #     # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+        # '''
 
-        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
-        if ind % 2 == 1
-            if n - 1 < 1E-8             
-                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-            end
-        else
-            if n - 1 < 1E-8
-                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-            end
-        end
-        m[ind] *= tmpReset
-        noprime!(m[ind])
-        # println("After resetting")
-        # @show m[ind]
+        # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8             
+        #         tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+        #     end
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+        #     end
+        # end
+        # m[ind] *= tmpReset
+        # noprime!(m[ind])
+        # # println("After resetting")
+        # # @show m[ind]
     end
     # println("")
     # println("")
@@ -112,32 +112,23 @@ function sample(m::MPS, j::Int)
 end 
 
 
-# Construct the left corner of the holoQUADS circuit for the holoQUADS model
-function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
-    # Time evolution using TEBD for the corner case
-    gates = ITensor[]
-
-    for ind₁ in 1 : num_gates
-        s1 = tmp_sites[2 * ind₁ - parity]
-        s2 = tmp_sites[2 * ind₁ + 1 - parity]
-        @show inds(s1)
-        @show inds(s2)
-
-        if 2 * ind₁ - parity - 1 < 1E-8
-            coeff₁ = 2
-            coeff₂ = 1
-        else
-            coeff₁ = 1
-            coeff₂ = 1
-        end
-
-        hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * tau / 2 * hj)
-        # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-        # Gj = exp(-1.0im * tau * hj)
-        push!(gates, Gj)
+# Construct the kicked gates to apply transverse Ising fields in the right corner of the holoQUADS circuit
+function kick_gates_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
+    kick_gate = ITensor[]
+    ending_index = (starting_index - 2 * number_of_gates + period) % period; 
+    if ending_index < 1E-8
+        ending_index = period
     end
-    return gates
+
+    @show number_of_gates, ending_index
+    for ind in starting_index : - 1 : ending_index
+        @show ind
+        s1 = tmp_sites[ind]
+        hamilt = π / 2 * op("Sx", s1)
+        tmpG = exp(-1.0im * hamilt)
+        push!(kick_gate, tmpG)
+    end
+    return kick_gate
 end
 
 
@@ -154,13 +145,13 @@ end
 
 
 let 
-    N = 12; # N_infinite = 2 * N
+    N = 8; # N_infinite = 2 * N
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 5.0                                        # floquet time = Δτ * circuit_time
+    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     @show floquet_time, circuit_time
     num_measurements = 1
@@ -181,6 +172,8 @@ let
         return kick_gate
     end
 
+
+    
     # Construct the gate to apply transverse Ising fields to two sites at integer times
     # Used in the diaognal part of the holoQUADS circuit
     function build_two_site_kick_gate(starting_index :: Int, period :: Int)
@@ -201,8 +194,62 @@ let
         end
         return two_site_kick_gate
     end    
-    
 
+
+    # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
+    function layers_right_corner(starting_index :: Int, number_of_gates :: Int, tmp_sites)
+        gates = ITensor[]
+        for ind in 1 : number_of_gates
+            tmp_start = starting_index - 2 * (ind - 1)
+            tmp_end = starting_index - 2 * (ind - 1) - 1
+
+            s1 = tmp_sites[tmp_start]
+            s2 = tmp_sites[tmp_end]
+
+            if tmp_start - 1 < 1E-8
+                coeff₁ = 1
+                coeff₂ = 2
+            else
+                coeff₁ = 1
+                coeff₂ = 1
+            end
+
+            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            Gj = exp(-1.0im * tau * hj)
+            push!(gates, Gj)
+        end
+        return gates
+    end
+
+    
+    # Construct the left corner of the holoQUADS circuit for the holoQUADS model
+    function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
+        gates = ITensor[]
+
+        for ind₁ in 1 : num_gates
+            s1 = tmp_sites[2 * ind₁ - parity]
+            s2 = tmp_sites[2 * ind₁ + 1 - parity]
+            @show inds(s1)
+            @show inds(s2)
+
+            if 2 * ind₁ - parity - 1 < 1E-8
+                coeff₁ = 2
+                coeff₂ = 1
+            else
+                coeff₁ = 1
+                coeff₂ = 1
+            end
+
+            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            Gj = exp(-1.0im * tau * hj)
+            # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            # Gj = exp(-1.0im * tau * hj)
+            push!(gates, Gj)
+        end
+        return gates
+    end
+
+    
     ## Construct the diagonal part of the holoQUADS circuit for the SDKI model.
     function time_evolution(initialPosition :: Int, numSites :: Int, tmp_sites)
         # General time evolution using TEBD
@@ -314,7 +361,6 @@ let
     end
 
 
-
     # # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
     # kick_gate = ITensor[]
     # for ind in 1 : N
@@ -421,7 +467,7 @@ let
             end
             
             tmp_two_site_gates = ITensor[]
-            tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity)
+            tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity, s)
             println("")
             println("")
             @show sizeof(tmp_two_site_gates)
@@ -451,9 +497,9 @@ let
             # end
         end
 
-        compute_overlap(ψ,ψ_copy)
+        compute_overlap(ψ, ψ_copy)
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        compute_overlap(ψ,ψ_copy)
+        compute_overlap(ψ, ψ_copy)
         if measure_ind - 1 < 1E-8
             Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
         end
@@ -464,76 +510,102 @@ let
         println("")
         println("")
 
+
+        #**************************************************************************************************************************************
+        # Code up the right corner for the specific case without diagonal part. 
+        # Generalize the code later 
+        @time for ind in 1 : circuit_time
+            tmp_gates_number = div(ind, 2)
+            if ind % 2 == 1
+                tmp_kick_gates = kick_gates_right_corner(N, tmp_gates_number, N, s)
+                ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
+                normalize!(ψ_copy)
+
+                println("Applying transverse Ising fields at integer time $(div(ind, 2))")
+                compute_overlap(ψ, ψ_copy)
+            end
+
+            if tmp_gates_number > 1E-8
+                println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
+                println("")
+                tmp_two_site_gates = layers_right_corner(N, tmp_gates_number, s)
+                ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+                normalize!(ψ_copy)
+                compute_overlap(ψ, ψ_copy)
+            end
+        end
+
+
         # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
         # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
         # Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
 
-        @time for ind₁ in 1 : 5
-            gate_seeds = []
-            for gate_ind in 1 : circuit_time
-                tmp_ind = (2 * ind₁ - gate_ind + N) % N
-                if tmp_ind == 0
-                    tmp_ind = N
-                end
-                push!(gate_seeds, tmp_ind)
-            end
-            println("")
-            println("")
-            println("#########################################################################################")
-            @show gate_seeds
-            println("#########################################################################################")
-            println("")
-            println("")
+        # @time for ind₁ in 1 : 3
+        #     gate_seeds = []
+        #     for gate_ind in 1 : circuit_time
+        #         tmp_ind = (2 * ind₁ - gate_ind + N) % N
+        #         if tmp_ind == 0
+        #             tmp_ind = N
+        #         end
+        #         push!(gate_seeds, tmp_ind)
+        #     end
+        #     println("")
+        #     println("")
+        #     println("#########################################################################################")
+        #     @show gate_seeds
+        #     println("#########################################################################################")
+        #     println("")
+        #     println("")
 
-            for ind₂ in 1 : circuit_time
-                # Apply the kicked gate at integer time
-                if ind₂ % 2 == 1
-                    tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
-                    ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
-                    normalize!(ψ_copy)
-                end
+        #     for ind₂ in 1 : circuit_time
+        #         # Apply the kicked gate at integer time
+        #         if ind₂ % 2 == 1
+        #             tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
+        #             ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
+        #             normalize!(ψ_copy)
+        #         end
 
-                # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-                tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
-                ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-                normalize!(ψ_copy)
-                # println("")
-                # println("")
-                # @show tmp_two_site_gates 
-                # @show typeof(tmp_two_site_gates)
-                # println("")
-                # println("")
+        #         # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
+        #         tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
+        #         ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+        #         normalize!(ψ_copy)
+        #         # println("")
+        #         # println("")
+        #         # @show tmp_two_site_gates 
+        #         # @show typeof(tmp_two_site_gates)
+        #         # println("")
+        #         # println("")
 
-                if measure_ind - 1 < 1E-8 && ind₂ % 2 == 0
-                    Sx[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-                    Sy[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-                    Sz[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sz"; sites = 1 : N);
-                    @show Int(ind₂/2) + Int(floquet_time) * ind₁
-                    # @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
-                end
-            end
-            index_to_sample = (2 * ind₁ + 1) % N
-            println("############################################################################")
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            @show index_to_sample
-            @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            println("****************************************************************************")
-            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
-            if measure_ind - 1 < 1E-8 
-                Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
-            end
-            println("")
-            println("")
-            println("Yeah!")
-            @show Sz_Reset[1, :]
-            println("")
-            println("")
-            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-            println("############################################################################")
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            println("****************************************************************************")
-        end
+        #         if measure_ind - 1 < 1E-8 && ind₂ % 2 == 0
+        #             Sx[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
+        #             Sy[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
+        #             Sz[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sz"; sites = 1 : N);
+        #             @show Int(ind₂/2) + Int(floquet_time) * ind₁
+        #             # @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
+        #         end
+        #     end
+        #     index_to_sample = (2 * ind₁ + 1) % N
+        #     println("############################################################################")
+        #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+        #     @show index_to_sample
+        #     @show tmp_Sz[index_to_sample : index_to_sample + 1]
+        #     println("****************************************************************************")
+        #     Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+        #     if measure_ind - 1 < 1E-8 
+        #         Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+        #     end
+        #     println("")
+        #     println("")
+        #     println("Yeah!")
+        #     @show Sz_Reset[1, :]
+        #     println("")
+        #     println("")
+        #     # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+        #     println("############################################################################")
+        #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+        #     @show tmp_Sz[index_to_sample : index_to_sample + 1]
+        #     println("****************************************************************************")
+        # end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
      
@@ -545,19 +617,19 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_AFM_FULL.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    # write(file, "Cxx", Cxx)
-    # write(file, "Cyy", Cyy)
-    # write(file, "Czz", Czz)
-    write(file, "Sz_sample", Sz_sample)
-    write(file, "Sz_Reset", Sz_Reset)
-    # write(file, "Wavefunction Overlap", ψ_overlap)
-    close(file)
+    # # Store data in hdf5 file
+    # file = h5open("Data/holoQUADS_Circuit_N$(N)_h$(h)_T$(floquet_time)_AFM_FULL.h5", "w")
+    # write(file, "Initial Sz", Sz₀)
+    # write(file, "Sx", Sx)
+    # write(file, "Sy", Sy)
+    # write(file, "Sz", Sz)
+    # # write(file, "Cxx", Cxx)
+    # # write(file, "Cyy", Cyy)
+    # # write(file, "Czz", Czz)
+    # write(file, "Sz_sample", Sz_sample)
+    # write(file, "Sz_Reset", Sz_Reset)
+    # # write(file, "Wavefunction Overlap", ψ_overlap)
+    # close(file)
 
     return
 end  
