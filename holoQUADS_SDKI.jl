@@ -553,24 +553,31 @@ let
             end
 
             index_to_sample = (2 * ind₁ + 1) % N
-            println("############################################################################")
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            @show index_to_sample
-            @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            println("****************************************************************************")
+            # println("############################################################################")
+            # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            # @show index_to_sample
+            # @show tmp_Sz[index_to_sample : index_to_sample + 1]
+            # println("****************************************************************************")
             Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
-            if measure_ind - 1 < 1E-8 
-                Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
-            end
-            println("")
-            println("")
-            println("Yeah!")
-            @show Sz_Reset[1, :]
-            println("")
-            println("")
+            # if measure_ind - 1 < 1E-8 
+            #     Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+            # end
+            # println("")
+            # println("")
+            # println("Yeah!")
+            # @show Sz_Reset[1, :]
+            # println("")
+            # println("")
             # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
             println("############################################################################")
+            tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
+            tmp_Sy = epxect(ψ_copy, "Sy"; sites = 1 : N)
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+
+
+            Sx[ind₂ + 1, :] = tmp_Sx
+            Sy[ind₂ + 1, :] = tmp_Sy
+            Sz[ind₂ + 1, :] = tmp_Sz
             @show tmp_Sz[index_to_sample : index_to_sample + 1]
             println("****************************************************************************")
         end
@@ -606,9 +613,9 @@ let
         end
 
         if measure_ind - 1 < 1E-8
-            Sx[2, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
-            Sy[2, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
-            Sz[2, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+            Sx[3, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
+            Sy[3, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
+            Sz[3, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
         end
 
         for ind in 3 : 2 : N
