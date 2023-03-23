@@ -145,8 +145,27 @@ function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
 end
 
 
+
+
+# Constructing the gate that applies the transverse Ising fields to multiple sites
+# Used in the corner part of the holoQUADS circuit
+function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
+    kick_gate = ITensor[]
+    for ind in starting_index : ending_index
+        s1 = tmp_sites[ind]; @show ind
+        hamilt = π / 2 * op("Sx", s1)
+        tmpG = exp(-1.0im * hamilt)
+        push!(kick_gate, tmpG)
+    end
+    return kick_gate
+end
+
+
+
 let 
-    N = 8 # N_infinite = 2 * N
+    N = 8      # the size of an unit cell that is determined by time and the lightcone structure
+    N_diagonal = 1                                     # the number of diagonal parts of circuit
+    N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
@@ -154,26 +173,13 @@ let
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
     floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
-    @show floquet_time, circuit_time
-    num_measurements = 8000
+    # @show floquet_time, circuit_time
+    num_measurements = 1
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N; conserve_qns = false)
+    s = siteinds("S=1/2", N_total; conserve_qns = false)
 
-    # Constructing the gate that applies the transverse Ising fields to multiple sites
-    # Used in the corner part of the holoQUADS circuit
-    function build_kick_gates(starting_index :: Int, ending_index :: Int)
-        kick_gate = ITensor[]
-        for ind in starting_index : ending_index
-            s1 = s[ind]; @show ind
-            hamilt = π / 2 * op("Sx", s1)
-            tmpG = exp(-1.0im * hamilt)
-            push!(kick_gate, tmpG)
-        end
-        return kick_gate
-    end
-
-
+      
     # Construct the gate to apply transverse Ising fields to two sites at integer times
     # Used in the diaognal part of the holoQUADS circuit
     function build_two_site_kick_gate(starting_index :: Int, period :: Int)
@@ -384,7 +390,7 @@ let
     # Cxx = complex(zeros(timeSlices, N))
     # Czz = complex(zeros(timeSlices, N))
     # Sz = complex(zeros(num_measurements, N))
-    Sz_sample = real(zeros(num_measurements, N))
+    Sz_sample = real(zeros(num_measurements, N_total))
 
     # '''
     #     # Measure expectation values of the wavefunction during time evolution
@@ -393,9 +399,9 @@ let
     # Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     # Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     # Sz_Reset = complex(zeros(Int(N/2), N))
-    Sx = complex(zeros(2, N))
-    Sy = complex(zeros(2, N))
-    Sz = complex(zeros(2, N))
+    Sx = complex(zeros(3, N_total))
+    Sy = complex(zeros(3, N_total))
+    Sz = complex(zeros(3, N_total))
 
     # # Initialize the wavefunction
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
@@ -408,11 +414,11 @@ let
     
     # Initializa a random MPS
     # initialization_s = siteinds("S=1/2", N; conserve_qns = false)
-    initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N_total]
     Random.seed!(87900) 
     ψ = randomMPS(s, initialization_states, linkdims = 2)
     # ψ = initialization_ψ[1 : N]
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N_total)
     # @show maxlinkdim(ψ)
 
     # Random.seed!(1234567)
@@ -463,10 +469,9 @@ let
 
             # Apply kicked gate at integer times
             if ind % 2 == 1
-                tmp_kick_gate = build_kick_gates(1, 2 * tmp_num_gates + 1); @show 2 * tmp_num_gates + 1
+                tmp_kick_gate = build_kick_gates(1, 2 * tmp_num_gates + 1, s); # @show 2 * tmp_num_gates + 1
                 ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                 normalize!(ψ_copy)
-                # ψ_copy = apply(kick_gate, ψ_copy; cutoff)
                 
                 println("Applying the kicked Ising gate at time $(ind)!")
                 compute_overlap(ψ, ψ_copy)
@@ -513,12 +518,62 @@ let
             Sz[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
             # Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
         end
-        # println("")
-        # println("")
-        # println("Yeah!")
-        # @show Sz_Reset[1, :]
-        # println("")
-        # println("")
+        
+
+        # Running the diagonal part of the circuit 
+        @time for ind₁ in 1 : 1
+            gate_seeds = []
+            for gate_ind in 1 : circuit_time
+                tmp_ind = (2 * ind₁ - gate_ind + N) % N
+                if tmp_ind == 0
+                    tmp_ind = N
+                end
+                push!(gate_seeds, tmp_ind)
+            end
+            println("")
+            println("")
+            println("#########################################################################################")
+            @show gate_seeds
+            println("#########################################################################################")
+            println("")
+            println("")
+
+            for ind₂ in 1 : circuit_time
+                # Apply the kicked gate at integer time
+                if ind₂ % 2 == 1
+                    tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
+                    ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
+                end
+
+                # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
+                tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
+                ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+                normalize!(ψ_copy)
+            end
+
+            index_to_sample = (2 * ind₁ + 1) % N
+            println("############################################################################")
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            @show index_to_sample
+            @show tmp_Sz[index_to_sample : index_to_sample + 1]
+            println("****************************************************************************")
+            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+            if measure_ind - 1 < 1E-8 
+                Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+            end
+            println("")
+            println("")
+            println("Yeah!")
+            @show Sz_Reset[1, :]
+            println("")
+            println("")
+            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+            println("############################################################################")
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            @show tmp_Sz[index_to_sample : index_to_sample + 1]
+            println("****************************************************************************")
+        end
 
         #**************************************************************************************************************************************
         # Code up the right corner for the specific case without diagonal part. 
@@ -550,7 +605,6 @@ let
             end
         end
 
-
         if measure_ind - 1 < 1E-8
             Sx[2, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
             Sy[2, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
@@ -565,73 +619,6 @@ let
         # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
         # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
         # Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
-
-        # @time for ind₁ in 1 : 3
-        #     gate_seeds = []
-        #     for gate_ind in 1 : circuit_time
-        #         tmp_ind = (2 * ind₁ - gate_ind + N) % N
-        #         if tmp_ind == 0
-        #             tmp_ind = N
-        #         end
-        #         push!(gate_seeds, tmp_ind)
-        #     end
-        #     println("")
-        #     println("")
-        #     println("#########################################################################################")
-        #     @show gate_seeds
-        #     println("#########################################################################################")
-        #     println("")
-        #     println("")
-
-        #     for ind₂ in 1 : circuit_time
-        #         # Apply the kicked gate at integer time
-        #         if ind₂ % 2 == 1
-        #             tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
-        #             ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
-        #             normalize!(ψ_copy)
-        #         end
-
-        #         # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-        #         tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
-        #         ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-        #         normalize!(ψ_copy)
-        #         # println("")
-        #         # println("")
-        #         # @show tmp_two_site_gates 
-        #         # @show typeof(tmp_two_site_gates)
-        #         # println("")
-        #         # println("")
-
-        #         if measure_ind - 1 < 1E-8 && ind₂ % 2 == 0
-        #             Sx[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-        #             Sy[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-        #             Sz[Int(ind₂ / 2) + Int(floquet_time) * ind₁, :] = expect(ψ_copy, "Sz"; sites = 1 : N);
-        #             @show Int(ind₂/2) + Int(floquet_time) * ind₁
-        #             # @show real(Sz[Int(ind₂ / 2) + 3 * ind₁ + 1, :]) 
-        #         end
-        #     end
-        #     index_to_sample = (2 * ind₁ + 1) % N
-        #     println("############################################################################")
-        #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-        #     @show index_to_sample
-        #     @show tmp_Sz[index_to_sample : index_to_sample + 1]
-        #     println("****************************************************************************")
-        #     Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
-        #     if measure_ind - 1 < 1E-8 
-        #         Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
-        #     end
-        #     println("")
-        #     println("")
-        #     println("Yeah!")
-        #     @show Sz_Reset[1, :]
-        #     println("")
-        #     println("")
-        #     # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-        #     println("############################################################################")
-        #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-        #     @show tmp_Sz[index_to_sample : index_to_sample + 1]
-        #     println("****************************************************************************")
-        # end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
      
@@ -644,7 +631,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_Random_Sample_v1.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_Random_Sample.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)

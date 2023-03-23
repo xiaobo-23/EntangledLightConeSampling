@@ -79,13 +79,19 @@ let
             tmp2 = 1
         end
 
-        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        #************************************************************************************************
+        # 03/23/2023
+        # Turn off the Ising interaction to allow the reset procedure for benchmark
+        #*************************************************************************************************
+        hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2) 
+
         
         Gj = exp(-1.0im * tau * hj)
         push!(gates, Gj)
     end
 
+    
     # Construct a layer with div(N, 2) two-site gates
     for ind in 1 : 2 : (N - 1)
         s1 = s[ind]
@@ -97,48 +103,18 @@ let
         elseif (abs(ind - (N - 1)) < 1E-8)
             tmp1 = 1
             tmp2 = 2
-            # tmp2 = 1                # TO COMPARE WITH A HALF-INFINITE CHAIN
         else
             tmp1 = 1
             tmp2 = 1
         end
 
-        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         
         Gj = exp(-1.0im * tau * hj)
         push!(gates, Gj) 
     end
 
-
-    # for ind in 1:(N - 1)
-    #     s1 = s[ind]
-    #     s2 = s[ind + 1]
-
-    #     if (ind - 1 < 1E-8)
-    #         tmp1 = 2 
-    #         tmp2 = 1
-    #     elseif (abs(ind - (N - 1)) < 1E-8)
-    #         tmp1 = 1
-    #         tmp2 = 2
-    #         # tmp2 = 1                # TO COMPARE WITH A HALF-INFINITE CHAIN
-    #     else
-    #         tmp1 = 1
-    #         tmp2 = 1
-    #     end
-
-    #     # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-    #     hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        
-    #     Gj = exp(-1.0im * tau * hj)
-    #     push!(gates, Gj)
-    # end
-    # # Append the reverse gates (N -1, N), (N - 2, N - 1), (N - 3, N - 2) ...
-    # append!(gates, reverse(gates))
-
-    # @show gates
-    # @show size(gates)
-    # @show reverse(gates)
     
     # Construct the kicked gate that are only applied at integer time
     kickGates = ITensor[]
