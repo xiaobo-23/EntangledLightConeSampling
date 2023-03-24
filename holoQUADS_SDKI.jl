@@ -212,10 +212,10 @@ let
     end    
 
 
+    
     # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
     function layers_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
         gates = ITensor[]
-        
         for ind in 1 : number_of_gates
             tmp_start = (starting_index - 2 * (ind - 1) + period) % period
             tmp_end = (starting_index - 2 * (ind - 1) - 1 + period) % period 
@@ -669,7 +669,8 @@ let
                 println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
                 println("")
                 tmp_two_site_gates = layers_right_corner(tmp_edge, tmp_gates_number, N, s)
-                ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+                # ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+                ψ_copy = mapreduce(apply, ψ_copy, tmp_two_site_gates)
                 normalize!(ψ_copy)
                 compute_overlap(ψ, ψ_copy)
             end
