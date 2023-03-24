@@ -120,8 +120,20 @@ function kick_gates_right_corner(starting_index :: Int, number_of_gates :: Int, 
         ending_index = period
     end
 
-    @show number_of_gates, ending_index
-    for ind in starting_index : - 1 : ending_index
+    @show number_of_gates, starting_idnex, ending_index
+
+    # Creat a vector of site indices to deal with *periodic* boundary condition in physical sites
+    index_container = Vector{Int}
+    for ind in 1 : 2 * number_of_gates + 1
+        index_to_add = (starting_index - ind + 1 + period) % period
+        if index_to_add - 1 < 1E-8
+            index_to_add = period
+        end
+        push!(index_container, index_to_add)
+    end
+
+    # Loop through all the sites in the container 
+    for ind in index_container
         println("Apply kicked gates on sites")
         @show ind
         s1 = tmp_sites[ind]
@@ -177,9 +189,9 @@ let
     num_measurements = 1
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    s = siteinds("S=1/2", N_total; conserve_qns = false)
+    s = siteinds("S=1/2", N; conserve_qns = false)
 
-      
+    
     # Construct the gate to apply transverse Ising fields to two sites at integer times
     # Used in the diaognal part of the holoQUADS circuit
     function build_two_site_kick_gate(starting_index :: Int, period :: Int)
@@ -395,13 +407,13 @@ let
     # '''
     #     # Measure expectation values of the wavefunction during time evolution
     # '''
-    # Sx = complex(zeros(Int(floquet_time) * Int(N / 2), N))
-    # Sy = complex(zeros(Int(floquet_time) * Int(N / 2), N))
-    # Sz = complex(zeros(Int(floquet_time) * Int(N / 2), N))
     # Sz_Reset = complex(zeros(Int(N/2), N))
-    Sx = complex(zeros(3, N_total))
-    Sy = complex(zeros(3, N_total))
-    Sz = complex(zeros(3, N_total))
+    # Sx = complex(zeros(3, N_total))
+    # Sy = complex(zeros(3, N_total))
+    # Sz = complex(zeros(3, N_total))
+    Sx = complex(zeros(N_total))
+    Sy = complex(zeros(N_total))
+    Sz = complex(zeros(N_total))
 
     # # Initialize the wavefunction
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
@@ -414,11 +426,11 @@ let
     
     # Initializa a random MPS
     # initialization_s = siteinds("S=1/2", N; conserve_qns = false)
-    initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N_total]
+    initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     Random.seed!(87900) 
     ψ = randomMPS(s, initialization_states, linkdims = 2)
     # ψ = initialization_ψ[1 : N]
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N_total)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
     # @show maxlinkdim(ψ)
 
     # Random.seed!(1234567)
@@ -513,9 +525,17 @@ let
 
         # compute_overlap(ψ, ψ_copy)
         if measure_ind - 1 < 1E-8
-            Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
-            Sy[1, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
-            Sz[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+            # Measure Sx on each site
+            tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
+            Sx[ : 2] = tmp_Sx[ : 2]
+
+            # Measure Sy on each site
+            tmp_Sy = epxect(ψ_copy, "Sy"; sites = 1 : N)
+            Sy[ : 2] = tmp_Sy[ : 2]
+
+            # Measure Sz on each site
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            Sz[ : 2] = tmp_Sz[ : 2]
             # Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
         end
         
@@ -574,21 +594,49 @@ let
             tmp_Sy = epxect(ψ_copy, "Sy"; sites = 1 : N)
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
 
-
-            Sx[ind₂ + 1, :] = tmp_Sx
-            Sy[ind₂ + 1, :] = tmp_Sy
-            Sz[ind₂ + 1, :] = tmp_Sz
+            Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] 
+            Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[2 * ind₁ + 1 : 2 * ind₁ + 2]
+            Sz[2 * ind₁ + 1 : 1 * ind₁ + 2] = tmp_Sz[2 * ind₁ + 1 : 2 * ind₁ + 2]
             @show tmp_Sz[index_to_sample : index_to_sample + 1]
             println("****************************************************************************")
         end
 
-        #**************************************************************************************************************************************
-        # Code up the right corner for the specific case without diagonal part. 
-        # Generalize the code later 
+        # #**************************************************************************************************************************************
+        # # Code up the right corner for the specific case without diagonal part. 
+        # # Generalize the code later 
+        # @time for ind in 1 : circuit_time
+        #     tmp_gates_number = div(ind, 2)
+        #     if ind % 2 == 1
+        #         tmp_kick_gates = kick_gates_right_corner(N, tmp_gates_number, N, s)
+        #         ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
+        #         normalize!(ψ_copy)
+
+        #         println("Applying transverse Ising fields at time slice $(ind)")
+        #         compute_overlap(ψ, ψ_copy)
+        #     end
+
+        #     if ind % 2 == 1
+        #         tmp_edge = N - 1
+        #     else
+        #         tmp_edge = N
+        #     end
+            
+
+        #     if tmp_gates_number > 1E-8
+        #         println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
+        #         println("")
+        #         tmp_two_site_gates = layers_right_corner(tmp_edge, tmp_gates_number, s)
+        #         ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+        #         normalize!(ψ_copy)
+        #         compute_overlap(ψ, ψ_copy)
+        #     end
+        # end
+        # #**************************************************************************************************************************************
+
         @time for ind in 1 : circuit_time
             tmp_gates_number = div(ind, 2)
             if ind % 2 == 1
-                tmp_kick_gates = kick_gates_right_corner(N, tmp_gates_number, N, s)
+                tmp_kick_gates = kick_gates_right_corner(2, tmp_gates_number, N, s)
                 ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                 normalize!(ψ_copy)
 
@@ -601,6 +649,7 @@ let
             else
                 tmp_edge = N
             end
+            
 
             if tmp_gates_number > 1E-8
                 println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
@@ -637,19 +686,19 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_Random_Sample.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    # write(file, "Cxx", Cxx)
-    # write(file, "Cyy", Cyy)
-    # write(file, "Czz", Czz)
-    write(file, "Sz_sample", Sz_sample)
-    # write(file, "Sz_Reset", Sz_Reset)
-    # write(file, "Wavefunction Overlap", ψ_overlap)
-    close(file)
+    # # Store data in hdf5 file
+    # file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_Random_Sample.h5", "w")
+    # write(file, "Initial Sz", Sz₀)
+    # write(file, "Sx", Sx)
+    # write(file, "Sy", Sy)
+    # write(file, "Sz", Sz)
+    # # write(file, "Cxx", Cxx)
+    # # write(file, "Cyy", Cyy)
+    # # write(file, "Czz", Czz)
+    # write(file, "Sz_sample", Sz_sample)
+    # # write(file, "Sz_Reset", Sz_Reset)
+    # # write(file, "Wavefunction Overlap", ψ_overlap)
+    # close(file)
 
     return
 end  
