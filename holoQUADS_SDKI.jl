@@ -120,17 +120,18 @@ function kick_gates_right_corner(starting_index :: Int, number_of_gates :: Int, 
         ending_index = period
     end
 
-    @show number_of_gates, starting_idnex, ending_index
+    @show number_of_gates, starting_index, ending_index
 
     # Creat a vector of site indices to deal with *periodic* boundary condition in physical sites
-    index_container = Vector{Int}
+    index_container = []
     for ind in 1 : 2 * number_of_gates + 1
         index_to_add = (starting_index - ind + 1 + period) % period
-        if index_to_add - 1 < 1E-8
+        if index_to_add < 1E-8
             index_to_add = period
         end
         push!(index_container, index_to_add)
     end
+    @show index_container
 
     # Loop through all the sites in the container 
     for ind in index_container
@@ -157,8 +158,6 @@ function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
 end
 
 
-
-
 # Constructing the gate that applies the transverse Ising fields to multiple sites
 # Used in the corner part of the holoQUADS circuit
 function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
@@ -171,7 +170,6 @@ function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
     end
     return kick_gate
 end
-
 
 
 let 
@@ -215,29 +213,42 @@ let
 
 
     # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
-    function layers_right_corner(starting_index :: Int, number_of_gates :: Int, tmp_sites)
+    function layers_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
         gates = ITensor[]
+        
         for ind in 1 : number_of_gates
-            tmp_start = starting_index - 2 * (ind - 1)
-            tmp_end = starting_index - 2 * (ind - 1) - 1
+            tmp_start = (starting_index - 2 * (ind - 1) + period) % period
+            tmp_end = (starting_index - 2 * (ind - 1) - 1 + period) % period 
+
+            if tmp_start < 1E-8
+                tmp_start = period
+            end
+
+            if tmp_end < 1E-8
+                tmp_end = period
+            end
 
             println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
             println("")
             s1 = tmp_sites[tmp_end]
             s2 = tmp_sites[tmp_start]
 
-            if abs(tmp_start - N) < 1E-8
-                println("Yeah!")
-                @show tmp_start
-                coeff₁ = 1
-                coeff₂ = 2
-            else
-                coeff₁ = 1
-                coeff₂ = 1
-            end
+            if tmp_start - 1 < 1E-8
+                if abs(tmp_start - starting_index) < 1E-8
+                    println("Yeah!")
+                    @show tmp_start
+                    coeff₁ = 1
+                    coeff₂ = 2
+                else
+                    coeff₁ = 1
+                    coeff₂ = 1
+                end
 
-            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            Gj = exp(-1.0im * tau * hj)
+                hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+                Gj = exp(-1.0im * tau * hj)
+            else
+                Gj = long_range_gate(tmp_sites, period)
+            end
             push!(gates, Gj)
         end
         return gates
@@ -527,15 +538,15 @@ let
         if measure_ind - 1 < 1E-8
             # Measure Sx on each site
             tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
-            Sx[ : 2] = tmp_Sx[ : 2]
+            Sx[1:2] = tmp_Sx[1:2]
 
             # Measure Sy on each site
-            tmp_Sy = epxect(ψ_copy, "Sy"; sites = 1 : N)
-            Sy[ : 2] = tmp_Sy[ : 2]
+            tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
+            Sy[1:2] = tmp_Sy[1:2]
 
             # Measure Sz on each site
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            Sz[ : 2] = tmp_Sz[ : 2]
+            Sz[1:2] = tmp_Sz[1:2]
             # Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
         end
         
@@ -591,12 +602,12 @@ let
             # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
             println("############################################################################")
             tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
-            tmp_Sy = epxect(ψ_copy, "Sy"; sites = 1 : N)
+            tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
 
             Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] 
             Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[2 * ind₁ + 1 : 2 * ind₁ + 2]
-            Sz[2 * ind₁ + 1 : 1 * ind₁ + 2] = tmp_Sz[2 * ind₁ + 1 : 2 * ind₁ + 2]
+            Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[2 * ind₁ + 1 : 2 * ind₁ + 2]
             @show tmp_Sz[index_to_sample : index_to_sample + 1]
             println("****************************************************************************")
         end
@@ -644,17 +655,20 @@ let
                 compute_overlap(ψ, ψ_copy)
             end
 
+
+            # Set up the starting index for a sequence of two-site gates
+            # TO-DO: generalize this part of code to start after arbitrary iterations of the diagoanl circuit
             if ind % 2 == 1
-                tmp_edge = N - 1
+                tmp_edge = 1
             else
-                tmp_edge = N
+                tmp_edge = 2
             end
-            
+
 
             if tmp_gates_number > 1E-8
                 println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
                 println("")
-                tmp_two_site_gates = layers_right_corner(tmp_edge, tmp_gates_number, s)
+                tmp_two_site_gates = layers_right_corner(tmp_edge, tmp_gates_number, N, s)
                 ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
                 normalize!(ψ_copy)
                 compute_overlap(ψ, ψ_copy)
@@ -662,12 +676,27 @@ let
         end
 
         if measure_ind - 1 < 1E-8
-            Sx[3, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
-            Sy[3, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
-            Sz[3, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+            tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
+            Sx[5 : N] = tmp_Sx[5 : N]
+            Sx[N + 1 : N_total] = tmp_Sx[1 : 2]
+
+            tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
+            Sy[5 : N] = tmp_Sy[5 : N]
+            Sy[N + 1 : N_total] = tmp_Sy[1 : 2]
+            
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            Sz[5 : N] = tmp_Sz[5 : N]
+            Sz[N + 1 : N_total] = tmp_Sz[1 : 2] 
         end
 
-        for ind in 3 : 2 : N
+        # Create a vector of sites that need to be measured in the right lightcone        
+        sites_to_measure = Vector{Int}
+        for ind in 1 : Int(floquet_time)
+            tmp_site = (2 - 2 * (ind - 1) - 1 + period) % period
+            push!(sites_to_measure, tmp_site)
+        end
+
+        for ind in sites_to_measure
             @show ind
             Sz_sample[measure_ind, ind : ind + 1] = sample(ψ_copy, ind)
         end
