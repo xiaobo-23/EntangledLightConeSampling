@@ -213,46 +213,46 @@ let
 
 
     
-    # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
-    function layers_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
-        gates = ITensor[]
-        for ind in 1 : number_of_gates
-            tmp_start = (starting_index - 2 * (ind - 1) + period) % period
-            tmp_end = (starting_index - 2 * (ind - 1) - 1 + period) % period 
+    # # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
+    # function layers_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
+    #     gates = ITensor[]
+    #     for ind in 1 : number_of_gates
+    #         tmp_start = (starting_index - 2 * (ind - 1) + period) % period
+    #         tmp_end = (starting_index - 2 * (ind - 1) - 1 + period) % period 
 
-            if tmp_start < 1E-8
-                tmp_start = period
-            end
+    #         if tmp_start < 1E-8
+    #             tmp_start = period
+    #         end
 
-            if tmp_end < 1E-8
-                tmp_end = period
-            end
+    #         if tmp_end < 1E-8
+    #             tmp_end = period
+    #         end
 
-            println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
-            println("")
-            s1 = tmp_sites[tmp_end]
-            s2 = tmp_sites[tmp_start]
+    #         println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
+    #         println("")
+    #         s1 = tmp_sites[tmp_end]
+    #         s2 = tmp_sites[tmp_start]
 
-            if tmp_start - 1 < 1E-8
-                if abs(tmp_start - starting_index) < 1E-8
-                    println("Yeah!")
-                    @show tmp_start
-                    coeff₁ = 1
-                    coeff₂ = 2
-                else
-                    coeff₁ = 1
-                    coeff₂ = 1
-                end
+    #         if tmp_start - 1 < 1E-8
+    #             if abs(tmp_start - starting_index) < 1E-8
+    #                 println("Yeah!")
+    #                 @show tmp_start
+    #                 coeff₁ = 1
+    #                 coeff₂ = 2
+    #             else
+    #                 coeff₁ = 1
+    #                 coeff₂ = 1
+    #             end
 
-                hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-                Gj = exp(-1.0im * tau * hj)
-            else
-                Gj = long_range_gate(tmp_sites, period)
-            end
-            push!(gates, Gj)
-        end
-        return gates
-    end
+    #             hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+    #             Gj = exp(-1.0im * tau * hj)
+    #         else
+    #             Gj = long_range_gate(tmp_sites, period)
+    #         end
+    #         push!(gates, Gj)
+    #     end
+    #     return gates
+    # end
 
     
     # Construct the left corner of the holoQUADS circuit for the holoQUADS model
@@ -284,32 +284,27 @@ let
 
     
     ## Construct the diagonal part of the holoQUADS circuit for the SDKI model.
-    function time_evolution(initialPosition :: Int, numSites :: Int, tmp_sites)
-        # General time evolution using TEBD
+    function time_evolution(initial_position :: Int, num_sites :: Int, tmp_sites)
         gates = ITensor[]
-        if initialPosition - 1 < 1E-8
-            tmpGate = long_range_gate(tmp_sites, numSites)
-            # push!(gates, tmpGate)
-            return tmpGate
+
+        if initial_position - 1 < 1E-8
+            # Generate a long-range two-site gate
+            tmp_gate = long_range_gate(tmp_sites, num_sites)
+            return tmp_gate
         else
-            # if initialPosition - 2 < 1E-8
-            #     coeff₁ = 1
-            #     coeff₂ = 2
-            # else
-            #     coeff₁ = 1
-            #     coeff₂ = 1
-            # end
-            s1 = tmp_sites[initialPosition]
-            s2 = tmp_sites[initialPosition - 1]
-            # hj = (π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2))
+            # Generate a local two-site gate 
+            s1 = tmp_sites[initial_position]
+            s2 = tmp_sites[initial_position - 1]
+
             hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
             # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            Gj = exp(-1.0im * tau * hj)                   # Correcting the factor in the exponentiation
+            Gj = exp(-1.0im * tau * hj)                 
             push!(gates, Gj)
         end
         return gates
     end
 
+    
     ## Long-range two-site gate 
     function long_range_gate(tmp_s, position_index::Int)
         s1 = tmp_s[1]
