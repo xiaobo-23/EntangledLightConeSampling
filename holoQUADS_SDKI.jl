@@ -174,8 +174,8 @@ end
 
 let 
     N = 8      # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 1                                     # the number of diagonal parts of circuit
-    N_total = N + 2 * N_diagonal
+    N_diagonal = 6                                     # the number of diagonal parts of circuit
+    N_total = N + 2 * N_diagonal; site_tensor_index = 0
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                     # an integrability-breaking longitudinal field h 
@@ -547,10 +547,13 @@ let
         
         # compute_overlap(ψ, ψ_copy)
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-
+        site_tensor_index = (site_tensor_index + 1) % div(N, 2)
+        if site_tensor_index < 1E-8
+            site_tensor_index = div(N, 2)
+        end
 
         # Running the diagonal part of the circuit 
-        @time for ind₁ in 1 : 1
+        @time for ind₁ in 1 : N_diagonal
             gate_seeds = []
             for gate_ind in 1 : circuit_time
                 tmp_ind = (2 * ind₁ - gate_ind + N) % N
@@ -562,7 +565,7 @@ let
             println("")
             println("")
             println("#########################################################################################")
-            @show gate_seeds
+            @show gate_seeds, ind₁
             println("#########################################################################################")
             println("")
             println("")
@@ -587,9 +590,10 @@ let
             tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
 
-            Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] 
-            Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[2 * ind₁ + 1 : 2 * ind₁ + 2]
-            Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[2 * ind₁ + 1 : 2 * ind₁ + 2]
+            tmp_measure_index = (2 * ind₁ + 1) % N
+            Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[tmp_measure_index : tmp_measure_index + 1] 
+            Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[tmp_measure_index : tmp_measure_index + 1]
+            Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[tmp_measure_index : tmp_measure_index + 1]
             
 
             index_to_sample = (2 * ind₁ + 1) % N
@@ -603,6 +607,10 @@ let
             # @show tmp_Sz[index_to_sample : index_to_sample + 1]
             # println("****************************************************************************")
             Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+            site_tensor_index = (site_tensor_index + 1) % div(N, 2)
+            if site_tensor_index < 1E-8
+                site_tensor_index = div(N, 2)
+            end
             # if measure_ind - 1 < 1E-8 
             #     Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
             # end
@@ -646,11 +654,17 @@ let
         #     end
         # end
         # #**************************************************************************************************************************************
+        starting_tensor = (site_tensor_index - 1 + div(N, 2)) % div(N, 2)
+        if starting_tensor < 1E-8
+            starting_tensor = div(N, 2)
+        end
+        starting_site = 2 * starting_tensor
 
         @time for ind in 1 : circuit_time
             tmp_gates_number = div(ind, 2)
+            @show ind
             if ind % 2 == 1
-                tmp_kick_gates = kick_gates_right_corner(2, tmp_gates_number, N, s)
+                tmp_kick_gates = kick_gates_right_corner(starting_site, tmp_gates_number, N, s)
                 ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                 normalize!(ψ_copy)
 
@@ -662,9 +676,11 @@ let
             # Set up the starting index for a sequence of two-site gates
             # TO-DO: generalize this part of code to start after arbitrary iterations of the diagoanl circuit
             if ind % 2 == 1
-                tmp_edge = 1
+                tmp_edge = starting_site - 1
+                # tmp_edge = 1
             else
-                tmp_edge = 2
+                tmp_edge = starting_site
+                # tmp_edge = 2
             end
 
 
@@ -679,20 +695,33 @@ let
                 normalize!(ψ_copy)
                 compute_overlap(ψ, ψ_copy)
             end
+            @show expect(ψ_copy, "Sz"; sites = 1 : N)
+        end
+
+        measurement_starting_site = (starting_site + 3) % N
+        measurement_interval = (N - measurement_starting_site + 1) % N
+        if measurement_starting_site - 1 < 1E-8
+            measurement_interval = N - 2
         end
 
         if measure_ind - 1 < 1E-8
             tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
-            Sx[5 : N] = tmp_Sx[5 : N]
-            Sx[N + 1 : N_total] = tmp_Sx[1 : 2]
-
             tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
-            Sy[5 : N] = tmp_Sy[5 : N]
-            Sy[N + 1 : N_total] = tmp_Sy[1 : 2]
-            
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            Sz[5 : N] = tmp_Sz[5 : N]
-            Sz[N + 1 : N_total] = tmp_Sz[1 : 2] 
+
+            if measurement_starting_site - 1 < 1E-8
+                Sx[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sx[1 : N - 2]
+                Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[1 : N - 2]
+                Sz[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sz[1 : N - 2]
+            else
+                Sx[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + measurement_interval] = tmp_Sx[measurement_starting_site : N]
+                Sy[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + measurement_interval] = tmp_Sy[measurement_starting_site : N]
+                Sz[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + measurement_interval] = tmp_Sz[measurement_starting_site : N]
+
+                Sx[2 * N_diagonal + measurement_interval + 3 : N_total] = tmp_Sx[1 : starting_site]
+                Sy[2 * N_diagonal + measurement_interval + 3 : N_total] = tmp_Sy[1 : starting_site]
+                Sz[2 * N_diagonal + measurement_interval + 3 : N_total] = tmp_Sz[1 : starting_site]
+            end
             @show tmp_Sz
         end
 
@@ -700,14 +729,16 @@ let
         # sites_to_measure = Vector{Int}
         sites_to_measure = []
         for ind in 1 : Int(floquet_time)
-            tmp_site = (2 - 2 * (ind - 1) - 1 + N) % N
+            tmp_site = (starting_site + 2 * ind + 1) % N
             push!(sites_to_measure, tmp_site)
         end
-
         @show sites_to_measure
+
+        sample_index = 0
         for ind in sites_to_measure
-            Sz_sample[measure_ind, ind : ind + 1] = sample(ψ_copy, ind)
+            Sz_sample[measure_ind, 2 * (N_diagonal + 1) + 2 * sample_index + 1 : 2 * (N_diagonal + 1) + 2 * sample_index + 2] = sample(ψ_copy, ind)
             normalize!(ψ_copy)
+            sample_index += 1
         end
 
         # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
@@ -725,7 +756,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_AFM_Kick.h5", "w")
+    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Kick.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)

@@ -6,7 +6,7 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 10
+    N = 20
     cutoff = 1E-8
     tau = 0.1; ttotal = 10.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
