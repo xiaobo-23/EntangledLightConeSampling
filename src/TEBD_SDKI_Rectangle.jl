@@ -6,7 +6,7 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 8
+    N = 10
     cutoff = 1E-8
     tau = 0.1; ttotal = 10.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -86,7 +86,6 @@ let
         hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
         # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2) 
 
-        
         Gj = exp(-1.0im * tau * hj)
         push!(gates, Gj)
     end
@@ -228,7 +227,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_AFM.h5", "w")
+    file = h5open("TEBD_N$(N)_h$(h)_tau$(tau)_T$(ttotal)_AFM_Kick.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)

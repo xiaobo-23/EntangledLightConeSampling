@@ -19,11 +19,11 @@ function sample(m::MPS, j::Int)
     # Move the orthogonality center of the MPS to site j
     orthogonalize!(m, j)
     if orthocenter(m) != j
-        error("sample: MPS m must have orthocenter(m) == 1")
+        error("sample: MPS m must have orthocenter(m) == j")
     end
     # Check the normalization of the MPS
     if abs(1.0 - norm(m[j])) > 1E-8
-        error("sample: MPS is not normalized, norm=$(norm(m[1]))")
+        error("sample: MPS is not normalized, norm=$(norm(m[j]))")
     end
 
     # Take measurements and reset the two-site MPS to |up, down> Neel state
@@ -78,30 +78,30 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        # '''
-        #     # 01/27/2022
-        #     # Comment: the reset procedure needs to be revised 
-        #     # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
-        # '''
+        '''
+            # 01/27/2022
+            # Comment: the reset procedure needs to be revised 
+            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+        '''
 
-        # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
-        # if ind % 2 == 1
-        #     if n - 1 < 1E-8             
-        #         tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-        #     end
-        # else
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-        #     end
-        # end
-        # m[ind] *= tmpReset
-        # noprime!(m[ind])
-        # # println("After resetting")
-        # # @show m[ind]
+        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        if ind % 2 == 1
+            if n - 1 < 1E-8             
+                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+            end
+        else
+            if n - 1 < 1E-8
+                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+            end
+        end
+        m[ind] *= tmpReset
+        noprime!(m[ind])
+        # println("After resetting")
+        # @show m[ind]
     end
     # println("")
     # println("")
@@ -213,46 +213,50 @@ let
 
 
     
-    # # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
-    # function layers_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
-    #     gates = ITensor[]
-    #     for ind in 1 : number_of_gates
-    #         tmp_start = (starting_index - 2 * (ind - 1) + period) % period
-    #         tmp_end = (starting_index - 2 * (ind - 1) - 1 + period) % period 
+    # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
+    function layers_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
+        # gates = ITensor[]
+        gates = Any[]
+        for ind in 1 : number_of_gates
+            tmp_start = (starting_index - 2 * (ind - 1) + period) % period
+            tmp_end = (starting_index - 2 * (ind - 1) - 1 + period) % period 
 
-    #         if tmp_start < 1E-8
-    #             tmp_start = period
-    #         end
+            if tmp_start < 1E-8
+                tmp_start = period
+            end
 
-    #         if tmp_end < 1E-8
-    #             tmp_end = period
-    #         end
+            if tmp_end < 1E-8
+                tmp_end = period
+            end
 
-    #         println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
-    #         println("")
-    #         s1 = tmp_sites[tmp_end]
-    #         s2 = tmp_sites[tmp_start]
+            println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
+            println("")
+            s1 = tmp_sites[tmp_end]
+            s2 = tmp_sites[tmp_start]
 
-    #         if tmp_start - 1 < 1E-8
-    #             if abs(tmp_start - starting_index) < 1E-8
-    #                 println("Yeah!")
-    #                 @show tmp_start
-    #                 coeff₁ = 1
-    #                 coeff₂ = 2
-    #             else
-    #                 coeff₁ = 1
-    #                 coeff₂ = 1
-    #             end
+            if tmp_start - 1 > 1E-8
+                if abs(tmp_start - starting_index) < 1E-8
+                    println("********************************************************************************")
+                    println("Yeah!")
+                    @show tmp_start
+                    println("********************************************************************************")
+                    coeff₁ = 1
+                    coeff₂ = 2
+                else
+                    coeff₁ = 1
+                    coeff₂ = 1
+                end
 
-    #             hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-    #             Gj = exp(-1.0im * tau * hj)
-    #         else
-    #             Gj = long_range_gate(tmp_sites, period)
-    #         end
-    #         push!(gates, Gj)
-    #     end
-    #     return gates
-    # end
+                # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+                hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+                Gj = exp(-1.0im * tau * hj)
+            else
+                Gj = long_range_gate(tmp_sites, period)
+            end
+            push!(gates, Gj)
+        end
+        return gates
+    end
 
     
     # Construct the left corner of the holoQUADS circuit for the holoQUADS model
@@ -273,10 +277,9 @@ let
                 coeff₂ = 1
             end
 
-            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau * hj)
-            # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            # Gj = exp(-1.0im * tau * hj)
             push!(gates, Gj)
         end
         return gates
@@ -296,23 +299,23 @@ let
             s1 = tmp_sites[initial_position]
             s2 = tmp_sites[initial_position - 1]
 
-            hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+            # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+            hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau * hj)                 
             push!(gates, Gj)
         end
         return gates
     end
 
-    
+
     ## Long-range two-site gate 
     function long_range_gate(tmp_s, position_index::Int)
         s1 = tmp_s[1]
         s2 = tmp_s[position_index]
         
         # Use bulk coefficients to define this long-range gate
-        hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau * hj)
         # @show hj
         # @show Gj
@@ -421,23 +424,23 @@ let
     Sy = complex(zeros(N_total))
     Sz = complex(zeros(N_total))
 
-    # # Initialize the wavefunction
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = MPS(s, states)
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # # Random.seed!(10000)
+    # Initialize the wavefunction
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = MPS(s, states)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
+    # Random.seed!(10000)
 
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
     
-    # Initializa a random MPS
-    # initialization_s = siteinds("S=1/2", N; conserve_qns = false)
-    initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    Random.seed!(87900) 
-    ψ = randomMPS(s, initialization_states, linkdims = 2)
-    # ψ = initialization_ψ[1 : N]
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # @show maxlinkdim(ψ)
+    # # Initializa a random MPS
+    # # initialization_s = siteinds("S=1/2", N; conserve_qns = false)
+    # initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # Random.seed!(87900) 
+    # ψ = randomMPS(s, initialization_states, linkdims = 2)
+    # # ψ = initialization_ψ[1 : N]
+    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
+    # # @show maxlinkdim(ψ)
 
     # Random.seed!(1234567)
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
@@ -527,9 +530,6 @@ let
         end
 
         # compute_overlap(ψ, ψ_copy)
-        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-
-        # compute_overlap(ψ, ψ_copy)
         if measure_ind - 1 < 1E-8
             # Measure Sx on each site
             tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
@@ -545,6 +545,9 @@ let
             # Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
         end
         
+        # compute_overlap(ψ, ψ_copy)
+        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+
 
         # Running the diagonal part of the circuit 
         @time for ind₁ in 1 : 1
@@ -578,7 +581,22 @@ let
                 normalize!(ψ_copy)
             end
 
+            
+            ## Make local measurements using the wavefunction 
+            tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
+            tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+
+            Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] 
+            Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[2 * ind₁ + 1 : 2 * ind₁ + 2]
+            Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[2 * ind₁ + 1 : 2 * ind₁ + 2]
+            
+
             index_to_sample = (2 * ind₁ + 1) % N
+            println("############################################################################")
+            @show tmp_Sz[index_to_sample : index_to_sample + 1]
+            println("****************************************************************************")
+
             # println("############################################################################")
             # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
             # @show index_to_sample
@@ -595,16 +613,6 @@ let
             # println("")
             # println("")
             # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-            println("############################################################################")
-            tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
-            tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-
-            Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] 
-            Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[2 * ind₁ + 1 : 2 * ind₁ + 2]
-            Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[2 * ind₁ + 1 : 2 * ind₁ + 2]
-            @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            println("****************************************************************************")
         end
 
         # #**************************************************************************************************************************************
@@ -664,8 +672,10 @@ let
                 println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
                 println("")
                 tmp_two_site_gates = layers_right_corner(tmp_edge, tmp_gates_number, N, s)
+                for temporary_gate in tmp_two_site_gates
+                    ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
+                end
                 # ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-                ψ_copy = mapreduce(apply, ψ_copy, tmp_two_site_gates)
                 normalize!(ψ_copy)
                 compute_overlap(ψ, ψ_copy)
             end
@@ -683,18 +693,21 @@ let
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
             Sz[5 : N] = tmp_Sz[5 : N]
             Sz[N + 1 : N_total] = tmp_Sz[1 : 2] 
+            @show tmp_Sz
         end
 
         # Create a vector of sites that need to be measured in the right lightcone        
-        sites_to_measure = Vector{Int}
+        # sites_to_measure = Vector{Int}
+        sites_to_measure = []
         for ind in 1 : Int(floquet_time)
-            tmp_site = (2 - 2 * (ind - 1) - 1 + period) % period
+            tmp_site = (2 - 2 * (ind - 1) - 1 + N) % N
             push!(sites_to_measure, tmp_site)
         end
 
+        @show sites_to_measure
         for ind in sites_to_measure
-            @show ind
             Sz_sample[measure_ind, ind : ind + 1] = sample(ψ_copy, ind)
+            normalize!(ψ_copy)
         end
 
         # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
@@ -711,19 +724,19 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # # Store data in hdf5 file
-    # file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_Random_Sample.h5", "w")
-    # write(file, "Initial Sz", Sz₀)
-    # write(file, "Sx", Sx)
-    # write(file, "Sy", Sy)
-    # write(file, "Sz", Sz)
-    # # write(file, "Cxx", Cxx)
-    # # write(file, "Cyy", Cyy)
-    # # write(file, "Czz", Czz)
-    # write(file, "Sz_sample", Sz_sample)
-    # # write(file, "Sz_Reset", Sz_Reset)
-    # # write(file, "Wavefunction Overlap", ψ_overlap)
-    # close(file)
+    # Store data in hdf5 file
+    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N)_T$(floquet_time)_AFM_Kick.h5", "w")
+    write(file, "Initial Sz", Sz₀)
+    write(file, "Sx", Sx)
+    write(file, "Sy", Sy)
+    write(file, "Sz", Sz)
+    # write(file, "Cxx", Cxx)
+    # write(file, "Cyy", Cyy)
+    # write(file, "Czz", Czz)
+    write(file, "Sz_sample", Sz_sample)
+    # write(file, "Sz_Reset", Sz_Reset)
+    # write(file, "Wavefunction Overlap", ψ_overlap)
+    close(file)
 
     return
 end  
