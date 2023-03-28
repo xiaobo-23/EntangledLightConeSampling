@@ -174,7 +174,7 @@ end
 
 let 
     N = 8      # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 6                                     # the number of diagonal parts of circuit
+    N_diagonal = 10                                    # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal; site_tensor_index = 0
     cutoff = 1E-8
     tau = 1.0
