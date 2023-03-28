@@ -214,7 +214,7 @@ let
 
     
     # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
-    function layers_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
+    function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
         # gates = ITensor[]
         gates = Any[]
         for ind in 1 : number_of_gates
@@ -235,7 +235,7 @@ let
             s2 = tmp_sites[tmp_start]
 
             if tmp_start - 1 > 1E-8
-                if abs(tmp_start - starting_index) < 1E-8
+                if abs(tmp_start - edge_index) < 1E-8
                     println("********************************************************************************")
                     println("Yeah!")
                     @show tmp_start
@@ -654,7 +654,7 @@ let
         #     end
         # end
         # #**************************************************************************************************************************************
-        starting_tensor = (site_tensor_index - 1 + div(N, 2)) % div(N, 2)
+        starting_tensor = (site_tensor_index - 1) % div(N, 2)
         if starting_tensor < 1E-8
             starting_tensor = div(N, 2)
         end
@@ -672,9 +672,7 @@ let
                 compute_overlap(ψ, ψ_copy)
             end
 
-
             # Set up the starting index for a sequence of two-site gates
-            # TO-DO: generalize this part of code to start after arbitrary iterations of the diagoanl circuit
             if ind % 2 == 1
                 tmp_edge = starting_site - 1
                 # tmp_edge = 1
@@ -687,7 +685,7 @@ let
             if tmp_gates_number > 1E-8
                 println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
                 println("")
-                tmp_two_site_gates = layers_right_corner(tmp_edge, tmp_gates_number, N, s)
+                tmp_two_site_gates = layers_right_corner(tmp_edge, starting_site, tmp_gates_number, N, s)
                 for temporary_gate in tmp_two_site_gates
                     ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
                 end
