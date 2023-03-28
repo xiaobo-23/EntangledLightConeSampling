@@ -173,16 +173,17 @@ end
 
 
 let 
-    N = 8      # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 10                                    # the number of diagonal parts of circuit
+    floquet_time = 4.0                                                                 # floquet time = Δτ * circuit_time
+    circuit_time = 2 * Int(floquet_time)
+    N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
+    N_diagonal = 10                                                              # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal; site_tensor_index = 0
     cutoff = 1E-8
     tau = 1.0
-    h = 0.2                                     # an integrability-breaking longitudinal field h 
+    h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    floquet_time = 3.0                                        # floquet time = Δτ * circuit_time
-    circuit_time = 2 * Int(floquet_time)
+    
     # @show floquet_time, circuit_time
     num_measurements = 1
 
@@ -246,9 +247,9 @@ let
                     coeff₁ = 1
                     coeff₂ = 1
                 end
-
-                # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-                hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+ 
+                # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+                hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
                 Gj = exp(-1.0im * tau * hj)
             else
                 Gj = long_range_gate(tmp_sites, period)
@@ -277,8 +278,8 @@ let
                 coeff₂ = 1
             end
 
-            # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau * hj)
             push!(gates, Gj)
         end
@@ -299,8 +300,8 @@ let
             s1 = tmp_sites[initial_position]
             s2 = tmp_sites[initial_position - 1]
 
-            # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+            # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+            hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
             Gj = exp(-1.0im * tau * hj)                 
             push!(gates, Gj)
         end
@@ -314,8 +315,8 @@ let
         s2 = tmp_s[position_index]
         
         # Use bulk coefficients to define this long-range gate
-        # hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * tau * hj)
         # @show hj
         # @show Gj
@@ -713,9 +714,9 @@ let
                 Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[1 : N - 2]
                 Sz[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sz[1 : N - 2]
             elseif abs(site_tensor_index - 1) < 1E-8
-                Sx[2 * (N_diagoanl + 1) + 1 : N_total] = tmp_Sx[3 : N]
+                Sx[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sx[3 : N]
                 Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[3 : N]
-                Sz[2 * (N_diagoanl + 1) + 1 : N_total] = tmp_Sz[3 : N]
+                Sz[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sz[3 : N]
             else
                 interval = 2 * (div(N, 2) - site_tensor_index)
                 @show site_tensor_index, interval
@@ -761,7 +762,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Kick.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
