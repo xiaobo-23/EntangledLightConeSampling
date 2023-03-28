@@ -697,29 +697,35 @@ let
             @show expect(ψ_copy, "Sz"; sites = 1 : N)
         end
 
-        measurement_starting_site = (starting_site + 3) % N
-        measurement_interval = (N - measurement_starting_site + 1) % N
-        if measurement_starting_site - 1 < 1E-8
-            measurement_interval = N - 2
-        end
+        # measurement_starting_site = (starting_site + 3) % N
+        # measurement_interval = (N - measurement_starting_site + 1) % N
+        # if measurement_starting_site - 1 < 1E-8
+        #     measurement_interval = N - 2
+        # end
 
         if measure_ind - 1 < 1E-8
             tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
             tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-
-            if measurement_starting_site - 1 < 1E-8
+ 
+            if abs(site_tensor_index - div(N, 2)) < 1E-8
                 Sx[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sx[1 : N - 2]
                 Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[1 : N - 2]
                 Sz[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sz[1 : N - 2]
+            elseif abs(site_tensor_index - 1) < 1E-8
+                Sx[2 * (N_diagoanl + 1) + 1 : N_total] = tmp_Sx[3 : N]
+                Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[3 : N]
+                Sz[2 * (N_diagoanl + 1) + 1 : N_total] = tmp_Sz[3 : N]
             else
-                Sx[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + measurement_interval] = tmp_Sx[measurement_starting_site : N]
-                Sy[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + measurement_interval] = tmp_Sy[measurement_starting_site : N]
-                Sz[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + measurement_interval] = tmp_Sz[measurement_starting_site : N]
+                interval = 2 * (div(N, 2) - site_tensor_index)
+                @show site_tensor_index, interval
+                Sx[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + interval] = tmp_Sx[2 * site_tensor_index + 1 : N]
+                Sy[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + interval] = tmp_Sy[2 * site_tensor_index + 1 : N]
+                Sz[2 * (N_diagonal + 1) + 1 : 2 * (N_diagonal + 1) + interval] = tmp_Sz[2 * site_tensor_index + 1 : N]
 
-                Sx[2 * N_diagonal + measurement_interval + 3 : N_total] = tmp_Sx[1 : starting_site]
-                Sy[2 * N_diagonal + measurement_interval + 3 : N_total] = tmp_Sy[1 : starting_site]
-                Sz[2 * N_diagonal + measurement_interval + 3 : N_total] = tmp_Sz[1 : starting_site]
+                Sx[2 * (N_diagonal + 1) + interval + 1 : N_total] = tmp_Sx[1 : starting_site]
+                Sy[2 * (N_diagonal + 1) + interval + 1 : N_total] = tmp_Sy[1 : starting_site]
+                Sz[2 * (N_diagonal + 1) + interval + 1 : N_total] = tmp_Sz[1 : starting_site]
             end
             @show tmp_Sz
         end
