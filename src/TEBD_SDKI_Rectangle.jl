@@ -6,7 +6,7 @@ using Base: Float64
 using Random
 ITensors.disable_warn_order()
 let 
-    N = 30
+    N = 28
     cutoff = 1E-8
     tau = 0.1; ttotal = 7.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -196,8 +196,8 @@ let
         normalize!(ψ_copy)
 
         # Local observables e.g. Sx, Sz
-        # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx; @show tmpSx
-        # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy; @show tmpSy
+        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx; @show tmpSx
+        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy; @show tmpSy
         tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz; @show tmpSz
 
         # Spin correlaiton functions e.g. Cxx, Czz

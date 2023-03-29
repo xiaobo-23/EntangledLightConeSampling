@@ -120,8 +120,6 @@ function kick_gates_right_corner(starting_index :: Int, number_of_gates :: Int, 
         ending_index = period
     end
 
-    @show number_of_gates, starting_index, ending_index
-
     # Creat a vector of site indices to deal with *periodic* boundary condition in physical sites
     index_container = []
     for ind in 1 : 2 * number_of_gates + 1
@@ -131,11 +129,19 @@ function kick_gates_right_corner(starting_index :: Int, number_of_gates :: Int, 
         end
         push!(index_container, index_to_add)
     end
+
+    println("")
+    println("")
+    println("***************************************************************************")
+    println("Applying kick gats at sites #")
     @show index_container
+    println("***************************************************************************")
+    println("")
+    println("")
 
     # Loop through all the sites in the container 
     for ind in index_container
-        println("Apply kicked gates on sites")
+        # println("Apply kicked gates on sites")
         @show ind
         s1 = tmp_sites[ind]
         hamilt = π / 2 * op("Sx", s1)
@@ -176,7 +182,7 @@ let
     floquet_time = 4.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 10                                                              # the number of diagonal parts of circuit
+    N_diagonal = 9                                                              # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal; site_tensor_index = 0
     cutoff = 1E-8
     tau = 1.0
@@ -190,7 +196,6 @@ let
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
 
-    
     # Construct the gate to apply transverse Ising fields to two sites at integer times
     # Used in the diaognal part of the holoQUADS circuit
     function build_two_site_kick_gate(starting_index :: Int, period :: Int)
@@ -213,46 +218,44 @@ let
     end    
 
 
-    
     # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
     function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
         # gates = ITensor[]
         gates = Any[]
         for ind in 1 : number_of_gates
             tmp_start = (starting_index - 2 * (ind - 1) + period) % period
-            tmp_end = (starting_index - 2 * (ind - 1) - 1 + period) % period 
+            tmp_end = (tmp_start - 1 + period) % period 
 
             if tmp_start < 1E-8
                 tmp_start = period
-            end
-
-            if tmp_end < 1E-8
+            elseif tmp_end < 1E-8
                 tmp_end = period
             end
 
             println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
-            println("")
             s1 = tmp_sites[tmp_end]
             s2 = tmp_sites[tmp_start]
 
-            if tmp_start - 1 > 1E-8
-                if abs(tmp_start - edge_index) < 1E-8
-                    println("********************************************************************************")
-                    println("Yeah!")
-                    @show tmp_start
-                    println("********************************************************************************")
-                    coeff₁ = 1
-                    coeff₂ = 2
-                else
-                    coeff₁ = 1
-                    coeff₂ = 1
-                end
- 
+            if abs(tmp_start - edge_index) < 1E-8
+                println("********************************************************************************")
+                println("Yeah!")
+                @show tmp_start
+                println("********************************************************************************")
+                println("")
+                coeff₁ = 1
+                coeff₂ = 2
+            else
+                coeff₁ = 1
+                coeff₂ = 1
+            end
+
+            if abs(tmp_start - 1) < 1E-8
+                Gj = long_range_gate(tmp_sites, period)
+            else
+                @show tmp_start, tmp_end
                 # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
                 hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
                 Gj = exp(-1.0im * tau * hj)
-            else
-                Gj = long_range_gate(tmp_sites, period)
             end
             push!(gates, Gj)
         end
@@ -314,6 +317,14 @@ let
         s1 = tmp_s[1]
         s2 = tmp_s[position_index]
         
+        println("")
+        println("")
+        println("***************************************************************************")
+        println("Applying a long-range two-site gate!!")
+        println("***************************************************************************")
+        println("")
+        println("")
+
         # Use bulk coefficients to define this long-range gate
         # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
         hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
@@ -664,37 +675,51 @@ let
 
         @time for ind in 1 : circuit_time
             tmp_gates_number = div(ind, 2)
-            @show ind
+            # @show ind, tmp_gates_number
+            
+            
             if ind % 2 == 1
+                println("")
+                println("")
+                println("Applying transverse Ising fields at time slice $(ind)")
+                println("")
+                println("")
+                @show expect(ψ_copy, "Sx"; sites = 1 : N)
+                @show expect(ψ_copy, "Sy"; sites = 1 : N)
+                @show expect(ψ_copy, "Sz"; sites = 1 : N)
+
                 tmp_kick_gates = kick_gates_right_corner(starting_site, tmp_gates_number, N, s)
                 ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                 normalize!(ψ_copy)
 
-                println("Applying transverse Ising fields at time slice $(ind)")
                 compute_overlap(ψ, ψ_copy)
+                @show expect(ψ_copy, "Sx"; sites = 1 : N)
+                @show expect(ψ_copy, "Sy"; sites = 1 : N)
+                @show expect(ψ_copy, "Sz"; sites = 1 : N)
             end
 
             # Set up the starting index for a sequence of two-site gates
             if ind % 2 == 1
                 tmp_edge = starting_site - 1
-                # tmp_edge = 1
             else
                 tmp_edge = starting_site
-                # tmp_edge = 2
             end
-
 
             if tmp_gates_number > 1E-8
                 println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
                 println("")
                 tmp_two_site_gates = layers_right_corner(tmp_edge, starting_site, tmp_gates_number, N, s)
                 for temporary_gate in tmp_two_site_gates
+                    # @show temporary_gate
                     ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
                 end
                 # ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-                normalize!(ψ_copy)
+                # normalize!(ψ_copy)
                 compute_overlap(ψ, ψ_copy)
             end
+            @show expect(ψ_copy, "Sx"; sites = 1 : N)
+            @show expect(ψ_copy, "Sy"; sites = 1 : N)
             @show expect(ψ_copy, "Sz"; sites = 1 : N)
         end
 
@@ -710,6 +735,15 @@ let
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
  
             if abs(site_tensor_index - div(N, 2)) < 1E-8
+                println("")
+                println("")
+                println("")
+                println("")
+                println("$(site_tensor_index)")
+                println("")
+                println("")
+                println("")
+                println("")
                 Sx[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sx[1 : N - 2]
                 Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[1 : N - 2]
                 Sz[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sz[1 : N - 2]
@@ -728,7 +762,7 @@ let
                 Sy[2 * (N_diagonal + 1) + interval + 1 : N_total] = tmp_Sy[1 : starting_site]
                 Sz[2 * (N_diagonal + 1) + interval + 1 : N_total] = tmp_Sz[1 : starting_site]
             end
-            @show tmp_Sz
+            @show tmp_Sx, tmp_Sy, tmp_Sz
         end
 
         # Create a vector of sites that need to be measured in the right lightcone        
