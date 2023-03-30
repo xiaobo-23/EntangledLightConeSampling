@@ -115,10 +115,6 @@ end
 # Construct the kicked gates to apply transverse Ising fields in the right corner of the holoQUADS circuit
 function kick_gates_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
     kick_gate = ITensor[]
-    ending_index = (starting_index - 2 * number_of_gates + period) % period; 
-    if ending_index < 1E-8
-        ending_index = period
-    end
 
     # Creat a vector of site indices to deal with *periodic* boundary condition in physical sites
     index_container = []
@@ -676,7 +672,6 @@ let
         @time for ind in 1 : circuit_time
             tmp_gates_number = div(ind, 2)
             # @show ind, tmp_gates_number
-            
             
             if ind % 2 == 1
                 println("")
