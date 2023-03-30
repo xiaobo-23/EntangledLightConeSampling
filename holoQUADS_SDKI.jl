@@ -561,76 +561,77 @@ let
         end
 
         # Running the diagonal part of the circuit 
-        @time for ind₁ in 1 : N_diagonal
-            gate_seeds = []
-            for gate_ind in 1 : circuit_time
-                tmp_ind = (2 * ind₁ - gate_ind + N) % N
-                if tmp_ind == 0
-                    tmp_ind = N
+        if N_diadonal > 1E-8
+            @time for ind₁ in 1 : N_diagonal
+                gate_seeds = []
+                for gate_ind in 1 : circuit_time
+                    tmp_ind = (2 * ind₁ - gate_ind + N) % N
+                    if tmp_ind == 0
+                        tmp_ind = N
+                    end
+                    push!(gate_seeds, tmp_ind)
                 end
-                push!(gate_seeds, tmp_ind)
-            end
-            println("")
-            println("")
-            println("#########################################################################################")
-            @show gate_seeds, ind₁
-            println("#########################################################################################")
-            println("")
-            println("")
-
-            for ind₂ in 1 : circuit_time
-                # Apply the kicked gate at integer time
-                if ind₂ % 2 == 1
-                    tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
-                    ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
+                println("")
+                println("")
+                println("#########################################################################################")
+                @show gate_seeds, ind₁
+                println("#########################################################################################")
+                println("")
+                println("")
+    
+                for ind₂ in 1 : circuit_time
+                    # Apply the kicked gate at integer time
+                    if ind₂ % 2 == 1
+                        tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
+                        ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
+                        normalize!(ψ_copy)
+                    end
+    
+                    # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
+                    tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
+                    ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
-
-                # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-                tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
-                ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
-                normalize!(ψ_copy)
+    
+                
+                ## Make local measurements using the wavefunction 
+                tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
+                tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
+                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+    
+                tmp_measure_index = (2 * ind₁ + 1) % N
+                Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[tmp_measure_index : tmp_measure_index + 1] 
+                Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[tmp_measure_index : tmp_measure_index + 1]
+                Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[tmp_measure_index : tmp_measure_index + 1]
+                
+    
+                index_to_sample = (2 * ind₁ + 1) % N
+                println("############################################################################")
+                @show tmp_Sz[index_to_sample : index_to_sample + 1]
+                println("****************************************************************************")
+    
+                # println("############################################################################")
+                # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                # @show index_to_sample
+                # @show tmp_Sz[index_to_sample : index_to_sample + 1]
+                # println("****************************************************************************")
+                Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+                site_tensor_index = (site_tensor_index + 1) % div(N, 2)
+                if site_tensor_index < 1E-8
+                    site_tensor_index = div(N, 2)
+                end
+                # if measure_ind - 1 < 1E-8 
+                #     Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+                # end
+                # println("")
+                # println("")
+                # println("Yeah!")
+                # @show Sz_Reset[1, :]
+                # println("")
+                # println("")
+                # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
             end
-
-            
-            ## Make local measurements using the wavefunction 
-            tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
-            tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-
-            tmp_measure_index = (2 * ind₁ + 1) % N
-            Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[tmp_measure_index : tmp_measure_index + 1] 
-            Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[tmp_measure_index : tmp_measure_index + 1]
-            Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[tmp_measure_index : tmp_measure_index + 1]
-            
-
-            index_to_sample = (2 * ind₁ + 1) % N
-            println("############################################################################")
-            @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            println("****************************************************************************")
-
-            # println("############################################################################")
-            # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            # @show index_to_sample
-            # @show tmp_Sz[index_to_sample : index_to_sample + 1]
-            # println("****************************************************************************")
-            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
-            site_tensor_index = (site_tensor_index + 1) % div(N, 2)
-            if site_tensor_index < 1E-8
-                site_tensor_index = div(N, 2)
-            end
-            # if measure_ind - 1 < 1E-8 
-            #     Sz_Reset[ind₁ + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
-            # end
-            # println("")
-            # println("")
-            # println("Yeah!")
-            # @show Sz_Reset[1, :]
-            # println("")
-            # println("")
-            # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
         end
-
         # #**************************************************************************************************************************************
         # # Code up the right corner for the specific case without diagonal part. 
         # # Generalize the code later 
