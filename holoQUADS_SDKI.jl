@@ -115,6 +115,10 @@ end
 # Construct the kicked gates to apply transverse Ising fields in the right corner of the holoQUADS circuit
 function kick_gates_right_corner(starting_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
     kick_gate = ITensor[]
+    ending_index = (starting_index - 2 * number_of_gates + period) % period; 
+    if ending_index < 1E-8
+        ending_index = period
+    end
 
     # Creat a vector of site indices to deal with *periodic* boundary condition in physical sites
     index_container = []
@@ -175,11 +179,11 @@ end
 
 
 let 
-    floquet_time = 4.0                                                                 # floquet time = Δτ * circuit_time
+    floquet_time = 5.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 9                                                              # the number of diagonal parts of circuit
-    N_total = N + 2 * N_diagonal; site_tensor_index = 0
+    N_diagonal = 0                                                              # the number of diagonal parts of circuit
+    N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
@@ -315,9 +319,17 @@ let
         
         println("")
         println("")
+        println("")
+        println("")
+        println("")
+        println("")
         println("***************************************************************************")
         println("Applying a long-range two-site gate!!")
         println("***************************************************************************")
+        println("")
+        println("")
+        println("")
+        println("")
         println("")
         println("")
 
@@ -467,6 +479,7 @@ let
         # Compute the overlap between the original and time evolved wavefunctions
         ψ_copy = deepcopy(ψ)
         ψ_overlap = Complex{Float64}[]
+        site_tensor_index = 0
         
         @time for ind in 1 : circuit_time
             tmp_overlap = abs(inner(ψ, ψ_copy))
@@ -521,7 +534,7 @@ let
             # @show typeof(tmp_two_site_gates)
             # println("")
 
-            compute_overlap(ψ,ψ_copy)
+            compute_overlap(ψ, ψ_copy)
             ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
 
@@ -554,14 +567,12 @@ let
         end
         
         # compute_overlap(ψ, ψ_copy)
-        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        site_tensor_index = (site_tensor_index + 1) % div(N, 2)
-        if site_tensor_index < 1E-8
-            site_tensor_index = div(N, 2)
-        end
+        # Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        site_tensor_index += 1; @show site_tensor_index 
+
 
         # Running the diagonal part of the circuit 
-        if N_diadonal > 1E-8
+        if N_diagonal > 1E-8
             @time for ind₁ in 1 : N_diagonal
                 gate_seeds = []
                 for gate_ind in 1 : circuit_time
@@ -578,7 +589,7 @@ let
                 println("#########################################################################################")
                 println("")
                 println("")
-    
+
                 for ind₂ in 1 : circuit_time
                     # Apply the kicked gate at integer time
                     if ind₂ % 2 == 1
@@ -586,36 +597,37 @@ let
                         ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
                         normalize!(ψ_copy)
                     end
-    
+
                     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
                     tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
                     ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
-    
+
                 
                 ## Make local measurements using the wavefunction 
                 tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
                 tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N)
                 tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-    
+
                 tmp_measure_index = (2 * ind₁ + 1) % N
                 Sx[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sx[tmp_measure_index : tmp_measure_index + 1] 
                 Sy[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sy[tmp_measure_index : tmp_measure_index + 1]
                 Sz[2 * ind₁ + 1 : 2 * ind₁ + 2] = tmp_Sz[tmp_measure_index : tmp_measure_index + 1]
                 
-    
+
                 index_to_sample = (2 * ind₁ + 1) % N
                 println("############################################################################")
                 @show tmp_Sz[index_to_sample : index_to_sample + 1]
                 println("****************************************************************************")
-    
+
                 # println("############################################################################")
                 # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
                 # @show index_to_sample
                 # @show tmp_Sz[index_to_sample : index_to_sample + 1]
                 # println("****************************************************************************")
                 Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+                
                 site_tensor_index = (site_tensor_index + 1) % div(N, 2)
                 if site_tensor_index < 1E-8
                     site_tensor_index = div(N, 2)
@@ -632,6 +644,7 @@ let
                 # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
             end
         end
+
         # #**************************************************************************************************************************************
         # # Code up the right corner for the specific case without diagonal part. 
         # # Generalize the code later 
@@ -680,18 +693,18 @@ let
                 println("Applying transverse Ising fields at time slice $(ind)")
                 println("")
                 println("")
-                @show expect(ψ_copy, "Sx"; sites = 1 : N)
-                @show expect(ψ_copy, "Sy"; sites = 1 : N)
-                @show expect(ψ_copy, "Sz"; sites = 1 : N)
+                # @show expect(ψ_copy, "Sx"; sites = 1 : N)
+                # @show expect(ψ_copy, "Sy"; sites = 1 : N)
+                # @show expect(ψ_copy, "Sz"; sites = 1 : N)
 
                 tmp_kick_gates = kick_gates_right_corner(starting_site, tmp_gates_number, N, s)
                 ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                 normalize!(ψ_copy)
 
                 compute_overlap(ψ, ψ_copy)
-                @show expect(ψ_copy, "Sx"; sites = 1 : N)
-                @show expect(ψ_copy, "Sy"; sites = 1 : N)
-                @show expect(ψ_copy, "Sz"; sites = 1 : N)
+                # @show expect(ψ_copy, "Sx"; sites = 1 : N)
+                # @show expect(ψ_copy, "Sy"; sites = 1 : N)
+                # @show expect(ψ_copy, "Sz"; sites = 1 : N)
             end
 
             # Set up the starting index for a sequence of two-site gates
@@ -700,10 +713,17 @@ let
             else
                 tmp_edge = starting_site
             end
+            println("")
+            println("")
+            @show tmp_edge, starting_site
+            println("")
+            println("")
 
             if tmp_gates_number > 1E-8
                 println("Applying longitudinal Ising fields and Ising interaction at time slice $(ind)")
                 println("")
+                println("")
+
                 tmp_two_site_gates = layers_right_corner(tmp_edge, starting_site, tmp_gates_number, N, s)
                 for temporary_gate in tmp_two_site_gates
                     # @show temporary_gate
@@ -714,16 +734,10 @@ let
                 # normalize!(ψ_copy)
                 compute_overlap(ψ, ψ_copy)
             end
-            @show expect(ψ_copy, "Sx"; sites = 1 : N)
-            @show expect(ψ_copy, "Sy"; sites = 1 : N)
-            @show expect(ψ_copy, "Sz"; sites = 1 : N)
+            # @show expect(ψ_copy, "Sx"; sites = 1 : N)
+            # @show expect(ψ_copy, "Sy"; sites = 1 : N)
+            # @show expect(ψ_copy, "Sz"; sites = 1 : N)
         end
-
-        # measurement_starting_site = (starting_site + 3) % N
-        # measurement_interval = (N - measurement_starting_site + 1) % N
-        # if measurement_starting_site - 1 < 1E-8
-        #     measurement_interval = N - 2
-        # end
 
         if measure_ind - 1 < 1E-8
             tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
@@ -735,7 +749,7 @@ let
                 println("")
                 println("")
                 println("")
-                println("$(site_tensor_index)")
+                println("Edge case site=$(site_tensor_index)")
                 println("")
                 println("")
                 println("")
@@ -744,6 +758,15 @@ let
                 Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[1 : N - 2]
                 Sz[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sz[1 : N - 2]
             elseif abs(site_tensor_index - 1) < 1E-8
+                println("")
+                println("")
+                println("")
+                println("")
+                println("Edge case site=$(site_tensor_index)")
+                println("")
+                println("")
+                println("")
+                println("")
                 Sx[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sx[3 : N]
                 Sy[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sy[3 : N]
                 Sz[2 * (N_diagonal + 1) + 1 : N_total] = tmp_Sz[3 : N]
@@ -758,7 +781,7 @@ let
                 Sy[2 * (N_diagonal + 1) + interval + 1 : N_total] = tmp_Sy[1 : starting_site]
                 Sz[2 * (N_diagonal + 1) + interval + 1 : N_total] = tmp_Sz[1 : starting_site]
             end
-            @show tmp_Sx, tmp_Sy, tmp_Sz
+            @show tmp_Sz
         end
 
         # Create a vector of sites that need to be measured in the right lightcone        
