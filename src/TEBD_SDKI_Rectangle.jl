@@ -30,7 +30,8 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
         end
 
         # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
+        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
+        hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * delta_tau * hj)
         push!(tmp_gates, Gj)
     end
@@ -39,7 +40,7 @@ end
 
 
 let 
-    N = 12
+    N = 22
     cutoff = 1E-8
     Δτ = 0.1; ttotal = 7.2
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -69,7 +70,8 @@ let
     end
     
     # Initialize the wavefunction as a Neel state
-    ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # states = [isodd(n) ? "+" : "-" for n = 1 : N]
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = MPS(s, states)
     ψ_copy = deepcopy(ψ)
@@ -86,6 +88,8 @@ let
 
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
+    Sx₀ = expect(ψ_copy, "Sx"; sites = 1 : N)
+    Sy₀ = expect(ψ_copy, "Sy"; sites = 1 : N)
     Sz₀ = expect(ψ_copy, "Sz"; sites = 1 : N)
 
     # Compute local observables e.g. Sz, Czz 
@@ -164,7 +168,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_AFM.h5", "w")
+    file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_AFM_Setup.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
@@ -172,6 +176,8 @@ let
     write(file, "Cyy", Cyy)
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
+    write(file, "Initial Sx", Sx₀)
+    write(file, "Initial Sy", Sy₀)
     write(file, "Initial Sz", Sz₀)
     close(file)
     
