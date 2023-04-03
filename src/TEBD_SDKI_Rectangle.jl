@@ -40,7 +40,7 @@ end
 
 
 let 
-    N = 22
+    N = 34
     cutoff = 1E-8
     Δτ = 0.1; ttotal = 7.2
     h = 0.2                                            # an integrability-breaking longitudinal field h 

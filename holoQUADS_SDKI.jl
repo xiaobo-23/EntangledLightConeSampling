@@ -177,12 +177,32 @@ function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
     return kick_gate
 end
 
+# Construct a gate that applies transverse Ising fields to two sites at integer times in the diagonal part of the holoQUADS circuitsåååå
+function build_two_site_kick_gate(starting_index :: Int, period :: Int, tmp_sites)
+    # Index arranged in decreasing order due to the speciifc structure of the diagonal parity
+    two_site_kick_gate = ITensor[]
+    
+    ending_index = (starting_index - 1 + period) % period
+    if ending_index == 0
+        ending_index = period
+    end
+    index_list = [starting_index, ending_index]
+
+    for index in index_list
+        s1 = tmp_sites[index]
+        hamilt = π / 2 * op("Sx", s1)
+        tmpG = exp(-1.0im * hamilt)
+        push!(two_site_kick_gate, tmpG)
+    end
+    return two_site_kick_gate
+end    
+
 
 let 
-    floquet_time = 5.0                                                                 # floquet time = Δτ * circuit_time
+    floquet_time = 6.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 5                                                               # the number of diagonal parts of circuit
+    N_diagonal = 10                                                             # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
@@ -191,32 +211,10 @@ let
     # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
     
     # @show floquet_time, circuit_time
-    num_measurements = 2000
+    num_measurements = 8000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
-
-    # Construct the gate to apply transverse Ising fields to two sites at integer times
-    # Used in the diaognal part of the holoQUADS circuit
-    function build_two_site_kick_gate(starting_index :: Int, period :: Int)
-        # Index arranged in decreasing order due to the speciifc structure of the diagonal parity
-        two_site_kick_gate = ITensor[]
-        
-        ending_index = (starting_index - 1 + period) % period
-        if ending_index == 0
-            ending_index = period
-        end
-        index_list = [starting_index, ending_index]
-
-        for index in index_list
-            s1 = s[index]
-            hamilt = π / 2 * op("Sx", s1)
-            tmpG = exp(-1.0im * hamilt)
-            push!(two_site_kick_gate, tmpG)
-        end
-        return two_site_kick_gate
-    end    
-
 
     # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
     function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
@@ -452,7 +450,7 @@ let
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    Random.seed!(789)
+    Random.seed!(9000)
 
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
@@ -597,7 +595,7 @@ let
                 for ind₂ in 1 : circuit_time
                     # Apply the kicked gate at integer time
                     if ind₂ % 2 == 1
-                        tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N)
+                        tmp_kick_gate₁ = build_two_site_kick_gate(gate_seeds[ind₂], N, s)
                         ψ_copy = apply(tmp_kick_gate₁, ψ_copy; cutoff)
                         normalize!(ψ_copy)
                     end
@@ -820,7 +818,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Setup.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Setup1.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
