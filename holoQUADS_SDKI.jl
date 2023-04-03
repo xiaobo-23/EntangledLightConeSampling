@@ -452,7 +452,7 @@ let
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # Random.seed!(10000)
+    Random.seed!(789)
 
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
