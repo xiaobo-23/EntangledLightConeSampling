@@ -263,11 +263,11 @@ let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
-    floquet_time = 2.0
+    floquet_time = 1.0
     tau = 0.05                                                                                         # Trotter decomposition time step 
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
-    N_diagonal_circuit = 10
+    N_diagonal_circuit = 0
     N_half_infinite = N + 2 * N_diagonal_circuit
     # N_half_infinite = N # N_diagonal_circuit = div(N_half_infinite - 2, 2)
     cutoff = 1E-8
@@ -350,92 +350,104 @@ let
         end
         # normalize!(ψ_copy)
         
-        @time for ind₁ in 1 : N_diagonal_circuit
-            gate_seeds = []
-            for gate_ind in 1 : N_time_slice
-                tmp_ind = (2 * ind₁ - gate_ind + N) % N
-                if tmp_ind == 0
-                    tmp_ind = N
-                end
-                push!(gate_seeds, tmp_ind)
-            end
-            println("")
-            println("")
-            println("#########################################################################################")
-            @show size(gate_seeds)[1]
-            println("#########################################################################################")
-            println("")
-            println("")
-
-            for ind₂ in 1 : N_time_slice
-                tmp_starting_index = gate_seeds[ind₂]
-                if tmp_starting_index - 1 < 1E-8
-                    tmp_ending_index = N
-                else
-                    tmp_ending_index = tmp_starting_index - 1
-                end
-                @show tmp_starting_index, tmp_ending_index
-                diagonal_gate = construct_diagonal_layer(tmp_starting_index, tmp_ending_index, s, tau)
-                ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
-            end
-            normalize!(ψ_copy) 
-            
-            # Label the tensor which is measured before applying the right corner
-            tensor_index = (N_diagonal_circuit + 1) % div(N, 2)
-            if tensor_index < 1E-8
-                tensor_index = div(N, 2)
-            end
-
-            if measure_ind - 1 < 1E-8
-                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-                Sz[ind₁ + 1, :] = tmp_Sz
-                println(""); @show tmp_Sz
-            end
-            Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
-            if measure_ind - 1 < 1E-8
-                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-                Sz_Reset[ind₁ + 1, :] = tmp_Sz
-                println(""); @show tmp_Sz
-            end
-            # normalize!(ψ_copy)
-
-            # The right light cone structure in the holoQAUDS circuit
-            @time for ind₁ in 1 : div(N_time_slice, 2)
-                number_of_gates = div(ind₁ - 1, 2) + 1
-                starting_tensor = (tensor_index - 1 + div(N, 2)) % div(N, 2)
-                if starting_tensor < 1E-8
-                    starting_tensor = div(N, 2)
-                end    
-                starting_point = 2 * starting_tensor
-
-                if ind₁ - div(N_time_slice, 2) < 1E-8
-                    index_array = [starting_point, starting_point - 1]
-                else
-                    index_array = [starting_point]
-                end
-                @show index_array
-
-                for tmp_index in index_array
-                    right_light_cone_layer = construct_right_light_cone_layer(tmp_index, number_of_gates, div(N, 2), s, tau)
-                    for temporary_gate in right_light_cine_layer
-                        ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
-                        normalize!(ψ_copy)
+        if N_diagonal_circuit > 1E-8
+            @time for ind₁ in 1 : N_diagonal_circuit
+                gate_seeds = []
+                for gate_ind in 1 : N_time_slice
+                    tmp_ind = (2 * ind₁ - gate_ind + N) % N
+                    if tmp_ind == 0
+                        tmp_ind = N
                     end
+                    push!(gate_seeds, tmp_ind)
+                end
+                println("")
+                println("")
+                println("#########################################################################################")
+                @show size(gate_seeds)[1]
+                println("#########################################################################################")
+                println("")
+                println("")
+
+                for ind₂ in 1 : N_time_slice
+                    tmp_starting_index = gate_seeds[ind₂]
+                    if tmp_starting_index - 1 < 1E-8
+                        tmp_ending_index = N
+                    else
+                        tmp_ending_index = tmp_starting_index - 1
+                    end
+                    @show tmp_starting_index, tmp_ending_index
+                    diagonal_gate = construct_diagonal_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                    ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
+                end
+                normalize!(ψ_copy) 
+                
+                if measure_ind - 1 < 1E-8
+                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                    Sz[ind₁ + 1, :] = tmp_Sz
+                    println(""); @show tmp_Sz
+                end
+                Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+                if measure_ind - 1 < 1E-8
+                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                    Sz_Reset[ind₁ + 1, :] = tmp_Sz
+                    println(""); @show tmp_Sz
+                end
+                # normalize!(ψ_copy)
+            end
+        end
+
+        # Label the tensor which is measured before applying the right corner
+        tensor_index = (N_diagonal_circuit + 1) % div(N, 2)
+        if tensor_index < 1E-8
+            tensor_index = div(N, 2)
+        end
+
+        println("")
+        println("")
+        println("Reach this step, yeah!")
+        println("")
+        println("")
+
+
+
+
+
+        # The right light cone structure in the holoQAUDS circuit
+        @time for ind₁ in 1 : div(N_time_slice, 2)
+            number_of_gates = ind₁
+            starting_tensor = (tensor_index - 1 + div(N, 2)) % div(N, 2)
+            if starting_tensor < 1E-8
+                starting_tensor = div(N, 2)
+            end    
+            starting_point = 2 * starting_tensor
+
+            if abs(ind₁ - div(N_time_slice, 2)) > 1E-8
+                index_array = [starting_point, starting_point - 1]
+            else
+                index_array = [starting_point]
+            end
+            @show ind₁, number_of_gates, index_array
+
+            for tmp_index in index_array
+                right_light_cone_layer = construct_right_light_cone_layer(tmp_index, number_of_gates, N, s, tau)
+                for temporary_gate in right_light_cone_layer
+                    ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
                 end
             end
-            normalize!(ψ_copy)
-
-            if measure_ind - 1 < 1E-8
-                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-                Sz[-1, :] = tmp_Sz
-            end
-            
-            # # List of indices of sites that need to be samples in the right light cone
-            # index_to_sample = []
-            # for ind in 1 : div(N - 2, 2)
-                
-            # end
         end
+        normalize!(ψ_copy)
+
+        if measure_ind - 1 < 1E-8
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            Sz[N_diagonal_circuit + 2, :] = tmp_Sz
+        end
+        
+        # # List of indices of sites that need to be samples in the right light cone
+        # index_to_sample = []
+        # for ind in 1 : div(N - 2, 2)
+            
+        # end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
      
