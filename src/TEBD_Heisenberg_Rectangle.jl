@@ -3,13 +3,13 @@ using ITensors
 using ITensors.HDF5
 
 let 
-    N = 200
+    N = 42
     cutoff = 1E-8
-    tau = 0.025
+    tau = 0.05
     ttotal = 5.0
 
     # Make an array of 'site' indices
-    s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false)
 
     
     # Construct layers of two-site gates used in TEBD
@@ -19,9 +19,7 @@ let
     for ind in 2 : 2 : (N - 2)
         s1 = s[ind]
         s2 = s[ind + 1]
-        hj = op("Sz", s1) * op("Sz", s2) + 
-            1/2 * op("S+", s1) * op("S-", s2) + 
-            1/2 * op("S-", s1) * op("S+", s2)
+        hj = op("Sz", s1) * op("Sz", s2) + 1/2 * op("S+", s1) * op("S-", s2) + 1/2 * op("S-", s1) * op("S+", s2)
         Gj = exp(-1.0im * tau * hj)
         push!(gates, Gj)
     end
@@ -30,9 +28,7 @@ let
     for ind in 1 : 2 : (N - 1)
         s1 = s[ind]
         s2 = s[ind + 1]
-        hj = op("Sz", s1) * op("Sz", s2) + 
-            1/2 * op("S+", s1) * op("S-", s2) + 
-            1/2 * op("S-", s1) * op("S+", s2)
+        hj = op("Sz", s1) * op("Sz", s2) + 1/2 * op("S+", s1) * op("S-", s2) + 1/2 * op("S-", s1) * op("S+", s2)
         Gj = exp(-1.0im * tau * hj)
         push!(gates, Gj)
     end
@@ -40,6 +36,11 @@ let
     # Initialize the wavefunction
     ψ₀ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     ψ = deepcopy(ψ₀)
+
+    # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
+    Sx₀ = expect(ψ, "Sx", sites = 1 : N)
+    Sy₀ = expect(ψ, "Sy", sites = 1 : N)
+    Sz₀ = expect(ψ, "Sz", sites = 1 : N)
 
     # Take and store the local measurements
     number_of_measurements = Int(ttotal / tau) + 1
@@ -78,6 +79,9 @@ let
     # write(file, "Sy", Sy)
     write(file, "Sz", Sz)
     write(file, "Overlap", Overlap)
+    write(file, "Initial Sx", Sx₀)
+    write(file, "Initial Sy", Sy₀)
+    write(file, "Initial Sz", Sz₀)
     close(file)
 
     return
