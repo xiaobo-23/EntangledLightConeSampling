@@ -78,30 +78,30 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        '''
-            # 01/27/2022
-            # Comment: the reset procedure needs to be revised 
-            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
-        '''
+        # '''
+        #     # 01/27/2022
+        #     # Comment: the reset procedure needs to be revised 
+        #     # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+        # '''
         
-        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
-        if ind % 2 == 1
-            if n - 1 < 1E-8             
-                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-            end
-        else
-            if n - 1 < 1E-8
-                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-            end
-        end
-        m[ind] *= tmpReset
-        noprime!(m[ind])
-        # println("After resetting")
-        # @show m[ind]
+        # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8             
+        #         tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+        #     end
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+        #     end
+        # end
+        # m[ind] *= tmpReset
+        # noprime!(m[ind])
+        # # println("After resetting")
+        # # @show m[ind]
     end
     # println("")
     # println("")
@@ -148,11 +148,11 @@ end
 
 
 # Construct layers of two-site gates for the right corner part of the holoQUADS circuit
-function construct_right_corner_layer(starting_index :: Int, number_of_gates :: Int, period :: Int, temp_sites, Δτ :: Float64) 
+function construct_right_light_cone_layer(starting_index :: Int, tmp_number_of_gates :: Int, period :: Int, temp_sites, Δτ :: Float64) 
     gates = Any[]
     gates_indices = []
     
-    for ind in 1 : number_of_gates
+    for ind in 1 : tmp_number_of_gates
         tmp_ind = (starting_index - 2 * (ind - 1) + period) % period
         if tmp_ind < 1E-8
             tmp_ind = period
@@ -264,10 +264,12 @@ let
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
     floquet_time = 2.0
-    tau = 0.05                                                                                 # time step used for Trotter decomposition
+    tau = 0.05                                                                                         # Trotter decomposition time step 
     N_time_slice = Int(floquet_time / tau) * 2
     N = N_time_slice + 2
-    N_half_infinite = N; N_diagonal_circuit = div(N_half_infinite - 2, 2)
+    N_diagonal_circuit = 10
+    N_half_infinite = N + 2 * N_diagonal_circuit
+    # N_half_infinite = N # N_diagonal_circuit = div(N_half_infinite - 2, 2)
     cutoff = 1E-8
     @show floquet_time, typeof(floquet_time)
     num_measurements = 1
@@ -299,10 +301,10 @@ let
     #####################################################################################################################################
     # Sample from the time-evolved wavefunction and store the measurements
     #####################################################################################################################################    
-    Sx = complex(zeros(div(N_half_infinite, 2), N))
-    Sy = complex(zeros(div(N_half_infinite, 2), N))
-    Sz = complex(zeros(div(N_half_infinite, 2), N))
-    Sz_Reset = complex(zeros(div(N_half_infinite, 2), N))
+    Sx = complex(zeros(N_diagonal_circuit + 2, N))
+    Sy = complex(zeros(N_diagonal_circuit + 2, N))
+    Sz = complex(zeros(N_diagonal_circuit + 2, N))
+    Sz_Reset = complex(zeros(N_diagonal_circuit + 2, N))
 
     # ## Construct the holoQUADS circuit 
     # ## Consider to move this part outside the main function in the near future
@@ -320,6 +322,7 @@ let
         # Compute the overlap between the original and time evolved wavefunctions
         ψ_copy = deepcopy(ψ)
         ψ_overlap = Complex{Float64}[]
+        tensor_index = 0
         
         tmp_overlap = abs(inner(ψ, ψ_copy))
         println("The overlap of wavefuctions @T=0 is: $tmp_overlap")
@@ -376,6 +379,12 @@ let
                 ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
             end
             normalize!(ψ_copy) 
+            
+            # Label the tensor which is measured before applying the right corner
+            tensor_index = (N_diagonal_circuit + 1) % div(N, 2)
+            if tensor_index < 1E-8
+                tensor_index = div(N, 2)
+            end
 
             if measure_ind - 1 < 1E-8
                 tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
@@ -389,6 +398,43 @@ let
                 println(""); @show tmp_Sz
             end
             # normalize!(ψ_copy)
+
+            # The right light cone structure in the holoQAUDS circuit
+            @time for ind₁ in 1 : div(N_time_slice, 2)
+                number_of_gates = div(ind₁ - 1, 2) + 1
+                starting_tensor = (tensor_index - 1 + div(N, 2)) % div(N, 2)
+                if starting_tensor < 1E-8
+                    starting_tensor = div(N, 2)
+                end    
+                starting_point = 2 * starting_tensor
+
+                if ind₁ - div(N_time_slice, 2) < 1E-8
+                    index_array = [starting_point, starting_point - 1]
+                else
+                    index_array = [starting_point]
+                end
+                @show index_array
+
+                for tmp_index in index_array
+                    right_light_cone_layer = construct_right_light_cone_layer(tmp_index, number_of_gates, div(N, 2), s, tau)
+                    for temporary_gate in right_light_cine_layer
+                        ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
+                        normalize!(ψ_copy)
+                    end
+                end
+            end
+            normalize!(ψ_copy)
+
+            if measure_ind - 1 < 1E-8
+                tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                Sz[-1, :] = tmp_Sz
+            end
+            
+            # # List of indices of sites that need to be samples in the right light cone
+            # index_to_sample = []
+            # for ind in 1 : div(N - 2, 2)
+                
+            # end
         end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
@@ -402,7 +448,7 @@ let
     println("################################################################################")
     
     # Store data in hdf5 file
-    file = h5open("Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_tau$(tau)_AFM_Initialization_Sample.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_Finite_N$(N)_T$(floquet_time)_AFM.h5", "w")
     write(file, "Initial Sz", Sz₀)
     # write(file, "Sx", Sx)
     # write(file, "Sy", Sy)
