@@ -30,8 +30,8 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
         end
 
         # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
-        hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
+        # hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
         Gj = exp(-1.0im * delta_tau * hj)
         push!(tmp_gates, Gj)
     end
@@ -40,7 +40,7 @@ end
 
 
 let 
-    N = 34
+    N = 28
     cutoff = 1E-8
     Δτ = 0.1; ttotal = 7.2
     h = 0.2                                            # an integrability-breaking longitudinal field h 

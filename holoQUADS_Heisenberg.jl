@@ -148,12 +148,32 @@ end
 
 
 # Construct layers of two-site gates for the right corner part of the holoQUADS circuit
-function construct_right_corner_layer(starting_index :: Int, number_of_gates :: Int, temp_sites, Δτ :: Float64) 
-    gates = ITensor[]
+function construct_right_corner_layer(starting_index :: Int, number_of_gates :: Int, period :: Int, temp_sites, Δτ :: Float64) 
+    gates = Any[]
+    gates_indices = []
+    
     for ind in 1 : number_of_gates
-        
+        tmp_ind = (starting_index - 2 * (ind - 1) + period) % period
+        if tmp_ind < 1E-8
+            tmp_ind = period
+        end
+        push!(gates_indices, tmp_ind)
     end
-
+    
+    for index in gates_indices
+        @show index
+        if index - 1 < 1E-8
+            tmp_gate = long_range_gate(temp_sites, period, Δτ)
+            push!(gates, tmp_gate)
+        else
+            temp_s1 = temp_sites[index - 1]
+            temp_s2 = temp_sites[index]
+            temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
+            temp_Gj = exp(-1.0im * Δτ * temp_hj)
+            push!(gates, temp_Gj)
+        end
+    end
+    return gates
 end
 
 # 02/14/2023
