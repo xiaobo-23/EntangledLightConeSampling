@@ -163,13 +163,13 @@ function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
     return overlap
 end
 
-
-# Constructing the gate that applies the transverse Ising fields to multiple sites
-# Used in the corner part of the holoQUADS circuit
+# Constructing multiple single-site gates the gate to apply the transverse field Ising term
+# Used in the left light cone
 function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
     kick_gate = ITensor[]
     for ind in starting_index : ending_index
-        s1 = tmp_sites[ind]; @show ind
+        s1 = tmp_sites[ind] 
+        # @show ind
         hamilt = π / 2 * op("Sx", s1)
         tmpG = exp(-1.0im * hamilt)
         push!(kick_gate, tmpG)
@@ -177,7 +177,8 @@ function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
     return kick_gate
 end
 
-# Construct a gate that applies transverse Ising fields to two sites at integer times in the diagonal part of the holoQUADS circuitsåååå
+# Construct a gate that applies transverse Ising fields to two sites at integer times  
+# Used in the diagonal parts of the circuit
 function build_two_site_kick_gate(starting_index :: Int, period :: Int, tmp_sites)
     # Index arranged in decreasing order due to the speciifc structure of the diagonal parity
     two_site_kick_gate = ITensor[]
@@ -197,6 +198,53 @@ function build_two_site_kick_gate(starting_index :: Int, period :: Int, tmp_site
     return two_site_kick_gate
 end    
 
+# Construct a layer of two-site gates to apply the Ising interaction and longitudinal fields to multiple sites 
+# Used in the right light cone in the holoQUADS circuit
+function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
+    # gates = ITensor[]
+    gates = Any[]                              # The long-range two-site gate is coded as a MPO applied to all the sites
+    
+    for ind in 1 : number_of_gates
+        tmp_start = (starting_index - 2 * (ind - 1) + period) % period
+        tmp_end = (tmp_start - 1 + period) % period 
+
+        if tmp_start < 1E-8
+            tmp_start = period
+        elseif tmp_end < 1E-8
+            tmp_end = period
+        end
+
+        println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
+        s1 = tmp_sites[tmp_end]
+        s2 = tmp_sites[tmp_start]
+
+        if abs(tmp_start - edge_index) < 1E-8
+            println("********************************************************************************")
+            println("Yeah!")
+            @show tmp_start
+            println("********************************************************************************")
+            println("")
+            coeff₁ = 1
+            coeff₂ = 2
+        else
+            coeff₁ = 1
+            coeff₂ = 1
+        end
+
+        if abs(tmp_start - 1) < 1E-8
+            Gj = long_range_gate(tmp_sites, period)
+        else
+            @show tmp_start, tmp_end
+            # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            # hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+            Gj = exp(-1.0im * tau * hj)
+        end
+        push!(gates, Gj)
+    end
+    return gates
+end
+
 
 let 
     floquet_time = 3.0                                                                 # floquet time = Δτ * circuit_time
@@ -208,58 +256,11 @@ let
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
-    # Set up the circuit (e.g. number of sites, \Delta\tau used for the TEBD procedure) based on
-    
     # @show floquet_time, circuit_time
     num_measurements = 2000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
-
-    # Construct two-site gates to apply the Ising interaction and longitudinal gates in the right corner of the holoQUADS circuit 
-    function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
-        # gates = ITensor[]
-        gates = Any[]
-        for ind in 1 : number_of_gates
-            tmp_start = (starting_index - 2 * (ind - 1) + period) % period
-            tmp_end = (tmp_start - 1 + period) % period 
-
-            if tmp_start < 1E-8
-                tmp_start = period
-            elseif tmp_end < 1E-8
-                tmp_end = period
-            end
-
-            println("Apply two-site gates to sites $(tmp_start) and $(tmp_end)")
-            s1 = tmp_sites[tmp_end]
-            s2 = tmp_sites[tmp_start]
-
-            if abs(tmp_start - edge_index) < 1E-8
-                println("********************************************************************************")
-                println("Yeah!")
-                @show tmp_start
-                println("********************************************************************************")
-                println("")
-                coeff₁ = 1
-                coeff₂ = 2
-            else
-                coeff₁ = 1
-                coeff₂ = 1
-            end
-
-            if abs(tmp_start - 1) < 1E-8
-                Gj = long_range_gate(tmp_sites, period)
-            else
-                @show tmp_start, tmp_end
-                # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-                # hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-                hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-                Gj = exp(-1.0im * tau * hj)
-            end
-            push!(gates, Gj)
-        end
-        return gates
-    end
 
     
     # Construct the left corner of the holoQUADS circuit for the holoQUADS model
