@@ -245,6 +245,141 @@ function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of
     return gates
 end
 
+# Contruct a layer of two-site gates that apply the Ising interaction and longitudinal fields
+# Used in the left light cone
+function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
+    gates = ITensor[]
+
+    for ind₁ in 1 : num_gates
+        s1 = tmp_sites[2 * ind₁ - parity]
+        s2 = tmp_sites[2 * ind₁ + 1 - parity]
+        # @show inds(s1)
+        # @show inds(s2)
+
+        if 2 * ind₁ - parity - 1 < 1E-8
+            coeff₁ = 2
+            coeff₂ = 1
+        else
+            coeff₁ = 1
+            coeff₂ = 1
+        end
+
+        # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+        # hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
+        Gj = exp(-1.0im * tau * hj)
+        push!(gates, Gj)
+    end
+    return gates
+end
+
+# Construct multiple two-site gates to apply the Ising interaction and the longitudinal fields in the diagoanal parts
+function time_evolution(initial_position :: Int, num_sites :: Int, tmp_sites)
+    gates = ITensor[]
+
+    if initial_position - 1 < 1E-8
+        # Generate a long-range two-site gate
+        tmp_gate = long_range_gate(tmp_sites, num_sites)
+        return tmp_gate
+    else
+        # Generate a local two-site gate 
+        s1 = tmp_sites[initial_position]
+        s2 = tmp_sites[initial_position - 1]
+
+        # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        # hj = π/2 * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+        Gj = exp(-1.0im * tau * hj)                 
+        push!(gates, Gj)
+    end
+    return gates
+end
+
+
+# Implement the long-range two-site gate
+function long_range_gate(tmp_s, position_index::Int)
+    s1 = tmp_s[1]
+    s2 = tmp_s[position_index]
+
+    # Use bulk coefficients to define this long-range gate
+    # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+    # hj = π/2 * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+    hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
+    Gj = exp(-1.0im * tau * hj)
+    # @show hj
+    # @show Gj
+    # @show inds(Gj)
+
+    # Benchmark gate that employs swap operations
+    benchmarkGate = ITensor[]
+    push!(benchmarkGate, Gj)
+    
+    # for ind in 1 : n
+    #     @show s[ind], s[ind]'
+    # end
+
+    U, S, V = svd(Gj, (tmp_s[1], tmp_s[1]'))
+    # @show norm(U*S*V - Gj)
+    # @show S
+    # @show U
+    # @show V
+
+    # Absorb the S matrix into the U matrix on the left
+    U = U * S
+    # @show U
+
+    # Make a vector to store the bond indices
+    bondIndices = Vector(undef, position_index - 1)
+
+    # Grab the bond indices of U and V matrices
+    if hastags(inds(U)[3], "Link,v") != true           # The original tag of this index of U matrix should be "Link,u".  But we absorbed S matrix into the U matrix.
+        error("SVD: fail to grab the bond indice of matrix U by its tag!")
+    else 
+        replacetags!(U, "Link,v", "i1")
+    end
+    # @show U
+    bondIndices[1] = inds(U)[3]
+
+    if hastags(inds(V)[3], "Link,v") != true
+        error("SVD: fail to grab the bond indice of matrix V by its tag!")
+    else
+        replacetags!(V, "Link,v", "i" * string(position_index))
+    end
+    # @show V
+    # @show position_index
+    bondIndices[position_index - 1] = inds(V)[3]
+    # @show (bondIndices[1], bondIndices[n - 1])
+
+    #####################################################################################################################################
+    # Construct the long-range two-site gate as an MPO
+    longrangeGate = MPO(position_index)
+    longrangeGate[1] = U
+
+    for ind in 2 : position_index - 1
+        # Set up site indices
+        if abs(ind - (position_index - 1)) > 1E-8
+            bondString = "i" * string(ind)
+            bondIndices[ind] = Index(4, bondString)
+        end
+
+        # Make the identity tensor
+        # @show s[ind], s[ind]'
+        tmpIdentity = delta(tmp_s[ind], tmp_s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
+        longrangeGate[ind] = tmpIdentity
+
+        # @show sizeof(longrangeGate)
+        # @show longrangeGate
+    end
+
+    # @show typeof(V), V
+    longrangeGate[position_index] = V
+    # @show sizeof(longrangeGate)
+    # @show longrangeGate
+    # @show typeof(longrangeGate), typeof(benchmarkGate)
+    #####################################################################################################################################
+    return longrangeGate
+end
+
 
 let 
     floquet_time = 3.0                                                                 # floquet time = Δτ * circuit_time
@@ -261,168 +396,6 @@ let
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
-
-    
-    # Construct the left corner of the holoQUADS circuit for the holoQUADS model
-    function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
-        gates = ITensor[]
-
-        for ind₁ in 1 : num_gates
-            s1 = tmp_sites[2 * ind₁ - parity]
-            s2 = tmp_sites[2 * ind₁ + 1 - parity]
-            @show inds(s1)
-            @show inds(s2)
-
-            if 2 * ind₁ - parity - 1 < 1E-8
-                coeff₁ = 2
-                coeff₂ = 1
-            else
-                coeff₁ = 1
-                coeff₂ = 1
-            end
-
-            # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            # hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            Gj = exp(-1.0im * tau * hj)
-            push!(gates, Gj)
-        end
-        return gates
-    end
-
-    
-    ## Construct the diagonal part of the holoQUADS circuit for the SDKI model.
-    function time_evolution(initial_position :: Int, num_sites :: Int, tmp_sites)
-        gates = ITensor[]
-
-        if initial_position - 1 < 1E-8
-            # Generate a long-range two-site gate
-            tmp_gate = long_range_gate(tmp_sites, num_sites)
-            return tmp_gate
-        else
-            # Generate a local two-site gate 
-            s1 = tmp_sites[initial_position]
-            s2 = tmp_sites[initial_position - 1]
-
-            # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            # hj = π/2 * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-            Gj = exp(-1.0im * tau * hj)                 
-            push!(gates, Gj)
-        end
-        return gates
-    end
-
-
-    ## Long-range two-site gate 
-    function long_range_gate(tmp_s, position_index::Int)
-        s1 = tmp_s[1]
-        s2 = tmp_s[position_index]
-        
-        println("")
-        println("")
-        println("")
-        println("")
-        println("")
-        println("")
-        println("***************************************************************************")
-        println("Applying a long-range two-site gate!!")
-        println("***************************************************************************")
-        println("")
-        println("")
-        println("")
-        println("")
-        println("")
-        println("")
-
-        # Use bulk coefficients to define this long-range gate
-        # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        # hj = π/2 * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * tau * hj)
-        # @show hj
-        # @show Gj
-        # @show inds(Gj)
-
-        # Benchmark gate that employs swap operations
-        benchmarkGate = ITensor[]
-        push!(benchmarkGate, Gj)
-        
-        # for ind in 1 : n
-        #     @show s[ind], s[ind]'
-        # end
-
-        U, S, V = svd(Gj, (tmp_s[1], tmp_s[1]'))
-        # @show norm(U*S*V - Gj)
-        # @show S
-        # @show U
-        # @show V
-
-        # Absorb the S matrix into the U matrix on the left
-        U = U * S
-        # @show U
-
-        # Make a vector to store the bond indices
-        bondIndices = Vector(undef, position_index - 1)
-
-        # Grab the bond indices of U and V matrices
-        if hastags(inds(U)[3], "Link,v") != true           # The original tag of this index of U matrix should be "Link,u".  But we absorbed S matrix into the U matrix.
-            error("SVD: fail to grab the bond indice of matrix U by its tag!")
-        else 
-            replacetags!(U, "Link,v", "i1")
-        end
-        # @show U
-        bondIndices[1] = inds(U)[3]
-
-        if hastags(inds(V)[3], "Link,v") != true
-            error("SVD: fail to grab the bond indice of matrix V by its tag!")
-        else
-            replacetags!(V, "Link,v", "i" * string(position_index))
-        end
-        # @show V
-        # @show position_index
-        bondIndices[position_index - 1] = inds(V)[3]
-        # @show (bondIndices[1], bondIndices[n - 1])
-
-        #####################################################################################################################################
-        # Construct the long-range two-site gate as an MPO
-        longrangeGate = MPO(position_index)
-        longrangeGate[1] = U
-
-        for ind in 2 : position_index - 1
-            # Set up site indices
-            if abs(ind - (position_index - 1)) > 1E-8
-                bondString = "i" * string(ind)
-                bondIndices[ind] = Index(4, bondString)
-            end
-
-            # Make the identity tensor
-            # @show s[ind], s[ind]'
-            tmpIdentity = delta(tmp_s[ind], tmp_s[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
-            longrangeGate[ind] = tmpIdentity
-
-            # @show sizeof(longrangeGate)
-            # @show longrangeGate
-        end
-
-        # @show typeof(V), V
-        longrangeGate[position_index] = V
-        # @show sizeof(longrangeGate)
-        # @show longrangeGate
-        # @show typeof(longrangeGate), typeof(benchmarkGate)
-        #####################################################################################################################################
-        return longrangeGate
-    end
-
-
-    # # Construct the kicked gate that applies transverse Ising fields at integer time using single-site gate
-    # kick_gate = ITensor[]
-    # for ind in 1 : N
-    #     s1 = s[ind]
-    #     hamilt = π / 2 * op("Sx", s1)
-    #     tmpG = exp(-1.0im * hamilt)
-    #     push!(kick_gate, tmpG)
-    # end
         
     # '''
     #     # Sample from the time-evolved wavefunction and store the measurements
