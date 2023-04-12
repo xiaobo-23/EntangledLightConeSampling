@@ -47,10 +47,13 @@ function sample(m::MPS, j::Int)
     
     result = zeros(Int, 2)
     A = m[j]
+    
+    
+    # 04/12/2023 
+    # Implement procedures to sample in Sx, Sy and Sz basis
+    
     for ind in j:j+1
         tmpS = siteind(m, ind)
-        # println("Before taking measurements")
-        # @show(m[ind])
         d = dim(tmpS)
         pdisc = 0.0
         r = rand()
@@ -59,9 +62,26 @@ function sample(m::MPS, j::Int)
         An = ITensor()
         pn = 0.0
 
+        # Define the vector of Sx in the Sz basis
+        Sx_projn = ITensor[]
+        tmp_projn₁ = ITensor(tmpS); tmp_projn₁ = 1/sqrt(2) * [1, 1]
+        push!(Sx_projn, tmp_projn₁)
+        
+        tmp_projn₂ = ITensor(tmpS); tmp_projn₂ = 1/sqrt(2) * [1, -1]
+        push!(Sx_projn, tmp_projn₂)
+
+        # Define the vector of Sz in the Sz basis
+        Sz_projn = ITensor[]
+        tmp_projn₁ = ITensor(tmpS); tmp_projn₁ = [1, 0]
+        push!(Sz_porjn, tmp_projn₁)
+
+        tmp_projn₂ = ITensor(tmpS); tmp_projn₂ = [0, 1]
+        push!(Sz_projn, tmp_projn₂)
+       
         while n <= d
-            projn = ITensor(tmpS)
-            projn[tmpS => n] = 1.0
+            # projn = ITensor(tmpS)
+            # projn[tmpS => n] = 1.0
+            projn = Sz_projn[n]
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
             pdisc += pn
