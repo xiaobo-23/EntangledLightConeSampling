@@ -52,6 +52,10 @@ function sample(m::MPS, j::Int)
     # 04/12/2023 
     # Implement procedures to sample in Sx, Sy and Sz basis
     
+    Sx_projn = [[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
+    Sy_projn = [[1/sqrt(2), 1.0im/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
+    Sz_projn = [[1, 0], [0, 1]]
+    
     for ind in j:j+1
         tmpS = siteind(m, ind)
         d = dim(tmpS)
@@ -62,26 +66,30 @@ function sample(m::MPS, j::Int)
         An = ITensor()
         pn = 0.0
 
-        # Define the vector of Sx in the Sz basis
-        Sx_projn = ITensor[]
-        tmp_projn₁ = ITensor(tmpS); tmp_projn₁ = 1/sqrt(2) * [1, 1]
-        push!(Sx_projn, tmp_projn₁)
-        
-        tmp_projn₂ = ITensor(tmpS); tmp_projn₂ = 1/sqrt(2) * [1, -1]
-        push!(Sx_projn, tmp_projn₂)
-
-        # Define the vector of Sz in the Sz basis
-        Sz_projn = ITensor[]
-        tmp_projn₁ = ITensor(tmpS); tmp_projn₁ = [1, 0]
-        push!(Sz_porjn, tmp_projn₁)
-
-        tmp_projn₂ = ITensor(tmpS); tmp_projn₂ = [0, 1]
-        push!(Sz_projn, tmp_projn₂)
-       
         while n <= d
-            # projn = ITensor(tmpS)
+            projn = ITensor(tmpS)
+            println("")
+            println("")
+            @show n
+            @show projn[1]
+            @show projn[2]
+            println("")
+            println("")
+
+            # Project in the Sx direction
             # projn[tmpS => n] = 1.0
-            projn = Sz_projn[n]
+            projn[tmpS => 1] = Sx_projn[n][1]
+            projn[tmpS => 2] = Sx_projn[n][2]
+            
+            println("")
+            println("")
+            @show n
+            @show projn[1]
+            @show projn[2]
+            println("")
+            println("")
+
+
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
             pdisc += pn
@@ -220,7 +228,7 @@ end
 
 # Construct a layer of two-site gates to apply the Ising interaction and longitudinal fields to multiple sites 
 # Used in the right light cone in the holoQUADS circuit
-function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of_gates :: Int, period :: Int, tmp_sites)
+function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of_gates :: Int, period :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
     # gates = ITensor[]
     gates = Any[]                              # The long-range two-site gate is coded as a MPO applied to all the sites
     
@@ -252,13 +260,13 @@ function layers_right_corner(starting_index :: Int, edge_index :: Int, number_of
         end
 
         if abs(tmp_start - 1) < 1E-8
-            Gj = long_range_gate(tmp_sites, period)
+            Gj = long_range_gate(tmp_sites, period, longitudinal_field, Δτ)
         else
             @show tmp_start, tmp_end
-            # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            # hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-            Gj = exp(-1.0im * tau * hj)
+            # hj = coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+            hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+            # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+            Gj = exp(-1.0im * Δτ * hj)
         end
         push!(gates, Gj)
     end
@@ -267,7 +275,7 @@ end
 
 # Contruct a layer of two-site gates that apply the Ising interaction and longitudinal fields
 # Used in the left light cone
-function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
+function time_evolution_corner(num_gates :: Int, parity :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
     gates = ITensor[]
 
     for ind₁ in 1 : num_gates
@@ -284,32 +292,32 @@ function time_evolution_corner(num_gates :: Int, parity :: Int, tmp_sites)
             coeff₂ = 1
         end
 
-        # hj = coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-        # hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * h * op("Sz", s1) * op("Id", s2) + coeff₂ * h * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * tau * hj)
+        # hj = coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+        hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+        Gj = exp(-1.0im * Δτ * hj)
         push!(gates, Gj)
     end
     return gates
 end
 
 # Construct multiple two-site gates to apply the Ising interaction and the longitudinal fields in the diagoanal parts
-function time_evolution(initial_position :: Int, num_sites :: Int, tmp_sites)
+function time_evolution(initial_position :: Int, num_sites :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
     gates = ITensor[]
 
     if initial_position - 1 < 1E-8
         # Generate a long-range two-site gate
-        tmp_gate = long_range_gate(tmp_sites, num_sites)
+        tmp_gate = long_range_gate(tmp_sites, num_sites, longitudinal_field, Δτ)
         return tmp_gate
     else
         # Generate a local two-site gate 
         s1 = tmp_sites[initial_position]
         s2 = tmp_sites[initial_position - 1]
 
-        # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        # hj = π/2 * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * tau * hj)                 
+        # hj = longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
+        hj = π/2 * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
+        Gj = exp(-1.0im * Δτ * hj)                 
         push!(gates, Gj)
     end
     return gates
@@ -317,15 +325,15 @@ end
 
 
 # Implement the long-range two-site gate
-function long_range_gate(tmp_s, position_index::Int)
+function long_range_gate(tmp_s, position_index :: Int, longitudinal_field :: Float64, Δτ :: Float64)
     s1 = tmp_s[1]
     s2 = tmp_s[position_index]
 
     # Use bulk coefficients to define this long-range gate
-    # hj = h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-    # hj = π/2 * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-    hj = π * op("Sz", s1) * op("Sz", s2) + h * op("Sz", s1) * op("Id", s2) + h * op("Id", s1) * op("Sz", s2)
-    Gj = exp(-1.0im * tau * hj)
+    # hj = longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
+    hj = π/2 * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
+    # hj = π * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
+    Gj = exp(-1.0im * Δτ * hj)
     # @show hj
     # @show Gj
     # @show inds(Gj)
@@ -405,14 +413,14 @@ let
     floquet_time = 3.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 10                                                             # the number of diagonal parts of circuit
+    N_diagonal = 2                                                              # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
     # @show floquet_time, circuit_time
-    num_measurements = 2000
+    num_measurements = 1000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -516,7 +524,7 @@ let
             end
             
             tmp_two_site_gates = ITensor[]
-            tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity, s)
+            tmp_two_site_gates = time_evolution_corner(tmp_num_gates, tmp_parity, h, tau, s)
             println("")
             println("")
             @show sizeof(tmp_two_site_gates)
@@ -595,7 +603,7 @@ let
                     end
 
                     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-                    tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, s)
+                    tmp_two_site_gates = time_evolution(gate_seeds[ind₂], N, h, tau, s)
                     ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
@@ -720,7 +728,7 @@ let
                 println("")
                 println("")
 
-                tmp_two_site_gates = layers_right_corner(tmp_edge, starting_site, tmp_gates_number, N, s)
+                tmp_two_site_gates = layers_right_corner(tmp_edge, starting_site, tmp_gates_number, N, h, tau, s)
                 for temporary_gate in tmp_two_site_gates
                     # @show temporary_gate
                     ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
@@ -812,7 +820,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sample2.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sx_Sample.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
