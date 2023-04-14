@@ -53,7 +53,7 @@ function sample(m::MPS, j::Int)
     # Implement procedures to sample in Sx, Sy and Sz basis
     
     Sx_projn = [[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
-    Sy_projn = [[1/sqrt(2), 1.0im/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
+    Sy_projn = [[1/sqrt(2), 1.0im/sqrt(2)], [1/sqrt(2), -1.0im/sqrt(2)]]
     Sz_projn = [[1, 0], [0, 1]]
     
     for ind in j:j+1
