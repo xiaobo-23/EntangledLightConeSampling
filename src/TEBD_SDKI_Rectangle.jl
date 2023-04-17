@@ -137,7 +137,6 @@ let
             orthogonalize!(ψ_copy, site_index)
 
             i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
-            # i₀, j₀ = siteind(ψ, site_index), linkind(ψ, site_index - 1)
             _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
             C0 = matrix(C0)
             SvN = compute_entropy(C0)
@@ -147,7 +146,6 @@ let
             C1 = matrix(C1)
             SvN₁ = compute_entropy(C1)
             
-            @show dim(linkind(ψ_copy, site_index - 1))
             @show site_index, SvN, SvN₁
             entropy[index - 1, site_index - 1] = SvN₁
         end

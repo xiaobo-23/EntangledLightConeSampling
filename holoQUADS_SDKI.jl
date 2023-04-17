@@ -77,15 +77,15 @@ function sample(m::MPS, j::Int)
             println("")
 
             # Project in the Sz direction
-            # projn[tmpS => n] = 1.0
+            projn[tmpS => n] = 1.0
             
-            # Project in the Sx direction
+            # # Project in the Sx direction
             # projn[tmpS => 1] = Sx_projn[n][1]
             # projn[tmpS => 2] = Sx_projn[n][2]
 
-            # Project in the Sy direction
-            projn[tmpS => 1] = Sy_projn[n][1]
-            projn[tmpS => 2] = Sy_projn[n][2]
+            # # Project in the Sy direction
+            # projn[tmpS => 1] = Sy_projn[n][1]
+            # projn[tmpS => 2] = Sy_projn[n][2]
             
             println("")
             println("")
@@ -111,30 +111,30 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        # '''
-        #     # 01/27/2022
-        #     # Comment: the reset procedure needs to be revised 
-        #     # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
-        # '''
+        '''
+            # 01/27/2022
+            # Comment: the reset procedure needs to be revised 
+            # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
+        '''
 
-        # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
-        # if ind % 2 == 1
-        #     if n - 1 < 1E-8             
-        #         tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-        #     end
-        # else
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-        #     end
-        # end
-        # m[ind] *= tmpReset
-        # noprime!(m[ind])
-        # # println("After resetting")
-        # # @show m[ind]
+        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        if ind % 2 == 1
+            if n - 1 < 1E-8             
+                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+            end
+        else
+            if n - 1 < 1E-8
+                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+            end
+        end
+        m[ind] *= tmpReset
+        noprime!(m[ind])
+        # println("After resetting")
+        # @show m[ind]
     end
     # println("")
     # println("")
@@ -414,6 +414,18 @@ function long_range_gate(tmp_s, position_index :: Int, longitudinal_field :: Flo
 end
 
 
+# 04/17/2023
+# Measure the von Neumann entanglement entropy
+function compute_entropy(input_matrix)
+    local tmpEntropy = 0
+    for index in 1 : size(input_matrix, 1) 
+        tmp = input_matrix[index, index]^2
+        tmpEntropy += -tmp * log(tmp)
+    end
+    return tmpEntropy
+end
+
+
 let 
     floquet_time = 5.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
@@ -425,7 +437,7 @@ let
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
     # @show floquet_time, circuit_time
-    num_measurements = 2000
+    num_measurements = 1
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -441,7 +453,8 @@ let
     # Czz = complex(zeros(timeSlices, N))
     # Sz = complex(zeros(num_measurements, N))
     Sz_sample = real(zeros(num_measurements, N_total))
-
+    entropy = real(zeros(2, N - 1))
+    
     # '''
     #     # Measure expectation values of the wavefunction during time evolution
     # '''
@@ -559,7 +572,7 @@ let
             # end
         end
 
-        # compute_overlap(ψ, ψ_copy)
+        
         if measure_ind - 1 < 1E-8
             # Measure Sx on each site
             tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N)
@@ -573,11 +586,46 @@ let
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
             Sz[1:2] = tmp_Sz[1:2]
             # Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+
+            for site_index in 2 : N - 1 
+                orthogonalize!(ψ_copy, site_index)
+    
+                i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
+                _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
+                C0 = matrix(C0)
+                SvN = compute_entropy(C0)
+    
+                i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
+                _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+                C1 = matrix(C1)
+                SvN₁ = compute_entropy(C1)
+                
+                @show site_index, SvN, SvN₁
+                entropy[1, site_index - 1] = SvN₁
+            end
         end
         
-        # compute_overlap(ψ, ψ_copy)
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        site_tensor_index += 1; @show site_tensor_index 
+        site_tensor_index += 1 
+
+        if measure_ind - 1 < 1E-8
+            for site_index in 2 : N - 1 
+                orthogonalize!(ψ_copy, site_index)
+    
+                i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
+                _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
+                C0 = matrix(C0)
+                SvN = compute_entropy(C0)
+    
+                i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
+                _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+                C1 = matrix(C1)
+                SvN₁ = compute_entropy(C1)
+                
+                @show site_index, SvN, SvN₁
+                entropy[2, site_index - 1] = SvN₁
+            end
+        end
 
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
@@ -824,7 +872,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sy_Sample_S1.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sz_Entropy.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
@@ -835,6 +883,7 @@ let
     write(file, "Sz_sample", Sz_sample)
     # write(file, "Sz_Reset", Sz_Reset)
     # write(file, "Wavefunction Overlap", ψ_overlap)
+    write(file, "Entropy", entropy)
     close(file)
 
     return
