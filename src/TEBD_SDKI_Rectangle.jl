@@ -136,12 +136,19 @@ let
         for site_index in 2 : N - 1 
             orthogonalize!(ψ_copy, site_index)
 
+            # if site_index - 2 < 1E-8
+            #     i₀, j₀ = inds(ψ_copy[site_index])[2], inds(ψ_copy[site_index])[3]
+            # else
+            #     i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
+            # end
             i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
+            @show inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[2], inds(ψ_copy[site_index])[3]
             _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
             C0 = matrix(C0)
             SvN = compute_entropy(C0)
 
             i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
+            @show i₁, j₁
             _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
             C1 = matrix(C1)
             SvN₁ = compute_entropy(C1)
