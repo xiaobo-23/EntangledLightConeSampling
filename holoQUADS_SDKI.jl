@@ -45,8 +45,6 @@ function sample(m::MPS, j::Int)
         0  0
     ]
     
-    result = zeros(Int, 2)
-    A = m[j]
     
     
     # 04/12/2023 
@@ -55,6 +53,11 @@ function sample(m::MPS, j::Int)
     Sx_projn = [[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
     Sy_projn = [[1/sqrt(2), 1.0im/sqrt(2)], [1/sqrt(2), -1.0im/sqrt(2)]]
     Sz_projn = [[1, 0], [0, 1]]
+    
+    
+    # Sample the target observables
+    result = zeros(Int, 2)
+    A = m[j]
     
     for ind in j:j+1
         tmpS = siteind(m, ind)
@@ -111,6 +114,7 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
+        
         '''
             # 01/27/2022
             # Comment: the reset procedure needs to be revised 
@@ -420,7 +424,9 @@ function compute_entropy(input_matrix)
     local tmpEntropy = 0
     for index in 1 : size(input_matrix, 1) 
         tmp = input_matrix[index, index]^2
-        tmpEntropy += -tmp * log(tmp)
+        if tmp > 1E-8
+            tmpEntropy += -tmp * log(tmp)
+        end
     end
     return tmpEntropy
 end
@@ -453,7 +459,7 @@ let
     # Czz = complex(zeros(timeSlices, N))
     # Sz = complex(zeros(num_measurements, N))
     Sz_sample = real(zeros(num_measurements, N_total))
-    entropy = real(zeros(2, N - 1))
+    entropy = complex(zeros(2, N - 1))
     
     # '''
     #     # Measure expectation values of the wavefunction during time evolution
@@ -606,6 +612,7 @@ let
         end
         
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        normalize!(ψ_copy)
         site_tensor_index += 1 
 
         if measure_ind - 1 < 1E-8
