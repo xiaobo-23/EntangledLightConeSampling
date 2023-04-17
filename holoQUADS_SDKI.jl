@@ -76,10 +76,16 @@ function sample(m::MPS, j::Int)
             println("")
             println("")
 
-            # Project in the Sx direction
+            # Project in the Sz direction
             # projn[tmpS => n] = 1.0
-            projn[tmpS => 1] = Sx_projn[n][1]
-            projn[tmpS => 2] = Sx_projn[n][2]
+            
+            # Project in the Sx direction
+            # projn[tmpS => 1] = Sx_projn[n][1]
+            # projn[tmpS => 2] = Sx_projn[n][2]
+
+            # Project in the Sy direction
+            projn[tmpS => 1] = Sy_projn[n][1]
+            projn[tmpS => 2] = Sy_projn[n][2]
             
             println("")
             println("")
@@ -88,7 +94,6 @@ function sample(m::MPS, j::Int)
             @show projn[2]
             println("")
             println("")
-
 
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
@@ -410,17 +415,17 @@ end
 
 
 let 
-    floquet_time = 3.0                                                                 # floquet time = Δτ * circuit_time
+    floquet_time = 5.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 2                                                              # the number of diagonal parts of circuit
+    N_diagonal = 0                                                              # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
     # @show floquet_time, circuit_time
-    num_measurements = 1000
+    num_measurements = 2000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -573,7 +578,6 @@ let
         # compute_overlap(ψ, ψ_copy)
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
         site_tensor_index += 1; @show site_tensor_index 
-
 
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
@@ -820,7 +824,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sx_Sample.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sy_Sample_S1.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)

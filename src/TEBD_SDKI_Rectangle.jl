@@ -30,8 +30,8 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
         end
 
         # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        # hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
-        hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
+        hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
+        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
         Gj = exp(-1.0im * delta_tau * hj)
         push!(tmp_gates, Gj)
     end
@@ -39,10 +39,23 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
 end
 
 
+# 04/17/2023
+# Implement a function to compute the von Neumann entanglement and monitor its time dependence
+function compute_entropy(input_matrix)
+    local tmpEntropy = 0
+    for index in 1 : size(input_matrix, 1) 
+        # entropy += -2 * input_matrix[index, index]^2 * log(input_matrix[index, index])
+        tmp = input_matrix[index, index]^2
+        tmpEntropy += -tmp * log(tmp)
+    end
+    return tmpEntropy
+end
+
+
 let 
-    N = 28
+    N = 12
     cutoff = 1E-8
-    Δτ = 0.1; ttotal = 7.2
+    Δτ = 0.1; ttotal = 7.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -86,7 +99,6 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
     Sx₀ = expect(ψ_copy, "Sx"; sites = 1 : N)
     Sy₀ = expect(ψ_copy, "Sy"; sites = 1 : N)
@@ -100,6 +112,7 @@ let
     Cxx = complex(zeros(timeSlices, N * N)) 
     Cyy = complex(zeros(timeSlices, N * N))
     Czz = complex(zeros(timeSlices, N * N))
+    entropy = complex(zeros(timeSlices, N - 1))
 
     # Take measurements of the initial setting before time evolution
     # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[1, :] = tmpSx
@@ -119,6 +132,25 @@ let
         @show time
         println("")
         println("")
+
+        for site_index in 2 : N - 1 
+            orthogonalize!(ψ_copy, site_index)
+
+            i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
+            # i₀, j₀ = siteind(ψ, site_index), linkind(ψ, site_index - 1)
+            _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
+            C0 = matrix(C0)
+            SvN = compute_entropy(C0)
+
+            i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
+            _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+            C1 = matrix(C1)
+            SvN₁ = compute_entropy(C1)
+            
+            @show dim(linkind(ψ_copy, site_index - 1))
+            @show site_index, SvN, SvN₁
+            entropy[index - 1, site_index - 1] = SvN₁
+        end
 
         if (abs((time / Δτ) % distance) < 1E-8)
             println("")
@@ -168,7 +200,7 @@ let
 
     # Store data into a hdf5 file
     # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
-    file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_AFM_Setup.h5", "w")
+    file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_AFM.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
@@ -176,6 +208,7 @@ let
     write(file, "Cyy", Cyy)
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
+    write(file, "Entropy", entropy)
     write(file, "Initial Sx", Sx₀)
     write(file, "Initial Sy", Sy₀)
     write(file, "Initial Sz", Sz₀)
