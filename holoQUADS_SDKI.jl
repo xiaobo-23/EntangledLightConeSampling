@@ -45,7 +45,29 @@ function sample(m::MPS, j::Int)
         0  0
     ]
     
-    
+    # Take measurements of Sx and reset the two-site MPS to Neel state
+    projn_plus_to_up_matrix = 1/sqrt(2) * [
+        1  1
+        0  0
+    ]
+
+    projn_minus_to_up_matrix = 1/sqrt(2) * [
+        1  -1
+        0  0
+    ]
+
+    projn_minus_to_down_matrix = 1/sqrt(2) * [
+        0  0 
+        1  -1
+    ]
+
+    projn_minus_to_up_matrix = 1/sqrt(2) * [
+        0  0 
+        1  1
+    ]
+
+    @show projn_plus_to_up_matrix
+    @show projn_minus_to_up_matrix
     
     # 04/12/2023 
     # Implement procedures to sample in Sx, Sy and Sz basis
