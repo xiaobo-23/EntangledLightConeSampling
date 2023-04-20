@@ -150,37 +150,48 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-        
+
         '''
             # 01/27/2022
             # Comment: the reset procedure needs to be revised 
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
+        
+        # # n denotes the corresponding physical state: n=1 --> |+> and n=2 --> |->
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(projn_plus_to_up_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_minus_to_up_matrix, tmpS', tmpS)
+        #     end
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(projn_plus_to_down_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_minus_to_down_matrix, tmpS', tmpS)
+        #     end
+        # end
 
-        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
-        if ind % 2 == 1
-            if n - 1 < 1E-8             
-                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-            end
-        else
-            if n - 1 < 1E-8
-                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-            end
-        end
-        m[ind] *= tmpReset
-        noprime!(m[ind])
+        # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8             
+        #         tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+        #     end
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+        #     end
+        # end
+
+        # m[ind] *= tmpReset
+        # noprime!(m[ind])
         # println("After resetting")
         # @show m[ind]
     end
-    # println("")
-    # println("")
-    # println("Measure sites $j and $(j+1)!")
-    # println("")
-    # println("")
     return result
 end 
 
@@ -472,14 +483,14 @@ let
     floquet_time = 5.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 0                                                              # the number of diagonal parts of circuit
+    N_diagonal = 5                                                              # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
     # @show floquet_time, circuit_time
-    num_measurements = 1
+    num_measurements = 2000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -494,6 +505,7 @@ let
     # Cxx = complex(zeros(timeSlices, N))
     # Czz = complex(zeros(timeSlices, N))
     # Sz = complex(zeros(num_measurements, N))
+    # Sx_sample = real(zeros(num_measurements, N_total))
     Sz_sample = real(zeros(num_measurements, N_total))
     entropy = complex(zeros(2, N - 1))
     
@@ -646,7 +658,8 @@ let
                 entropy[1, site_index - 1] = SvN₁
             end
         end
-        
+       
+        # Sx_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
         Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
         normalize!(ψ_copy)
         site_tensor_index += 1 
