@@ -53,7 +53,7 @@ end
 
 
 let 
-    N = 12
+    N = 26
     cutoff = 1E-8
     Δτ = 0.1; ttotal = 7.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -133,7 +133,7 @@ let
         println("")
         println("")
 
-        for site_index in 1 : N - 1 
+        for site_index in 1 : N
             orthogonalize!(ψ_copy, site_index)
             if abs(site_index - 1) < 1E-8
                 i₁ = siteind(ψ_copy, site_index)

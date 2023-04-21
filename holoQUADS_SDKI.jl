@@ -32,14 +32,17 @@ function sample(m::MPS, j::Int)
         1  0 
         0  0
     ] 
+
     S⁻_matrix = [
         0  0
         1  0
     ]
+
     projn_dn_matrix = [
         0  0 
         0  1
     ] 
+
     S⁺_matrix = [
         0  1 
         0  0
@@ -61,9 +64,30 @@ function sample(m::MPS, j::Int)
         1  -1
     ]
 
-    projn_minus_to_up_matrix = 1/sqrt(2) * [
+    projn_plus_to_down_matrix = 1/sqrt(2) * [
         0  0 
         1  1
+    ]
+
+    # Take measurements of Sy and reset the two-site MPS to Neel state
+    Sy_projn_plus_to_up_matrix = 1/sqrt(2) * [
+        1  1.0im
+        0  0
+    ]
+
+    Sy_projn_minus_to_up_matrix = 1/sqrt(2) * [
+        1  -1.0im
+        0   0
+    ]
+
+    Sy_projn_minus_to_down_matrix = 1/sqrt(2) * [
+        0  0
+        1  -1.0im 
+    ]
+
+    Sy_projn_plus_to_down_matrix = 1/sqrt(2) * [
+        0  0
+        1  1.0im
     ]
 
     # @show projn_plus_to_up_matrix
@@ -72,23 +96,23 @@ function sample(m::MPS, j::Int)
     # 04/12/2023 
     # Implement procedures to sample in Sx, Sy and Sz basis
     
-    # Sx_projn = [[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
-    # Sy_projn = [[1/sqrt(2), 1.0im/sqrt(2)], [1/sqrt(2), -1.0im/sqrt(2)]]
-    # Sz_projn = [[1, 0], [0, 1]]
-    Sx_projn = 1/sqrt(2) * [
-        1  1
-        1  -1
-    ]
+    Sx_projn = [[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
+    Sy_projn = [[1/sqrt(2), 1.0im/sqrt(2)], [1/sqrt(2), -1.0im/sqrt(2)]]
+    Sz_projn = [[1, 0], [0, 1]]
+    # Sx_projn = 1/sqrt(2) * [
+    #     1  1
+    #     1  -1
+    # ]
 
-    Sy_projn = 1/sqrt(2) *[
-        1  1.0im
-        1  -1.0im
-    ]
+    # Sy_projn = 1/sqrt(2) *[
+    #     1  1.0im
+    #     1  -1.0im
+    # ]
 
-    Sz_projn = [
-        1  0
-        0  1
-    ]
+    # Sz_projn = [
+    #     1  0
+    #     0  1
+    # ]
 
     
     # Sample the target observables
@@ -115,12 +139,12 @@ function sample(m::MPS, j::Int)
             println("")
             println("")
 
-            # Project in the Sz direction
-            projn[tmpS => n] = 1.0
+            # # Project in the Sz direction
+            # projn[tmpS => n] = 1.0
             
-            # # Project in the Sx direction
-            # projn[tmpS => 1] = Sx_projn[n][1]
-            # projn[tmpS => 2] = Sx_projn[n][2]
+            # Project in the Sx direction
+            projn[tmpS => 1] = Sx_projn[n][1]
+            projn[tmpS => 2] = Sx_projn[n][2]
 
             # # Project in the Sy direction
             # projn[tmpS => 1] = Sy_projn[n][1]
@@ -172,6 +196,22 @@ function sample(m::MPS, j::Int)
         #     end
         # end
 
+        # n denotes the corresponding physical states in Sy: n=1 --> |+> and n=2 --> |->
+        if ind % 2 == 1
+            if n - 1 < 1E-8
+                tmpReset = ITensor(Sy_projn_plus_to_up_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(Sy_projn_minus_to_up_matrix, tmpS', tmpS)
+            end 
+        else
+            if n - 1 < 1E-8
+                tmpReset = ITensor(Sy_projn_plus_to_down_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(Sy_projn_minus_to_down_matrix, tmpS', tmpS)
+            end 
+        end
+
+
         # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
         # if ind % 2 == 1
         #     if n - 1 < 1E-8             
@@ -187,8 +227,8 @@ function sample(m::MPS, j::Int)
         #     end
         # end
 
-        # m[ind] *= tmpReset
-        # noprime!(m[ind])
+        m[ind] *= tmpReset
+        noprime!(m[ind])
         # println("After resetting")
         # @show m[ind]
     end
@@ -480,17 +520,17 @@ end
 
 
 let 
-    floquet_time = 5.0                                                                 # floquet time = Δτ * circuit_time
+    floquet_time = 2.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 5                                                              # the number of diagonal parts of circuit
+    N_diagonal = 10                                                             # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
     # @show floquet_time, circuit_time
-    num_measurements = 1
+    num_measurements = 2000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -506,7 +546,8 @@ let
     # Czz = complex(zeros(timeSlices, N))
     # Sz = complex(zeros(num_measurements, N))
     # Sx_sample = real(zeros(num_measurements, N_total))
-    Sz_sample = real(zeros(num_measurements, N_total))
+    # Sz_sample = real(zeros(num_measurements, N_total))
+    Samples = real(zeros(num_measurements, N_total))
     entropy = complex(zeros(2, N - 1))
     
     # '''
@@ -524,7 +565,7 @@ let
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    Random.seed!(789)
+    Random.seed!(123)
 
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # @show eltype(ψ), eltype(ψ[1])
@@ -613,17 +654,6 @@ let
             compute_overlap(ψ, ψ_copy)
             ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
-
-            # if measure_ind == 1 && ind % 2 == 0
-            #     Sx[Int(ind / 2), :] = expect(ψ_copy, "Sx"; sites = 1 : N)
-            #     Sy[Int(ind / 2), :] = expect(ψ_copy, "Sy"; sites = 1 : N) 
-            #     Sz[Int(ind / 2), :] = expect(ψ_copy, "Sz"; sites = 1 : N); @show Sz[Int(ind / 2), :]
-            # end
-            # if ind % 2 == 0
-            #     push!(Sx, expect(ψ_copy, "Sx"; sites = 1 : N))
-            #     push!(Sy, expect(ψ_copy, "Sy"; sites = 1 : N))
-            #     push!(Sz, expect(ψ_copy, "Sz"; sites = 1 : N))
-            # end
         end
 
         
@@ -659,7 +689,8 @@ let
         end
        
         # Sx_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        # Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        Samples[measure_ind, 1:2] = sample(ψ_copy, 1)
         normalize!(ψ_copy)
         site_tensor_index += 1 
 
@@ -736,7 +767,8 @@ let
                 # @show index_to_sample
                 # @show tmp_Sz[index_to_sample : index_to_sample + 1]
                 # println("****************************************************************************")
-                Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+                # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+                Samples[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
                 
                 site_tensor_index = (site_tensor_index + 1) % div(N, 2)
                 if site_tensor_index < 1E-8
@@ -905,17 +937,14 @@ let
 
         sample_index = 0
         for ind in sites_to_measure
-            Sz_sample[measure_ind, 2 * (N_diagonal + 1) + 2 * sample_index + 1 : 2 * (N_diagonal + 1) + 2 * sample_index + 2] = sample(ψ_copy, ind)
+            # Sz_sample[measure_ind, 2 * (N_diagonal + 1) + 2 * sample_index + 1 : 2 * (N_diagonal + 1) + 2 * sample_index + 2] = sample(ψ_copy, ind)
+            Samples[measure_ind, 2 * (N_diagonal + 1) + 2 * sample_index + 1 : 2 * (N_diagonal + 1) + 2 * sample_index + 2] = sample(ψ_copy, ind)
             normalize!(ψ_copy)
             sample_index += 1
         end
-
-        # Sx[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sx"; sites = 1 : N);
-        # Sy[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sy"; sites = 1 : N); 
-        # Sz[Int(floquet_time) + 1, :] = expect(ψ_copy, "Sz"; sites = 1 : N); # @show real(Sz[4, :]) 
     end
-    replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
-     
+    # replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
+    replace!(Samples, 1.0 => 0.5, 2.0 => -0.5)
 
     println("################################################################################")
     println("################################################################################")
@@ -926,7 +955,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sz_Entropy.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sy_Sample1.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
@@ -934,7 +963,7 @@ let
     # write(file, "Cxx", Cxx)
     # write(file, "Cyy", Cyy)
     # write(file, "Czz", Czz)
-    write(file, "Sz_sample", Sz_sample)
+    write(file, "Sz_sample", Samples)
     # write(file, "Sz_Reset", Sz_Reset)
     # write(file, "Wavefunction Overlap", ψ_overlap)
     write(file, "Entropy", entropy)
