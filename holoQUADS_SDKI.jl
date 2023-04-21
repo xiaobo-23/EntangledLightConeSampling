@@ -490,7 +490,7 @@ let
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
     
     # @show floquet_time, circuit_time
-    num_measurements = 2000
+    num_measurements = 1
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -641,21 +641,20 @@ let
             Sz[1:2] = tmp_Sz[1:2]
             # Sz_Reset[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
 
-            for site_index in 2 : N - 1 
+            for site_index in 1 : N - 1 
                 orthogonalize!(ψ_copy, site_index)
-    
-                i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
-                _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
-                C0 = matrix(C0)
-                SvN = compute_entropy(C0)
-    
-                i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
-                _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+                if abs(site_index - 1) < 1E-8
+                    i₁ = siteind(ψ_copy, site_index)
+                    _, C1, _ = svd(ψ_copy[site_index], i₁)
+                else
+                    i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
+                    _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+                end
                 C1 = matrix(C1)
                 SvN₁ = compute_entropy(C1)
-                
-                @show site_index, SvN, SvN₁
-                entropy[1, site_index - 1] = SvN₁
+               
+                @show site_index, SvN₁
+                entropy[1, site_index] = SvN₁
             end
         end
        
@@ -667,19 +666,18 @@ let
         if measure_ind - 1 < 1E-8
             for site_index in 2 : N - 1 
                 orthogonalize!(ψ_copy, site_index)
-    
-                i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
-                _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
-                C0 = matrix(C0)
-                SvN = compute_entropy(C0)
-    
-                i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
-                _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+                if abs(site_index - 1) < 1E-8
+                    i₁ = siteind(ψ_copy[site_index], i₁)
+                    _, C, _ = svd(ψ_copy[site_index], i₁)
+                else
+                    i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
+                    _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+                end
                 C1 = matrix(C1)
                 SvN₁ = compute_entropy(C1)
                 
-                @show site_index, SvN, SvN₁
-                entropy[2, site_index - 1] = SvN₁
+                @show site_index, SvN₁
+                entropy[2, site_index] = SvN₁
             end
         end
 

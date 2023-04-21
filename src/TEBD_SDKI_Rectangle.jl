@@ -133,28 +133,20 @@ let
         println("")
         println("")
 
-        for site_index in 2 : N - 1 
+        for site_index in 1 : N - 1 
             orthogonalize!(ψ_copy, site_index)
+            if abs(site_index - 1) < 1E-8
+                i₁ = siteind(ψ_copy, site_index)
+                _, C1, _ = svd(ψ_copy[site_index], i₁)
+            else
+                i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
+                _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
+            end
 
-            # if site_index - 2 < 1E-8
-            #     i₀, j₀ = inds(ψ_copy[site_index])[2], inds(ψ_copy[site_index])[3]
-            # else
-            #     i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
-            # end
-            i₀, j₀ = inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[3]
-            @show inds(ψ_copy[site_index])[1], inds(ψ_copy[site_index])[2], inds(ψ_copy[site_index])[3]
-            _, C0, _ = svd(ψ_copy[site_index], i₀, j₀)
-            C0 = matrix(C0)
-            SvN = compute_entropy(C0)
-
-            i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
-            @show i₁, j₁
-            _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
             C1 = matrix(C1)
             SvN₁ = compute_entropy(C1)
-            
-            @show site_index, SvN, SvN₁
-            entropy[index - 1, site_index - 1] = SvN₁
+            @show site_index, SvN₁
+            entropy[index - 1, site_index] = SvN₁
         end
 
         if (abs((time / Δτ) % distance) < 1E-8)
