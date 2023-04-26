@@ -95,25 +95,9 @@ function sample(m::MPS, j::Int)
     
     # 04/12/2023 
     # Implement procedures to sample in Sx, Sy and Sz basis
-    
-    Sx_projn = [[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), -1/sqrt(2)]]
-    Sy_projn = [[1/sqrt(2), 1.0im/sqrt(2)], [1/sqrt(2), -1.0im/sqrt(2)]]
+    Sx_projn = 1/sqrt(2) * [[1, 1], [1, -1]]
+    Sy_projn = 1/sqrt(2) * [[1, 1.0im], [1, -1.0im]]
     Sz_projn = [[1, 0], [0, 1]]
-    # Sx_projn = 1/sqrt(2) * [
-    #     1  1
-    #     1  -1
-    # ]
-
-    # Sy_projn = 1/sqrt(2) *[
-    #     1  1.0im
-    #     1  -1.0im
-    # ]
-
-    # Sz_projn = [
-    #     1  0
-    #     0  1
-    # ]
-
     
     # Sample the target observables
     result = zeros(Int, 2)
@@ -143,12 +127,12 @@ function sample(m::MPS, j::Int)
             # projn[tmpS => n] = 1.0
             
             # Project in the Sx direction
-            projn[tmpS => 1] = Sx_projn[n][1]
-            projn[tmpS => 2] = Sx_projn[n][2]
+            # projn[tmpS => 1] = Sx_projn[n][1]
+            # projn[tmpS => 2] = Sx_projn[n][2]
 
             # # Project in the Sy direction
-            # projn[tmpS => 1] = Sy_projn[n][1]
-            # projn[tmpS => 2] = Sy_projn[n][2]
+            projn[tmpS => 1] = Sy_projn[n][1]
+            projn[tmpS => 2] = Sy_projn[n][2]
             
             println("")
             println("")
@@ -174,43 +158,46 @@ function sample(m::MPS, j::Int)
             A *= (1. / sqrt(pn))
         end
 
-
         '''
             # 01/27/2022
             # Comment: the reset procedure needs to be revised 
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
         
-        # # n denotes the corresponding physical state: n=1 --> |+> and n=2 --> |->
-        # if ind % 2 == 1
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(projn_plus_to_up_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(projn_minus_to_up_matrix, tmpS', tmpS)
-        #     end
-        # else
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(projn_plus_to_down_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(projn_minus_to_down_matrix, tmpS', tmpS)
-        #     end
-        # end
-
-        # n denotes the corresponding physical states in Sy: n=1 --> |+> and n=2 --> |->
+        # n denotes the corresponding physical state: n=1 --> |+> and n=2 --> |->
         if ind % 2 == 1
             if n - 1 < 1E-8
-                tmpReset = ITensor(Sy_projn_plus_to_up_matrix, tmpS', tmpS)
+                tmpReset = ITensor(projn_plus_to_up_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(Sy_projn_minus_to_up_matrix, tmpS', tmpS)
-            end 
+                tmpReset = ITensor(projn_minus_to_up_matrix, tmpS', tmpS)
+            end
         else
             if n - 1 < 1E-8
-                tmpReset = ITensor(Sy_projn_plus_to_down_matrix, tmpS', tmpS)
+                tmpReset = ITensor(projn_plus_to_down_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(Sy_projn_minus_to_down_matrix, tmpS', tmpS)
-            end 
+                tmpReset = ITensor(projn_minus_to_down_matrix, tmpS', tmpS)
+            end
         end
 
+        # # n denotes the corresponding physical states in Sy: n=1 --> |+> and n=2 --> |->
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8
+        #         println("")
+        #         println("")
+        #         println("Reset!!")
+        #         println("")
+        #         println("")
+        #         tmpReset = ITensor(Sy_projn_plus_to_up_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(Sy_projn_minus_to_up_matrix, tmpS', tmpS)
+        #     end 
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(Sy_projn_plus_to_down_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(Sy_projn_minus_to_down_matrix, tmpS', tmpS)
+        #     end 
+        # end
 
         # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
         # if ind % 2 == 1
@@ -955,7 +942,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sy_Sample1.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sy_Sample2.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
