@@ -123,12 +123,12 @@ function sample(m::MPS, j::Int)
             # println("")
             # println("")
 
-            # # Project in the Sz direction
-            # projn[tmpS => n] = 1.0
+            # Project in the Sz direction
+            projn[tmpS => n] = 1.0
             
-            # Project in the Sx direction
-            projn[tmpS => 1] = Sx_projn[n][1]
-            projn[tmpS => 2] = Sx_projn[n][2]
+            # # Project in the Sx direction
+            # projn[tmpS => 1] = Sx_projn[n][1]
+            # projn[tmpS => 2] = Sx_projn[n][2]
 
             # # Project in the Sy direction
             # projn[tmpS => 1] = Sy_projn[n][1]
@@ -164,20 +164,20 @@ function sample(m::MPS, j::Int)
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
         
-        # Reset to Neel state after measuring Sx component: n=1 --> |+> and n=2 --> |->
-        if ind % 2 == 1
-            if n - 1 < 1E-8
-                tmpReset = ITensor(projn_plus_to_up_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(projn_minus_to_up_matrix, tmpS', tmpS)
-            end
-        else
-            if n - 1 < 1E-8
-                tmpReset = ITensor(projn_plus_to_down_matrix, tmpS', tmpS)
-            else
-                tmpReset = ITensor(projn_minus_to_down_matrix, tmpS', tmpS)
-            end
-        end
+        # # Reset to Neel state after measuring Sx component: n=1 --> |+> and n=2 --> |->
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(projn_plus_to_up_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_minus_to_up_matrix, tmpS', tmpS)
+        #     end
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(projn_plus_to_down_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_minus_to_down_matrix, tmpS', tmpS)
+        #     end
+        # end
 
         # # n denotes the corresponding physical states in Sy: n=1 --> |+> and n=2 --> |->
         # if ind % 2 == 1
@@ -194,20 +194,20 @@ function sample(m::MPS, j::Int)
         #     end 
         # end
 
-        # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
-        # if ind % 2 == 1
-        #     if n - 1 < 1E-8             
-        #         tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-        #     end
-        # else
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-        #     end
-        # end
+        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        if ind % 2 == 1
+            if n - 1 < 1E-8             
+                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+            end
+        else
+            if n - 1 < 1E-8
+                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+            else
+                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+            end
+        end
 
         m[ind] *= tmpReset
         noprime!(m[ind])
@@ -502,10 +502,10 @@ end
 
 
 let 
-    floquet_time = 3.0                                                                 # floquet time = Δτ * circuit_time
+    floquet_time = 4.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 9                                                              # the number of diagonal parts of circuit
+    N_diagonal = 11                                                             # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
@@ -948,7 +948,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sx_Sample1.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sz_Sample1.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
@@ -956,7 +956,7 @@ let
     # write(file, "Cxx", Cxx)
     # write(file, "Cyy", Cyy)
     # write(file, "Czz", Czz)
-    write(file, "Sz_sample", Samples)
+    write(file, "Samples", Samples)
     # write(file, "Sz_Reset", Sz_Reset)
     # write(file, "Wavefunction Overlap", ψ_overlap)
     write(file, "Entropy", entropy)
