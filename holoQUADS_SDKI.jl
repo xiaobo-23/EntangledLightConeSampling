@@ -115,32 +115,32 @@ function sample(m::MPS, j::Int)
 
         while n <= d
             projn = ITensor(tmpS)
-            println("")
-            println("")
-            @show n
-            @show projn[1]
-            @show projn[2]
-            println("")
-            println("")
+            # println("")
+            # println("")
+            # @show n
+            # @show projn[1]
+            # @show projn[2]
+            # println("")
+            # println("")
 
             # # Project in the Sz direction
             # projn[tmpS => n] = 1.0
             
             # Project in the Sx direction
-            # projn[tmpS => 1] = Sx_projn[n][1]
-            # projn[tmpS => 2] = Sx_projn[n][2]
+            projn[tmpS => 1] = Sx_projn[n][1]
+            projn[tmpS => 2] = Sx_projn[n][2]
 
             # # Project in the Sy direction
-            projn[tmpS => 1] = Sy_projn[n][1]
-            projn[tmpS => 2] = Sy_projn[n][2]
+            # projn[tmpS => 1] = Sy_projn[n][1]
+            # projn[tmpS => 2] = Sy_projn[n][2]
             
-            println("")
-            println("")
-            @show n
-            @show projn[1]
-            @show projn[2]
-            println("")
-            println("")
+            # println("")
+            # println("")
+            # @show n
+            # @show projn[1]
+            # @show projn[2]
+            # println("")
+            # println("")
 
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
@@ -164,7 +164,7 @@ function sample(m::MPS, j::Int)
             # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         '''
         
-        # n denotes the corresponding physical state: n=1 --> |+> and n=2 --> |->
+        # Reset to Neel state after measuring Sx component: n=1 --> |+> and n=2 --> |->
         if ind % 2 == 1
             if n - 1 < 1E-8
                 tmpReset = ITensor(projn_plus_to_up_matrix, tmpS', tmpS)
@@ -182,11 +182,6 @@ function sample(m::MPS, j::Int)
         # # n denotes the corresponding physical states in Sy: n=1 --> |+> and n=2 --> |->
         # if ind % 2 == 1
         #     if n - 1 < 1E-8
-        #         println("")
-        #         println("")
-        #         println("Reset!!")
-        #         println("")
-        #         println("")
         #         tmpReset = ITensor(Sy_projn_plus_to_up_matrix, tmpS', tmpS)
         #     else
         #         tmpReset = ITensor(Sy_projn_minus_to_up_matrix, tmpS', tmpS)
@@ -507,10 +502,10 @@ end
 
 
 let 
-    floquet_time = 2.0                                                                 # floquet time = Δτ * circuit_time
+    floquet_time = 3.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 10                                                             # the number of diagonal parts of circuit
+    N_diagonal = 9                                                              # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
@@ -678,6 +673,11 @@ let
         # Sx_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
         # Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
         Samples[measure_ind, 1:2] = sample(ψ_copy, 1)
+        println("")
+        println("")
+        @show expect(ψ_copy, "Sz"; sites = 1 : 2)
+        println("")
+        println("")
         normalize!(ψ_copy)
         site_tensor_index += 1 
 
@@ -745,9 +745,9 @@ let
                 
 
                 index_to_sample = (2 * ind₁ + 1) % N
-                println("############################################################################")
-                @show tmp_Sz[index_to_sample : index_to_sample + 1]
-                println("****************************************************************************")
+                # println("############################################################################")
+                # @show tmp_Sz[index_to_sample : index_to_sample + 1]
+                # println("****************************************************************************")
 
                 # println("############################################################################")
                 # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
@@ -756,6 +756,12 @@ let
                 # println("****************************************************************************")
                 # Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
                 Samples[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, index_to_sample)
+                println("")
+                println("")
+                # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+                @show expect(ψ_copy, "Sz"; sites = (2 * ind₁ + 1) % N : (2 * ind₁ + 2) % N)
+                println("")
+                println("")
                 
                 site_tensor_index = (site_tensor_index + 1) % div(N, 2)
                 if site_tensor_index < 1E-8
@@ -942,7 +948,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sy_Sample2.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sx_Sample1.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)

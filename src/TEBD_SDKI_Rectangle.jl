@@ -53,7 +53,7 @@ end
 
 
 let 
-    N = 26
+    N = 32
     cutoff = 1E-8
     Δτ = 0.1; ttotal = 7.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -99,11 +99,6 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-    # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
-    Sx₀ = expect(ψ_copy, "Sx"; sites = 1 : N)
-    Sy₀ = expect(ψ_copy, "Sy"; sites = 1 : N)
-    Sz₀ = expect(ψ_copy, "Sz"; sites = 1 : N)
-
     # Compute local observables e.g. Sz, Czz 
     timeSlices = Int(ttotal / Δτ) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
     Sx = complex(zeros(timeSlices, N))
@@ -114,14 +109,14 @@ let
     Czz = complex(zeros(timeSlices, N * N))
     entropy = complex(zeros(timeSlices, N - 1))
 
-    # Take measurements of the initial setting before time evolution
-    # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[1, :] = tmpSx
-    # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[1, :] = tmpSy
-    tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[1, :] = tmpSz
+    # Take measurements of the initial wavefunction
+    Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
+    Sy[1, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
+    Sz[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
 
-    # tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N); Cxx[1, :] = tmpCxx[:]
-    # tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N); Cyy[1, :] = tmpCyy[:]
-    tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N); Czz[1, :] = tmpCzz[:]
+    Cxx[1, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
+    Cyy[1, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
+    Czz[1, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
 
     distance = Int(1.0 / Δτ); index = 2
@@ -133,7 +128,7 @@ let
         println("")
         println("")
 
-        for site_index in 1 : N
+        for site_index in 1 : N - 1
             orthogonalize!(ψ_copy, site_index)
             if abs(site_index - 1) < 1E-8
                 i₁ = siteind(ψ_copy, site_index)
@@ -170,33 +165,30 @@ let
         normalize!(ψ_copy)
 
         # Local observables e.g. Sx, Sz
-        tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); Sx[index, :] = tmpSx; # @show tmpSx
-        tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); Sy[index, :] = tmpSy; # @show tmpSy
-        tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); Sz[index, :] = tmpSz; # @show tmpSz
+        Sx[index, :] = expect(ψ_copy, "Sx"; sites = 1 : N) 
+        Sy[index, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
+        Sz[index, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
 
-        # Spin correlaiton functions e.g. Cxx, Czz
-        # tmpCxx = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N);  Cxx[index, :] = tmpCxx[:]
-        # tmpCyy = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N);  Cyy[index, :] = tmpCyy[:]
-        tmpCzz = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N);  Czz[index, :] = tmpCzz[:]
-        # @show tmpCzz[1, :], tmpCzz[2, :]
-
+        # Correlation functions e.g. Cxx, Czz
+        Cxx[index, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
+        Cyy[index, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
+        Czz[index, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
         # Czz[index, :] = vec(tmpCzz')
         index += 1
 
-        tmp_overlap = abs(inner(ψ, ψ_copy))
-        println("The inner product is: $tmp_overlap")
-        append!(ψ_overlap, tmp_overlap)
+        # tmp_overlap = abs(inner(ψ, ψ_copy))
+        # println("The inner product is: $tmp_overlap")
+        # append!(ψ_overlap, tmp_overlap)
     end
 
     println("################################################################################")
     println("################################################################################")
     println("Projective measurements of the initial MPS in the Sz basis")
-    @show Sz₀
+    @show Sz[1, :]
     println("################################################################################")
     println("################################################################################")
 
     # Store data into a hdf5 file
-    # file = h5open("Data/TEBD_N$(N)_h$(h)_tau$(tau)_Longitudinal_Only_Random_QN_Link2.h5", "w")
     file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_AFM.h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
@@ -206,9 +198,9 @@ let
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
     write(file, "Entropy", entropy)
-    write(file, "Initial Sx", Sx₀)
-    write(file, "Initial Sy", Sy₀)
-    write(file, "Initial Sz", Sz₀)
+    write(file, "Initial Sx", Sx[1, :])
+    write(file, "Initial Sy", Sy[1, :])
+    write(file, "Initial Sz", Sz[1, :])
     close(file)
     
     return
