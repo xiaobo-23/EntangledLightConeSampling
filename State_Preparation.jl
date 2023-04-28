@@ -15,3 +15,6 @@ W_reshape = reshape(V, (2,2,2,2))
 
 j, sigmap, i, sigma = Index(2, "j"), prime(Index(2, "sigma")), Index(2, "i"), Index(2, "sigma")
 W_tensor = ITensor(W_reshape, j, sigmap, i, sigma)
+
+@show W_tensor
+@show exp(im * K3) * cos(Kp)

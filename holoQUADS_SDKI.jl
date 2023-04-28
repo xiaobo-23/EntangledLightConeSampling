@@ -90,6 +90,7 @@ function sample(m::MPS, j::Int)
         1  1.0im
     ]
 
+    @show typeof(Sy_projn_plus_to_up_matrix)
     # @show projn_plus_to_up_matrix
     # @show projn_minus_to_up_matrix
     
