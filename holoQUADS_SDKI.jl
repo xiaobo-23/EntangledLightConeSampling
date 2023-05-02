@@ -95,7 +95,7 @@ function sample(m::MPS, j::Int)
     # @show projn_minus_to_up_matrix
     
     # 04/12/2023 
-    # Implement procedures to sample in Sx, Sy and Sz basis
+    # Define projectors in the Sz basis
     Sx_projn = 1/sqrt(2) * [[1, 1], [1, -1]]
     Sy_projn = 1/sqrt(2) * [[1, 1.0im], [1, -1.0im]]
     Sz_projn = [[1, 0], [0, 1]]
