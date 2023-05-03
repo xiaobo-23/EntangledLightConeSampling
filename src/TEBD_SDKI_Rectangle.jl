@@ -53,7 +53,7 @@ end
 
 
 let 
-    N = 32
+    N = 50
     cutoff = 1E-8
     Δτ = 0.1; ttotal = 7.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -189,7 +189,7 @@ let
     println("################################################################################")
 
     # Store data into a hdf5 file
-    file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_AFM.h5", "w")
+    file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal).h5", "w")
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
     write(file, "Sz", Sz)
