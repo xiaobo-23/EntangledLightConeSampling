@@ -32,16 +32,39 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
     Sy_projn = 1/sqrt(2) * [[1, 1.0im], [1, -1.0im]]
     Sz_projn = [[1, 0], [0, 1]]
     
+    Sz_projn_up = [
+        1  0
+        0  0
+    ]
+    
+    Sz_projn_dn = [
+        0  0
+        0  1
+    ]
+
+    Sx_projn_plus = 1/2 * [
+        1  1
+        1  1
+    ]
+
+    Sx_projn_minus = 1/2 * [
+        1  -1
+        -1   1
+    ]
+
     if observable_type == "Sx"
         tmp_projn = Sx_projn
+        projn_up = Sx_projn_plus
+        projn_dn = Sx_projn_minus
     elseif observable_type == "Sy"
         tmp_projn = Sy_projn
     elseif observable_type == "Sz"
         tmp_projn = Sz_projn
+        projn_up = Sz_projn_up
+        projn_dn = Sz_projn_dn
     else
         error("sample: Measurement type doesn't exist")
     end
-    
 
     # Sample the target observables
     result = zeros(Int, 2)
@@ -75,9 +98,19 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
             A = m[ind + 1] * An
             A *= (1. / sqrt(pn))
         end
+
+        if n - 1 < 1E-8
+            tmp_reset = ITensor(projn_up, tmpS', tmpS)
+        else
+            tmp_reset = ITensor(projn_dn, tmpS', tmpS)
+        end
+
+        m[ind] *= tmp_reset
+        noprime!(m[ind])
     end
     return result
 end 
+
 
 # Contruct layers of two-site gates including the Ising interaction and longitudinal fileds in the left light cone.
 function left_light_cone(number_of_gates :: Int, parity :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
@@ -167,6 +200,44 @@ function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
     return kick_gate
 end
 
+
+
+# To measure the von Neumann entanglement entropy
+function compute_entropy(input_matrix)
+    local tmpEntropy = 0
+    for index in 1 : size(input_matrix, 1) 
+        tmp = input_matrix[index, index]^2
+        if tmp > 1E-8
+            tmpEntropy += -tmp * log(tmp)
+        end
+    end
+    return tmpEntropy
+end
+
+
+
+# To measure von Neumann entanglment Entropy
+function SvN(tmp_ψ, legnth)
+    entropy = []
+    for site_index in 1 : length - 1 
+        orthogonalize!(tmp_ψ, site_index)
+        if abs(site_index - 1) < 1E-8
+            i₁ = siteind(tmp_ψ, site_index)
+            _, C1, _ = svd(tmp_ψ[site_index], i₁)
+        else
+            i₁, j₁ = siteind(tmp_ψ, site_index), linkind(tmp_ψ, site_index - 1)
+            _, C1, _ = svd(tmp_ψ[site_index], i₁, j₁)
+        end
+        C1 = matrix(C1)
+        SvN₁ = compute_entropy(C1)
+        
+        @show site_index, SvN₁
+        push!(entropy, SvN₁)
+    end
+    return entropy
+end
+
+
 # Assemble the holoQUADS circuits 
 let 
     floquet_time = 4.0                                                                  
@@ -252,21 +323,6 @@ let
             Sz = tmp_Sz
 
 
-            # for site_index in 1 : N - 1 
-            #     orthogonalize!(ψ_copy, site_index)
-            #     if abs(site_index - 1) < 1E-8
-            #         i₁ = siteind(ψ_copy, site_index)
-            #         _, C1, _ = svd(ψ_copy[site_index], i₁)
-            #     else
-            #         i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
-            #         _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
-            #     end
-            #     C1 = matrix(C1)
-            #     SvN₁ = compute_entropy(C1)
-               
-            #     @show site_index, SvN₁
-            #     entropy[1, site_index] = SvN₁
-            # end
         end
        
         samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
