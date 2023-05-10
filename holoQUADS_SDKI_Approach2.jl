@@ -49,8 +49,18 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
     ]
 
     Sx_projn_minus = 1/2 * [
-        1  -1
+        1   -1
         -1   1
+    ]
+
+    Sy_projn_plus = 1/2 * [
+        1  1.0im
+        1.0im  1
+    ]
+
+    Sy_projn_minus = 1/2 * [
+        1   -1.0im
+        -1.0im  -1
     ]
 
     if observable_type == "Sx"
@@ -59,6 +69,8 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
         projn_dn = Sx_projn_minus
     elseif observable_type == "Sy"
         tmp_projn = Sy_projn
+        projn_up = Sy_projn_plus
+        projn_dn = Sy_projn_minus
     elseif observable_type == "Sz"
         tmp_projn = Sz_projn
         projn_up = Sz_projn_up
@@ -333,8 +345,8 @@ let
         # Sample the first two sites after applying the left light cone
         # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
 
-        samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-        sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+        samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sy"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
+        sample(ψ_copy, 2 * tensor_pointer - 1, "Sy")
         normalize!(ψ_copy)
         SvN[2 * tensor_pointer, :] = entanglement_entropy(ψ_copy, N_total)
 
@@ -387,8 +399,8 @@ let
                 # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
                 # normalize!(ψ_copy)
 
-                samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-                sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sy"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
+                sample(ψ_copy, 2 * tensor_pointer - 1, "Sy")
                 normalize!(ψ_copy)
                 SvN[2 * tensor_pointer, :] = entanglement_entropy(ψ_copy, N_total)
             end
@@ -449,8 +461,8 @@ let
         for ind in sites_to_measure
             SvN[ind, :] = entanglement_entropy(ψ_copy, N_total)
             # samples[measure_index, ind : ind + 1] = sample(ψ_copy, ind, "Sz")
-            samples[measure_index, ind : ind + 1] = expect(ψ_copy, "Sx"; sites = ind : ind + 1)
-            sample(ψ_copy, ind, "Sx")
+            samples[measure_index, ind : ind + 1] = expect(ψ_copy, "Sy"; sites = ind : ind + 1)
+            sample(ψ_copy, ind, "Sy")
             normalize!(ψ_copy)
             SvN[ind + 1, :] = entanglement_entropy(ψ_copy, N_total)
         end
@@ -466,7 +478,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx_Update.h5", "w")
+    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sy.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
