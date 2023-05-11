@@ -1,4 +1,3 @@
-using HDF5: length
 ## 05/02/2023
 ## IMPLEMENT THE HOLOQAUDS CIRCUITS WITHOUT RECYCLING AND LONG-RANGE GATES.
 
@@ -8,137 +7,14 @@ using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
 using Base: product
 using Random
-ITensors.disable_warn_order()
 include("src/Sample.jl")
+include("src/Entanglement.jl")
+include("src/Time_Evolution_Gates.jl")
 
 
-# Contruct layers of two-site gates including the Ising interaction and longitudinal fileds in the left light cone.
-function left_light_cone(number_of_gates :: Int, parity :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
-    gates = ITensor[]
+# ITensors.disable_warn_order()
 
-    for ind in 1 : number_of_gates
-        tmp_index = 2 * ind - parity
-        s1 = tmp_sites[tmp_index]
-        s2 = tmp_sites[tmp_index + 1]
-       
-        if tmp_index - 1 < 1E-8
-            coeff₁ = 2
-            coeff₂ = 1
-        else
-            coeff₁ = 1
-            coeff₂ = 1
-        end
-
-        # hj = coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * Δτ * hj)
-        push!(gates, Gj)
-    end
-    return gates
-end
-
-
-# Construct multiple two-site gate(s) to apply the Ising interaction and the longitudinal fields in the diagonal parts of the circuit
-function time_evolution(starting_index :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
-    gates = ITensor[]
-
-    # Generate a local two-site gate 
-    s1 = tmp_sites[starting_index]
-    s2 = tmp_sites[starting_index - 1]
-
-    # hj = longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
-    # hj = π * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
-    hj = π/2 * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
-    Gj = exp(-1.0im * Δτ * hj)                 
-    push!(gates, Gj)
-
-    return gates
-end
-
-
-# Construct layers of two-site gate including the Ising interaction and longitudinal fields in the right light cone
-function right_light_cone(starting_index :: Int, number_of_gates :: Int, edge_index :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
-    gates = ITensor[]
-
-    for ind in 1 : number_of_gates
-        tmp_start = starting_index - 2 * (ind - 1)
-        tmp_end = tmp_start - 1
-
-        s1 = tmp_sites[tmp_end]
-        s2 = tmp_sites[tmp_start]
-
-        # Consider the finite-size effect on the right edge
-        if abs(tmp_start - edge_index) < 1E-8
-            coeff₁ = 1
-            coeff₂ = 2
-        else
-            coeff₁ = 1
-            coeff₂ = 1
-        end
-
-        # hj = coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        
-        hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * Δτ * hj)
-        push!(gates, Gj)
-    end
-    return gates
-end
-
-
-# Construct multiple one-site gates to apply the transverse Ising fields.
-function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
-    kick_gate = ITensor[]
-    for ind in starting_index : ending_index
-        s1 = tmp_sites[ind] 
-
-        hamilt = π / 2 * op("Sx", s1)
-        tmpG = exp(-1.0im * hamilt)
-        push!(kick_gate, tmpG)
-    end
-    return kick_gate
-end
-
-
-# To measure the von Neumann entanglement entropy
-function compute_entropy(input_matrix)
-    local tmpEntropy = 0
-    for index in 1 : size(input_matrix, 1) 
-        tmp = input_matrix[index, index]^2
-        if tmp > 1E-8
-            tmpEntropy += -tmp * log(tmp)
-        end
-    end
-    return tmpEntropy
-end
-
-
-# To measure von Neumann entanglment Entropy
-function entanglement_entropy(tmp_ψ :: MPS, length :: Int)
-    entropy = []
-    for site_index in 1 : length - 1 
-        orthogonalize!(tmp_ψ, site_index)
-        if abs(site_index - 1) < 1E-8
-            i₁ = siteind(tmp_ψ, site_index)
-            _, C1, _ = svd(tmp_ψ[site_index], i₁)
-        else
-            i₁, j₁ = siteind(tmp_ψ, site_index), linkind(tmp_ψ, site_index - 1)
-            _, C1, _ = svd(tmp_ψ[site_index], i₁, j₁)
-        end
-        C1 = matrix(C1)
-        SvN₁ = compute_entropy(C1)
-        
-        # @show site_index, SvN₁
-        push!(entropy, SvN₁)
-    end
-    return entropy
-end
-
-
-
-# Assemble the holoQUADS circuits 
+# Assemble the holoQUADS circuit
 let 
     floquet_time = 3.0                                                                  
     circuit_time = 2 * Int(floquet_time)
@@ -262,7 +138,7 @@ let
                     end
 
                     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-                    tmp_two_site_gates = time_evolution(gate_seeds[ind₃], h, tau, s)
+                    tmp_two_site_gates = diagonal_circuit(gate_seeds[ind₃], h, tau, s)
                     ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
