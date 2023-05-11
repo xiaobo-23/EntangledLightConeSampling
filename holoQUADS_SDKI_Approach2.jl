@@ -9,120 +9,7 @@ using Base: Float64
 using Base: product
 using Random
 ITensors.disable_warn_order()
-
-
-
-
-# Sample a two-site MPS to compute Sx, Sy or Sz
-function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
-    mpsLength = length(m)
-
-    # Move the orthogonality center of the MPS to site j
-    orthogonalize!(m, j)
-    if orthocenter(m) != j
-        error("sample: MPS m must have orthocenter(m) == j")
-    end
-    
-    # Check the normalization of the MPS
-    if abs(1.0 - norm(m[j])) > 1E-8
-        error("sample: MPS is not normalized, norm=$(norm(m[j]))")
-    end
-
-    # Define projectors in the Sz basis
-    Sx_projn = 1/sqrt(2) * [[1, 1], [1, -1]]
-    Sy_projn = 1/sqrt(2) * [[1, 1.0im], [1, -1.0im]]
-    Sz_projn = [[1, 0], [0, 1]]
-    
-    Sz_projn_up = [
-        1  0
-        0  0
-    ]
-    
-    Sz_projn_dn = [
-        0  0
-        0  1
-    ]
-
-    Sx_projn_plus = 1/2 * [
-        1  1
-        1  1
-    ]
-
-    Sx_projn_minus = 1/2 * [
-        1   -1
-        -1   1
-    ]
-
-    Sy_projn_plus = 1/2 * [
-        1  1.0im
-        1.0im  1
-    ]
-
-    Sy_projn_minus = 1/2 * [
-        1   -1.0im
-        -1.0im  -1
-    ]
-
-    if observable_type == "Sx"
-        tmp_projn = Sx_projn
-        projn_up = Sx_projn_plus
-        projn_dn = Sx_projn_minus
-    elseif observable_type == "Sy"
-        tmp_projn = Sy_projn
-        projn_up = Sy_projn_plus
-        projn_dn = Sy_projn_minus
-    elseif observable_type == "Sz"
-        tmp_projn = Sz_projn
-        projn_up = Sz_projn_up
-        projn_dn = Sz_projn_dn
-    else
-        error("sample: Measurement type doesn't exist")
-    end
-
-    # Sample the target observables
-    result = zeros(Int, 2)
-    A = m[j]
-    
-    for ind in j:j+1
-        tmpS = siteind(m, ind)
-        d = dim(tmpS)
-        pdisc = 0.0
-        r = rand()
-
-        n = 1 
-        An = ITensor()
-        pn = 0.0
-
-        while n <= d
-            projn = ITensor(tmpS)
-            projn[tmpS => 1] = tmp_projn[n][1]
-            projn[tmpS => 2] = tmp_projn[n][2]
-        
-            An = A * dag(projn)
-            pn = real(scalar(dag(An) * An))
-            pdisc += pn
-
-            (r < pdisc) && break
-            n += 1
-        end
-        result[ind - j + 1] = n
-
-        if ind < mpsLength
-            A = m[ind + 1] * An
-            A *= (1. / sqrt(pn))
-        end
-
-        if n - 1 < 1E-8
-            tmp_reset = ITensor(projn_up, tmpS', tmpS)
-        else
-            tmp_reset = ITensor(projn_dn, tmpS', tmpS)
-        end
-
-        m[ind] *= tmp_reset
-        noprime!(m[ind])
-    end
-    return result
-end 
+include("src/Sample.jl")
 
 
 # Contruct layers of two-site gates including the Ising interaction and longitudinal fileds in the left light cone.
@@ -150,6 +37,7 @@ function left_light_cone(number_of_gates :: Int, parity :: Int, longitudinal_fie
     end
     return gates
 end
+
 
 # Construct multiple two-site gate(s) to apply the Ising interaction and the longitudinal fields in the diagonal parts of the circuit
 function time_evolution(starting_index :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
@@ -214,7 +102,6 @@ function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
 end
 
 
-
 # To measure the von Neumann entanglement entropy
 function compute_entropy(input_matrix)
     local tmpEntropy = 0
@@ -226,7 +113,6 @@ function compute_entropy(input_matrix)
     end
     return tmpEntropy
 end
-
 
 
 # To measure von Neumann entanglment Entropy
@@ -259,7 +145,7 @@ let
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
-    number_of_samples = 2000
+    number_of_samples = 2
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2       
@@ -289,7 +175,6 @@ let
     # # ψ = initialization_ψ[1 : N]
     # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
     # # @show maxlinkdim(ψ)
-
 
     for measure_index in 1 : number_of_samples
         println("")
@@ -478,7 +363,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sy.h5", "w")
+    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sy_Update.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
