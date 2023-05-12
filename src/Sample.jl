@@ -68,15 +68,15 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
             A *= (1. / sqrt(pn))
         end
 
-        ## Collapse the site based on the measurements 
-        # if n - 1 < 1E-8
-        #     tmp_reset = ITensor(projn_up, tmpS', tmpS)
-        # else
-        #     tmp_reset = ITensor(projn_dn, tmpS', tmpS)
-        # end
+        # Collapse the site based on the measurements 
+        if n - 1 < 1E-8
+            tmp_reset = ITensor(projn_up, tmpS', tmpS)
+        else
+            tmp_reset = ITensor(projn_dn, tmpS', tmpS)
+        end
 
-        # m[ind] *= tmp_reset
-        # noprime!(m[ind])
+        m[ind] *= tmp_reset
+        noprime!(m[ind])
     end
     return result
 end 
