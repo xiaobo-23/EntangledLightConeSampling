@@ -70,24 +70,44 @@ function sample(m::MPS, j::Int)
     ]
 
     # Take measurements of Sy and reset the two-site MPS to Neel state
+    # Sy_projn_plus_to_up_matrix = 1/sqrt(2) * [
+    #     1  1.0im
+    #     0  0
+    # ]
+
+    # Sy_projn_minus_to_up_matrix = 1/sqrt(2) * [
+    #     1  -1.0im
+    #     0   0
+    # ]
+
+    # Sy_projn_minus_to_down_matrix = 1/sqrt(2) * [
+    #     0  0
+    #     1  -1.0im 
+    # ]
+
+    # Sy_projn_plus_to_down_matrix = 1/sqrt(2) * [
+    #     0  0
+    #     1  1.0im
+    # ]
+
     Sy_projn_plus_to_up_matrix = 1/sqrt(2) * [
-        1  1.0im
+        1  -1.0im
         0  0
     ]
 
     Sy_projn_minus_to_up_matrix = 1/sqrt(2) * [
-        1  -1.0im
+        1  1.0im
         0   0
     ]
 
     Sy_projn_minus_to_down_matrix = 1/sqrt(2) * [
         0  0
-        1  -1.0im 
+        1  1.0im 
     ]
 
     Sy_projn_plus_to_down_matrix = 1/sqrt(2) * [
         0  0
-        1  1.0im
+        1  -1.0im
     ]
 
     @show typeof(Sy_projn_plus_to_up_matrix)
@@ -180,35 +200,35 @@ function sample(m::MPS, j::Int)
         #     end
         # end
 
-        # # n denotes the corresponding physical states in Sy: n=1 --> |+> and n=2 --> |->
-        # if ind % 2 == 1
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(Sy_projn_plus_to_up_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(Sy_projn_minus_to_up_matrix, tmpS', tmpS)
-        #     end 
-        # else
-        #     if n - 1 < 1E-8
-        #         tmpReset = ITensor(Sy_projn_plus_to_down_matrix, tmpS', tmpS)
-        #     else
-        #         tmpReset = ITensor(Sy_projn_minus_to_down_matrix, tmpS', tmpS)
-        #     end 
-        # end
-
-        # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        # n denotes the corresponding physical states in Sy: n=1 --> |+> and n=2 --> |->
         if ind % 2 == 1
-            if n - 1 < 1E-8             
-                tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+            if n - 1 < 1E-8
+                tmpReset = ITensor(Sy_projn_plus_to_up_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
-            end
+                tmpReset = ITensor(Sy_projn_minus_to_up_matrix, tmpS', tmpS)
+            end 
         else
             if n - 1 < 1E-8
-                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+                tmpReset = ITensor(Sy_projn_plus_to_down_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
-            end
+                tmpReset = ITensor(Sy_projn_minus_to_down_matrix, tmpS', tmpS)
+            end 
         end
+
+        # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
+        # if ind % 2 == 1
+        #     if n - 1 < 1E-8             
+        #         tmpReset = ITensor(projn_up_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+        #     end
+        # else
+        #     if n - 1 < 1E-8
+        #         tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+        #     else
+        #         tmpReset = ITensor(projn_dn_matrix, tmpS', tmpS)
+        #     end
+        # end
 
         m[ind] *= tmpReset
         noprime!(m[ind])
@@ -503,10 +523,10 @@ end
 
 
 let 
-    floquet_time = 4.0                                                                 # floquet time = Δτ * circuit_time
+    floquet_time = 5.0                                                                 # floquet time = Δτ * circuit_time
     circuit_time = 2 * Int(floquet_time)
     N = 2 * Int(floquet_time) + 2       # the size of an unit cell that is determined by time and the lightcone structure
-    N_diagonal = 11                                                             # the number of diagonal parts of circuit
+    N_diagonal = 19                                                             # the number of diagonal parts of circuit
     N_total = N + 2 * N_diagonal
     cutoff = 1E-8
     tau = 1.0
@@ -947,9 +967,9 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # @show Sz_sample
+
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Finite_N$(N_total)_T$(floquet_time)_AFM_Sz_Sample1.h5", "w")
+    file = h5open("Data_Benchmark/holoQUADS_Circuit_Recycle_N$(N_total)_T$(floquet_time)_AFM_Sy_Sample1.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
