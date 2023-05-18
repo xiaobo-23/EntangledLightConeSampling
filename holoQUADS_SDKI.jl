@@ -14,9 +14,9 @@ include("src/Time_Evolution_Gates.jl")
 
 # ITensors.disable_warn_order()
 
-# Assemble the holoQUADS circuitq
+# Assemble the holoQUADS circuit 
 let 
-    floquet_time = 5.0                                                                  
+    floquet_time = 6.0                                                                  
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
@@ -24,9 +24,9 @@ let
     number_of_samples = 2000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    N_corner = 2 * Int(floquet_time) + 2       
-    N_diagonal = 19                                                             # the number of diagonal parts of circuit
-    N_total = N_corner + 2 * N_diagonal
+    N_corner = 2 * Int(floquet_time) + 2 
+    N_total = 50
+    N_diagonal = div(N_total - N_corner, 2)                       # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     
 
