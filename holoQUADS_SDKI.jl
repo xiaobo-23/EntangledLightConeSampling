@@ -16,7 +16,7 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 6.0                                                                  
+    floquet_time = 8.0                                                                 
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
@@ -106,8 +106,8 @@ let
         # Sample the first two sites after applying the left light cone
         # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
 
-        samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sy"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-        sample(ψ_copy, 2 * tensor_pointer - 1, "Sy")
+        samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
+        sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
         normalize!(ψ_copy)
         SvN[2 * tensor_pointer, :] = entanglement_entropy(ψ_copy, N_total)
 
@@ -160,8 +160,8 @@ let
                 # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
                 # normalize!(ψ_copy)
 
-                samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sy"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-                sample(ψ_copy, 2 * tensor_pointer - 1, "Sy")
+                samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
+                sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
                 normalize!(ψ_copy)
                 SvN[2 * tensor_pointer, :] = entanglement_entropy(ψ_copy, N_total)
             end
@@ -217,8 +217,8 @@ let
         for ind in sites_to_measure
             SvN[ind, :] = entanglement_entropy(ψ_copy, N_total)
             # samples[measure_index, ind : ind + 1] = sample(ψ_copy, ind, "Sz")
-            samples[measure_index, ind : ind + 1] = expect(ψ_copy, "Sy"; sites = ind : ind + 1)
-            sample(ψ_copy, ind, "Sy")
+            samples[measure_index, ind : ind + 1] = expect(ψ_copy, "Sx"; sites = ind : ind + 1)
+            sample(ψ_copy, ind, "Sx")
             normalize!(ψ_copy)
             SvN[ind + 1, :] = entanglement_entropy(ψ_copy, N_total)
         end
@@ -234,7 +234,7 @@ let
     
     # @show Sz_sample
     # Store data in hdf5 file
-    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sy_Update.h5", "w")
+    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)

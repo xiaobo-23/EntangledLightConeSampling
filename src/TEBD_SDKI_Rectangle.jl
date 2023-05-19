@@ -6,6 +6,7 @@ using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex
 using Base: Float64, Real
 using Random
+using Dates
 ITensors.disable_warn_order()
 
 
@@ -55,7 +56,7 @@ end
 let 
     N = 50
     cutoff = 1E-8
-    Δτ = 0.1; ttotal = 7.0
+    Δτ = 0.1; ttotal = 15
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -108,6 +109,7 @@ let
     Cyy = complex(zeros(timeSlices, N * N))
     Czz = complex(zeros(timeSlices, N * N))
     entropy = complex(zeros(timeSlices, N - 1))
+    time_series = Complex{Float64}[]
 
     # Take measurements of the initial wavefunction
     Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
@@ -118,10 +120,12 @@ let
     Cyy[1, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
     Czz[1, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+    
 
     distance = Int(1.0 / Δτ); index = 2
     @time for time in 0.0 : Δτ : ttotal
         time ≈ ttotal && break
+        tmp_t1 = Dates.now()
         println("")
         println("")
         @show time
@@ -179,6 +183,12 @@ let
         # tmp_overlap = abs(inner(ψ, ψ_copy))
         # println("The inner product is: $tmp_overlap")
         # append!(ψ_overlap, tmp_overlap)
+        tmp_t2 = Dates.now()
+        Δt = Dates.value(tmp_t2 - tmp_t1)
+        # time_series[index] = Δt
+        # @show Δt
+        push!(time_series, Δt)
+        @show time_series
     end
 
     println("################################################################################")
@@ -198,6 +208,7 @@ let
     write(file, "Czz", Czz)
     write(file, "Wavefunction Overlap", ψ_overlap)
     write(file, "Entropy", entropy)
+    write(file, "Time Sequence", time_series)
     write(file, "Initial Sx", Sx[1, :])
     write(file, "Initial Sy", Sy[1, :])
     write(file, "Initial Sz", Sz[1, :])
