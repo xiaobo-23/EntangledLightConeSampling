@@ -3,12 +3,12 @@
 
 using ITensors
 using ITensors.HDF5
-using ITensors: orthocenter, sites, copy, complex
+using ITensors: orthocenter, sites, copy, complex, site
 using Base: Float64, Real
 using Random
 using Dates
+include("Entanglement.jl")
 ITensors.disable_warn_order()
-
 
 
 
@@ -30,28 +30,26 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
             tmp2 = 1
         end
 
-        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)
-        hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
+        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)   
         # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
+        hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * delta_tau * hj)
         push!(tmp_gates, Gj)
     end
     return tmp_gates
 end
 
-
-# 04/17/2023
-# Implement a function to compute the von Neumann entanglement and monitor its time dependence
-function compute_entropy(input_matrix)
-    local tmpEntropy = 0
-    for index in 1 : size(input_matrix, 1) 
-        # entropy += -2 * input_matrix[index, index]^2 * log(input_matrix[index, index])
-        tmp = input_matrix[index, index]^2
-        tmpEntropy += -tmp * log(tmp)
+# Build a sequence of one-site kick gates
+function build_kick_gates(tmp_site, staerting_index :: Int, ending_index :: Int)
+    tmp_gates = ITensor[]
+    for index in starting_index : ending_index
+        tmpS = tmp_site[ind]
+        tmpHamiltonian = π/2 * op("Sx", tmpS)
+        tmpGate = exp(-1.0im * tmpHamiltonian)
+        push!(tmp_gates, tmpGate)
     end
-    return tmpEntropy
+    return tmp_gates
 end
-
 
 let 
     N = 50
@@ -74,15 +72,8 @@ let
         push!(gates, tmp₂)
     end
 
-    # Construct the kicked gate that are only applied at integer time
-    kick_gates = ITensor[]
-    for ind in 1:N
-        s1 = s[ind]
-        hamilt = π / 2 * op("Sx", s1)
-        tmpG = exp(-1.0im * hamilt)
-        push!(kick_gates, tmpG)
-    end
-    
+    kick_gates = build_kick_gates(s, 1, N)
+
     # Initialize the wavefunction as a Neel state
     # ψ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     # states = [isodd(n) ? "+" : "-" for n = 1 : N]
@@ -120,33 +111,14 @@ let
     Cyy[1, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
     Czz[1, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
     append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-    
 
+    
     distance = Int(1.0 / Δτ); index = 2
     @time for time in 0.0 : Δτ : ttotal
         time ≈ ttotal && break
         tmp_t1 = Dates.now()
-        println("")
-        println("")
-        @show time
-        println("")
-        println("")
+        entropy[index - 1, :] = entanglement_entropy(ψ_copy, N)
 
-        for site_index in 1 : N - 1
-            orthogonalize!(ψ_copy, site_index)
-            if abs(site_index - 1) < 1E-8
-                i₁ = siteind(ψ_copy, site_index)
-                _, C1, _ = svd(ψ_copy[site_index], i₁)
-            else
-                i₁, j₁ = siteind(ψ_copy, site_index), linkind(ψ_copy, site_index - 1)
-                _, C1, _ = svd(ψ_copy[site_index], i₁, j₁)
-            end
-
-            C1 = matrix(C1)
-            SvN₁ = compute_entropy(C1)
-            @show site_index, SvN₁
-            entropy[index - 1, site_index] = SvN₁
-        end
 
         if (abs((time / Δτ) % distance) < 1E-8)
             println("")
@@ -155,14 +127,6 @@ let
             ψ_copy = apply(kick_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
             append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-
-            # println("")
-            # println("")
-            # tmpSx = expect(ψ_copy, "Sx"; sites = 1 : N); @show tmpSx
-            # tmpSy = expect(ψ_copy, "Sy"; sites = 1 : N); @show tmpSy
-            # tmpSz = expect(ψ_copy, "Sz"; sites = 1 : N); @show tmpSz
-            # println("")
-            # println("")
         end
 
         ψ_copy = apply(gates, ψ_copy; cutoff)
