@@ -40,10 +40,10 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
 end
 
 # Build a sequence of one-site kick gates
-function build_kick_gates(tmp_site, staerting_index :: Int, ending_index :: Int)
+function build_kick_gates(tmp_site, starting_index :: Int, ending_index :: Int)
     tmp_gates = ITensor[]
     for index in starting_index : ending_index
-        tmpS = tmp_site[ind]
+        tmpS = tmp_site[index]
         tmpHamiltonian = π/2 * op("Sx", tmpS)
         tmpGate = exp(-1.0im * tmpHamiltonian)
         push!(tmp_gates, tmpGate)
@@ -54,7 +54,7 @@ end
 let 
     N = 50
     cutoff = 1E-8
-    Δτ = 0.1; ttotal = 15
+    Δτ = 0.1; ttotal = 20
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -100,7 +100,7 @@ let
     Cyy = complex(zeros(timeSlices, N * N))
     Czz = complex(zeros(timeSlices, N * N))
     entropy = complex(zeros(timeSlices, N - 1))
-    time_series = Complex{Float64}[]
+    time_series = Float64[]
 
     # Take measurements of the initial wavefunction
     Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
@@ -132,6 +132,12 @@ let
         ψ_copy = apply(gates, ψ_copy; cutoff)
         normalize!(ψ_copy)
 
+        tmp_t2 = Dates.now()
+        Δt = Dates.value(tmp_t2 - tmp_t1)
+        push!(time_series, Δt)
+        @show time_series
+
+        
         # Local observables e.g. Sx, Sz
         Sx[index, :] = expect(ψ_copy, "Sx"; sites = 1 : N) 
         Sy[index, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
@@ -141,18 +147,11 @@ let
         Cxx[index, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
         Cyy[index, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
         Czz[index, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
-        # Czz[index, :] = vec(tmpCzz')
         index += 1
 
         # tmp_overlap = abs(inner(ψ, ψ_copy))
         # println("The inner product is: $tmp_overlap")
         # append!(ψ_overlap, tmp_overlap)
-        tmp_t2 = Dates.now()
-        Δt = Dates.value(tmp_t2 - tmp_t1)
-        # time_series[index] = Δt
-        # @show Δt
-        push!(time_series, Δt)
-        @show time_series
     end
 
     println("################################################################################")
