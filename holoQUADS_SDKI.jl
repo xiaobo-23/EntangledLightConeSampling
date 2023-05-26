@@ -31,9 +31,9 @@ let
     
 
     # entropy = complex(zeros(2, N - 1))
-    Sx = complex(zeros(N_total))
-    Sy = complex(zeros(N_total))
-    Sz = complex(zeros(N_total))
+    Sx = Vector{ComplexF64}(undef, N_total)
+    Sy = Vector{ComplexF64}(undef, N_total)
+    Sz = Vector{ComplexF64}(undef, N_total)
     samples = real(zeros(number_of_samples, N_total))
     SvN = real(zeros(number_of_samples, N_total * (N_total - 1)))
     # SvN = real(zeros(N_total, N_total - 1))
