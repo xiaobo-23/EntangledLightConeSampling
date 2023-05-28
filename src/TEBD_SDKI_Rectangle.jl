@@ -93,13 +93,13 @@ let
 
     # Compute local observables e.g. Sz, Czz 
     timeSlices = Int(ttotal / Δτ) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
-    Sx = complex(zeros(timeSlices, N))
-    Sy = complex(zeros(timeSlices, N))
-    Sz = complex(zeros(timeSlices, N))
-    Cxx = complex(zeros(timeSlices, N * N)) 
-    Cyy = complex(zeros(timeSlices, N * N))
-    Czz = complex(zeros(timeSlices, N * N))
-    entropy = complex(zeros(timeSlices, N - 1))
+    Sx = Vector{Complex64}(undef, timeSlices, N)
+    Sy = Vector{Complex64}(undef, timeSlices, N)
+    Sz = Vector{Complex64}(undef, timeSlices, N)
+    Cxx = Vector{Complex64}(undef, timeSlices, N * N)
+    Cyy = Vector{Complex64}(undef, timeSlices, N * N)
+    Czz = Vector{Complex64}(undef, timeSlices, N * N)
+    entropy = Vector{Float64}(undef, timeSlices, N - 1)
     time_series = Float64[]
 
     # Take measurements of the initial wavefunction
