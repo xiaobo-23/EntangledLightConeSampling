@@ -16,12 +16,12 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 2                                                                  
+    floquet_time = 10                                                                 
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
-    number_of_samples = 2000
+    number_of_samples = 1000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2 
@@ -29,17 +29,15 @@ let
     N_diagonal = div(N_total - N_corner, 2)                       # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     
-
     # entropy = complex(zeros(2, N - 1))
     Sx = Vector{ComplexF64}(undef, N_total)
     Sy = Vector{ComplexF64}(undef, N_total)
     Sz = Vector{ComplexF64}(undef, N_total)
-    samples = Vector{Float64}(undef, number_of_sampples, N_total)
+    samples = Array{Float64}(undef, number_of_samples, N_total)
+    SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
     # samples = real(zeros(number_of_samples, N_total))
-    SvN = Vector{Float64}(undef, number_of_samples, N_total * (N_total - 1))
     # SvN = real(zeros(number_of_samples, N_total * (N_total - 1)))
     
-
     # Initialize the wavefunction
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N_total]
     ψ = MPS(s, states)
