@@ -34,12 +34,11 @@ let
     Sx = Vector{ComplexF64}(undef, N_total)
     Sy = Vector{ComplexF64}(undef, N_total)
     Sz = Vector{ComplexF64}(undef, N_total)
-    samples = Vector{Float64}(undef, number_of_sampples, N_total)
+    samples = Array{Float64}(undef, number_of_sampples, N_total)
+    SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
     # samples = real(zeros(number_of_samples, N_total))
-    SvN = Vector{Float64}(undef, number_of_samples, N_total * (N_total - 1))
     # SvN = real(zeros(number_of_samples, N_total * (N_total - 1)))
     
-
     # Initialize the wavefunction
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N_total]
     ψ = MPS(s, states)
