@@ -33,7 +33,11 @@ let
     Sx = Vector{ComplexF64}(undef, N_total)
     Sy = Vector{ComplexF64}(undef, N_total)
     Sz = Vector{ComplexF64}(undef, N_total)
+<<<<<<< HEAD
     samples = Array{Float64}(undef, number_of_samples, N_total)
+=======
+    samples = Array{Float64}(undef, number_of_sampples, N_total)
+>>>>>>> 35fd405d8048289a4b12e5470cc29a2c8666127d
     SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
     # samples = real(zeros(number_of_samples, N_total))
     # SvN = real(zeros(number_of_samples, N_total * (N_total - 1)))
