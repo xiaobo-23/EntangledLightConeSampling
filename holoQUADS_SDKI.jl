@@ -16,12 +16,12 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 10                                                                 
+    floquet_time = 15                                                                 
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
-    number_of_samples = 1000
+    number_of_samples = 50
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2 
