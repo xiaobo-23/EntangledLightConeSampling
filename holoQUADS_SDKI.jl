@@ -29,20 +29,14 @@ let
     N_diagonal = div(N_total - N_corner, 2)                       # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     
-    # entropy = complex(zeros(2, N - 1))
+    # Allocate memory etc. for observables
     Sx = Vector{ComplexF64}(undef, N_total)
     Sy = Vector{ComplexF64}(undef, N_total)
     Sz = Vector{ComplexF64}(undef, N_total)
-<<<<<<< HEAD
     samples = Array{Float64}(undef, number_of_samples, N_total)
-=======
-    samples = Array{Float64}(undef, number_of_sampples, N_total)
->>>>>>> 35fd405d8048289a4b12e5470cc29a2c8666127d
     SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
-    # samples = real(zeros(number_of_samples, N_total))
-    # SvN = real(zeros(number_of_samples, N_total * (N_total - 1)))
     
-    # Initialize the wavefunction
+    # Initialize the wavefunction using a Neel state
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N_total]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1 : N_total)
