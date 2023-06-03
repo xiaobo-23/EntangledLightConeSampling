@@ -122,7 +122,9 @@ let
         SvN[index - 1, :] = entanglement_entropy(ψ_copy, N)
         
         
+        #  
         tmp_t1 = Dates.now()
+        
         # Apply the kicked gates at integer time
         if (abs((time / Δτ) % distance) < 1E-8)
             # println("")

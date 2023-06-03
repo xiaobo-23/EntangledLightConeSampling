@@ -114,7 +114,7 @@ let
 
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
-            @time for ind₁ in 1 : N_diagonal
+            for ind₁ in 1 : N_diagonal
                 tensor_pointer += 1
 
                 gate_seeds = []
@@ -130,7 +130,7 @@ let
                 # println("")
                 # println("")
 
-                for ind₃ in 1 : circuit_time
+                @time for ind₃ in 1 : circuit_time
                     # Apply the kicked gate at integer time
                     if ind₃ % 2 == 1
                         tmp_kick_gate = build_kick_gates(gate_seeds[ind₃] - 1, gate_seeds[ind₃], s)
