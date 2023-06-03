@@ -80,7 +80,7 @@ let
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = MPS(s, states)
     ψ_copy = deepcopy(ψ)
-    ψ_overlap = Complex{Float64}[]
+    # ψ_overlap = Complex{Float64}[]
 
     # # Intialize the wvaefunction as a random MPS   
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
@@ -119,18 +119,21 @@ let
     distance = Int(1.0 / Δτ); index = 2
     @time for time in 0.0 : Δτ : ttotal
         time ≈ ttotal && break
-        tmp_t1 = Dates.now()
         SvN[index - 1, :] = entanglement_entropy(ψ_copy, N)
-
+        
+        
+        tmp_t1 = Dates.now()
+        # Apply the kicked gates at integer time
         if (abs((time / Δτ) % distance) < 1E-8)
             # println("")
             # println("Apply the kicked gates at integer time $time")
             # println("")
             ψ_copy = apply(kick_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
-            append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+            # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         end
 
+        # Apply the Ising interaction and longitudinal gates
         ψ_copy = apply(gates, ψ_copy; cutoff)
         normalize!(ψ_copy)
 
@@ -170,7 +173,7 @@ let
     write(file, "Cxx", Cxx)
     write(file, "Cyy", Cyy)
     write(file, "Czz", Czz)
-    write(file, "Wavefunction Overlap", ψ_overlap)
+    # write(file, "Wavefunction Overlap", ψ_overlap)
     write(file, "Entropy", SvN)
     write(file, "Time Sequence", timing)
     write(file, "Initial Sx", Sx[1, :])
