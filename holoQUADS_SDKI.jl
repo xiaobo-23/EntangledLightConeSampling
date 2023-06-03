@@ -16,7 +16,7 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 15                                                                 
+    floquet_time = 12                                                                 
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
