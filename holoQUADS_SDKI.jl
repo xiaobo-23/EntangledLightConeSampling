@@ -173,7 +173,18 @@ let
         # Set up the right light cone using the diagonal light cone structure 
         # Set up and apply the right light cone
         @time for ind in 1 : div(N_corner - 2, 2)
-                
+            tensor_pointer += 1
+            for time_ind in 1 : circuit_time - 2 * ind
+                ending_index = N_total - 2 * (ind - 1)
+                starting_index = ending_index - time_index + 1
+
+                if time_index % 2 == 1
+                    tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
+                    ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
+                end
+
+            end    
         end
 
         @time for ind in 1 : circuit_time
