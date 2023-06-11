@@ -169,8 +169,13 @@ let
             end
         end
 
-        
+        # 06/11/2023
+        # Set up the right light cone using the diagonal light cone structure 
         # Set up and apply the right light cone
+        @time for ind in 1 : div(N_corner - 2, 2)
+                
+        end
+
         @time for ind in 1 : circuit_time
             tmp_gates_number = div(ind, 2)
 
@@ -226,6 +231,63 @@ let
             # SvN[ind + 1, :] = entanglement_entropy(ψ_copy, N_total)
             SvN[measure_index, ind * (N_total - 1) + 1 : (ind + 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
         end
+
+        # # Set up and apply the right light cone
+        # @time for ind in 1 : circuit_time
+        #     tmp_gates_number = div(ind, 2)
+
+        #     # Apply a sequence of one-site gates
+        #     ending_index = N_total
+        #     starting_index = N_total - ind + 1
+        #     if ind % 2 == 1
+        #         tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
+        #         ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
+        #         normalize!(ψ_copy)
+        #     end
+
+        #     # Apply a sequence of two-site gates
+        #     if ind % 2 == 1
+        #         tmp_edge = ending_index - 1
+        #     else
+        #         tmp_edge = ending_index
+        #     end
+
+        #     if tmp_gates_number > 1E-8
+        #         tmp_two_site_gates = right_light_cone(tmp_edge, tmp_gates_number, N_total, h, tau, s)
+        #         ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+        #         normalize!(ψ_copy)
+        #     end
+        # end
+
+        # # Create a vector of sites that need to be measured in the right lightcone 
+        # sites_to_measure = []
+        # for ind in 1 : Int(floquet_time)
+        #     tmp_site = 2 * tensor_pointer + 2 * ind - 1
+        #     push!(sites_to_measure, tmp_site)
+        # end
+        # @show sites_to_measure
+
+        # # tensor_pointer += 1
+        # if measure_index - 1 < 1E-8
+        #     tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N_total)
+        #     tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N_total)
+        #     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N_total)
+
+        #     Sx[2 * tensor_pointer + 1 : N_total] = tmp_Sx[2 * tensor_pointer + 1 : N_total]
+        #     Sy[2 * tensor_pointer + 1 : N_total] = tmp_Sy[2 * tensor_pointer + 1 : N_total]
+        #     Sz[2 * tensor_pointer + 1 : N_total] = tmp_Sz[2 * tensor_pointer + 1 : N_total]
+        # end
+
+        # for ind in sites_to_measure
+        #     SvN[measure_index, (ind - 1) * (N_total - 1) + 1 : ind * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
+        #     # SvN[ind, :] = entanglement_entropy(ψ_copy, N_total)
+        #     # samples[measure_index, ind : ind + 1] = sample(ψ_copy, ind, "Sz")
+        #     samples[measure_index, ind : ind + 1] = expect(ψ_copy, "Sx"; sites = ind : ind + 1)
+        #     sample(ψ_copy, ind, "Sx")
+        #     normalize!(ψ_copy)
+        #     # SvN[ind + 1, :] = entanglement_entropy(ψ_copy, N_total)
+        #     SvN[measure_index, ind * (N_total - 1) + 1 : (ind + 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
+        # end
     end
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
