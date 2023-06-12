@@ -21,7 +21,7 @@ let
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
-    number_of_samples = 2000
+    number_of_samples = 1000
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2 
@@ -174,8 +174,11 @@ let
         # Set up and apply the right light cone
         for ind in 1 : div(N_corner - 2, 2)
             tensor_pointer += 1
+            left_ptr = 2 * tensor_pointer - 1
+            right_ptr = 2 * tensor_pointer
+            @show ind, left_ptr, right_ptr
+
             @time for time_index in 1 : circuit_time - 2 * (ind - 1)
-                # @show time_index
                 if time_index - 1 < 1E-8
                     ending_index = N_total
                     starting_index = N_total
@@ -184,23 +187,25 @@ let
                     starting_index = ending_index - 1
                 end
 
+                # @show time_index, starting_index, ending_index
                 # Applying a sequence of one-site gates
                 if time_index % 2 == 1
+                    @show time_index, starting_index, ending_index
                     tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
+                    # @show tmp_kick_gates
                     ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
 
                 # Applying a sequence of two-site gates
                 if time_index - 1 > 1E-8
-                    tmp_two_site_gate = diagonal_circuit(ending_index, h, tau, s)
+                    @show time_index, ending_index
+                    tmp_two_site_gate = diagonal_right_edge(ending_index, N_total, h, tau, s)
+                    # @show tmp_two_site_gate
                     ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
-            end    
-
-            left_ptr = 2 * tensor_pointer - 1
-            right_ptr = 2 * tensor_pointer
+            end   
 
             # Measure local observables directly from the wavefunction
             if measure_index - 1 < 1E-8
@@ -230,7 +235,7 @@ let
     println("################################################################################")
     println("################################################################################")
     
-    # @show Sz_sample
+
     # Store data in hdf5 file
     file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
     write(file, "Initial Sz", Sz₀)
