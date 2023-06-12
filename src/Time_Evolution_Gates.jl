@@ -50,34 +50,34 @@ function diagonal_circuit(starting_index :: Int, longitudinal_field :: Float64, 
 end
 
 
-# Construct layers of two-site gate including the Ising interaction and longitudinal fields in the right light cone
-function right_light_cone(starting_index :: Int, number_of_gates :: Int, edge_index :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
-    gates = ITensor[]
+# # Construct layers of two-site gate including the Ising interaction and longitudinal fields in the right light cone
+# function right_light_cone(starting_index :: Int, number_of_gates :: Int, edge_index :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
+#     gates = ITensor[]
 
-    for ind in 1 : number_of_gates
-        tmp_start = starting_index - 2 * (ind - 1)
-        tmp_end = tmp_start - 1
+#     for ind in 1 : number_of_gates
+#         tmp_start = starting_index - 2 * (ind - 1)
+#         tmp_end = tmp_start - 1
 
-        s1 = tmp_sites[tmp_end]
-        s2 = tmp_sites[tmp_start]
+#         s1 = tmp_sites[tmp_end]
+#         s2 = tmp_sites[tmp_start]
 
-        # Consider the finite-size effect on the right edge
-        if abs(tmp_start - edge_index) < 1E-8
-            coeff₁ = 1
-            coeff₂ = 2
-        else
-            coeff₁ = 1
-            coeff₂ = 1
-        end
+#         # Consider the finite-size effect on the right edge
+#         if abs(tmp_start - edge_index) < 1E-8
+#             coeff₁ = 1
+#             coeff₂ = 2
+#         else
+#             coeff₁ = 1
+#             coeff₂ = 1
+#         end
 
-        # hj = coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * Δτ * hj)
-        push!(gates, Gj)
-    end
-    return gates
-end
+#         # hj = coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+#         # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+#         hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+#         Gj = exp(-1.0im * Δτ * hj)
+#         push!(gates, Gj)
+#     end
+#     return gates
+# end
 
 
 # Construct multiple one-site gates to apply the transverse Ising fields.
