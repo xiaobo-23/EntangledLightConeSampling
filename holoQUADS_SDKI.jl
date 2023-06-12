@@ -16,12 +16,12 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 2                                                              
+    floquet_time = 20                                                             
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
-    number_of_samples = 1000
+    number_of_samples = 50
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2 
@@ -158,6 +158,7 @@ let
                 # SvN[2 * tensor_pointer - 1, :] = entanglement_entropy(ψ_copy, N_total)
                 SvN[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
                 
+                # Previous sample and reset protocol
                 # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
                 # normalize!(ψ_copy)
 
@@ -170,8 +171,9 @@ let
         end
 
         # 06/11/2023
-        # Set up the right light cone using the diagonal light cone structure 
-        # Set up and apply the right light cone
+        # Reconstruct the right light cone for a finite chain
+        # Apply one-site and two-site gates in diagonal orders. 
+
         for ind in 1 : div(N_corner - 2, 2)
             tensor_pointer += 1
             left_ptr = 2 * tensor_pointer - 1

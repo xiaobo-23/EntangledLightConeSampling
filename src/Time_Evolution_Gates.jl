@@ -33,12 +33,12 @@ end
 
 
 # Construct multiple two-site gate(s) to apply the Ising interaction and the longitudinal fields in the diagonal parts of the circuit
-function diagonal_circuit(starting_index :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
+function diagonal_circuit(input_index :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
     gates = ITensor[]
 
     # Generate a local two-site gate 
-    s1 = tmp_sites[starting_index]
-    s2 = tmp_sites[starting_index - 1]
+    s1 = tmp_sites[input_index]
+    s2 = tmp_sites[input_index - 1]
 
     # hj = longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
     # hj = π * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
@@ -48,6 +48,29 @@ function diagonal_circuit(starting_index :: Int, longitudinal_field :: Float64, 
 
     return gates
 end
+
+
+
+
+# Construct a two-site gate in the right light cone
+function diagonal_right_edge(input_index :: Int, total_sites :: Int, longitudinal_field :: Float64, Δτ :: Float64, tmp_sites)
+    gates = ITensor[]
+    s1 = tmp_sites[input_index - 1]
+    s2 = tmp_sites[input_index]
+
+    if abs(input_index - total_sites) < 1E-8
+        coeff = 2
+    else
+        coeff = 1
+    end
+
+    hj = π / 2 * op("Sz", s1) * op("Sz", s2) + longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff * longitudinal_field * op("Id", s1) * op("Sz", s2)
+    Gj = exp(-1.0im * Δτ * hj)
+    push!(gates, Gj)
+
+    return gates
+end
+
 
 
 # # Construct layers of two-site gate including the Ising interaction and longitudinal fields in the right light cone
