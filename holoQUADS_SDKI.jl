@@ -1,6 +1,5 @@
 ## 05/02/2023
 ## IMPLEMENT THE HOLOQAUDS CIRCUITS WITHOUT RECYCLING AND LONG-RANGE GATES.
-
 using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, real
@@ -9,6 +8,7 @@ using Base: product
 using Random
 include("src/Sample.jl")
 include("src/Entanglement.jl")
+include("src/ObtainBond.jl")
 include("src/Time_Evolution_Gates.jl")
 
 
@@ -16,7 +16,7 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 24                                                          
+    floquet_time = 1                                                          
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
@@ -28,14 +28,16 @@ let
     N_total = 100
     N_diagonal = div(N_total - N_corner, 2)                       # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
-    
+    @show typeof(s) 
     # Allocate memory etc. for observables
     Sx = Vector{ComplexF64}(undef, N_total)
     Sy = Vector{ComplexF64}(undef, N_total)
     Sz = Vector{ComplexF64}(undef, N_total)
     samples = Array{Float64}(undef, number_of_samples, N_total)
     SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+    Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
     
+
     # Initialize the wavefunction using a Neel state
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N_total]
     ψ = MPS(s, states)
@@ -97,20 +99,20 @@ let
             Sz = tmp_Sz
         end
 
-
-        # 05/08/2023
-        # Test the idea of speeding up sampling efficiency
-        
         # Sample the first two sites after applying the left light cone
         # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
 
         # Measure von Neumann entanglement entropy before and after measurements 
         SvN[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
+        Bond[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
+
         samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
         # sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
         normalize!(ψ_copy)
-        SvN[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
 
+
+        SvN[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
+        Bond[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
         
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
@@ -156,18 +158,18 @@ let
                     Sy[2 * tensor_pointer - 1 : 2 * tensor_pointer] = tmp_Sy[2 * tensor_pointer - 1 : 2 * tensor_pointer]
                     Sz[2 * tensor_pointer - 1 : 2 * tensor_pointer] = tmp_Sz[2 * tensor_pointer - 1 : 2 * tensor_pointer]
                 end
-                # SvN[2 * tensor_pointer - 1, :] = entanglement_entropy(ψ_copy, N_total)
-                SvN[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
                 
-                # Previous sample and reset protocol
-                # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
-                # normalize!(ψ_copy)
-
+                SvN[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
+                Bond[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
                 samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
                 # sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
                 normalize!(ψ_copy)
-                # SvN[2 * tensor_pointer, :] = entanglement_entropy(ψ_copy, N_total)
                 SvN[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
+                Bond[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
+
+                # Previous sample and reset protocol
+                # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
+                # normalize!(ψ_copy)  
             end
         end
 
@@ -223,10 +225,12 @@ let
 
             # Measure and generate samples from the wavefunction
             SvN[measure_index, (left_ptr - 1) * (N_total - 1) + 1 : left_ptr * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total) 
+            Bond[measure_index, (left_ptr - 1) * (N_total - 1) + 1 : left_ptr * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
             samples[measure_index, left_ptr : right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr : right_ptr)
             # sample(ψ_copy, left_ptr, "Sx")
             normalize!(ψ_copy)
             SvN[measure_index, (right_ptr - 1) * (N_total - 1) + 1 : right_ptr * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total) 
+            Bond[measure_index, (right_ptr - 1) * (N_total - 1) + 1 : right_ptr * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
         end
     end
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
