@@ -29,6 +29,8 @@ let
     N_diagonal = div(N_total - N_corner, 2)                       # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     @show typeof(s) 
+    
+    
     # Allocate memory etc. for observables
     Sx = Vector{ComplexF64}(undef, N_total)
     Sy = Vector{ComplexF64}(undef, N_total)
@@ -242,8 +244,6 @@ let
     println("################################################################################")
     println("################################################################################")
     
-
-
 
     # Store data in hdf5 file
     file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
