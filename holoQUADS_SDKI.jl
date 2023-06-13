@@ -16,12 +16,12 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 20                                                             
+    floquet_time = 3                                                          
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                                              # an integrability-breaking longitudinal field h 
-    number_of_samples = 50
+    number_of_samples = 1
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2 
@@ -97,21 +97,21 @@ let
             Sz = tmp_Sz
         end
 
+
         # 05/08/2023
         # Test the idea of speeding up sampling efficiency
         
         # Sample the first two sites after applying the left light cone
         # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
 
-        # Measure the von Neumann entanglement entropy
+        # Measure von Neumann entanglement entropy before and after measurements 
         SvN[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
         samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-        sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+        # sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
         normalize!(ψ_copy)
-        
-        # SvN[2 * tensor_pointer, :] = entanglement_entropy(ψ_copy, N_total)
         SvN[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
 
+        
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
             for ind₁ in 1 : N_diagonal
@@ -139,8 +139,9 @@ let
                     end
 
                     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-                    tmp_two_site_gates = diagonal_circuit(gate_seeds[ind₃], h, tau, s)
-                    ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+                    # tmp_two_site_gates = diagonal_circuit(gate_seeds[ind₃], h, tau, s)
+                    tmp_two_site_gate = diagonal_right_edge(gate_seeds[ind₃], N_total, h, tau, s)
+                    ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
 
@@ -163,7 +164,7 @@ let
                 # normalize!(ψ_copy)
 
                 samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-                sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                # sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
                 normalize!(ψ_copy)
                 # SvN[2 * tensor_pointer, :] = entanglement_entropy(ψ_copy, N_total)
                 SvN[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
@@ -192,7 +193,7 @@ let
                 # @show time_index, starting_index, ending_index
                 # Applying a sequence of one-site gates
                 if time_index % 2 == 1
-                    @show time_index, starting_index, ending_index
+                    # @show time_index, starting_index, ending_index
                     tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
                     # @show tmp_kick_gates
                     ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
@@ -201,7 +202,7 @@ let
 
                 # Applying a sequence of two-site gates
                 if time_index - 1 > 1E-8
-                    @show time_index, ending_index
+                    # @show time_index, ending_index
                     tmp_two_site_gate = diagonal_right_edge(ending_index, N_total, h, tau, s)
                     # @show tmp_two_site_gate
                     ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
@@ -223,7 +224,7 @@ let
             # Measure and generate samples from the wavefunction
             SvN[measure_index, (left_ptr - 1) * (N_total - 1) + 1 : left_ptr * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total) 
             samples[measure_index, left_ptr : right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr : right_ptr)
-            sample(ψ_copy, left_ptr, "Sx")
+            # sample(ψ_copy, left_ptr, "Sx")
             normalize!(ψ_copy)
             SvN[measure_index, (right_ptr - 1) * (N_total - 1) + 1 : right_ptr * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total) 
         end
@@ -239,7 +240,7 @@ let
     
 
     # Store data in hdf5 file
-    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
+    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sx.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
