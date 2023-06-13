@@ -85,12 +85,13 @@ end
 # Construct multiple one-site gates to apply the transverse Ising fields.
 function build_kick_gates(starting_index :: Int, ending_index :: Int, tmp_sites)
     kick_gate = ITensor[]
+    
     for ind in starting_index : ending_index
         s1 = tmp_sites[ind] 
-
         hamilt = π/2 * op("Sx", s1)
         tmpG = exp(-1.0im * hamilt)
         push!(kick_gate, tmpG)
     end
+    
     return kick_gate
 end

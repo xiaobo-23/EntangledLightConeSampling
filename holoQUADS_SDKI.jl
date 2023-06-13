@@ -237,11 +237,13 @@ let
 
     println("################################################################################")
     println("################################################################################")
-    println("Measure Sz of the time-evolved wavefunction")
+    println("Local observables Sz at the final time step")
     @show Sz
     println("################################################################################")
     println("################################################################################")
     
+
+
 
     # Store data in hdf5 file
     file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
@@ -251,7 +253,8 @@ let
     write(file, "Sz", Sz)
     write(file, "Samples", samples)
     write(file, "Entropy", SvN)
+    write(file, "Bond Dimension", SvN)
     close(file)
 
     return
-end  
+end

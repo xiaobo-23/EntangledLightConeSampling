@@ -29,8 +29,7 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
             tmp1 = 1
             tmp2 = 1
         end
-
-        # hj = tmp1 * h * op("Sz", s1) * op("Id", s2) + tmp2 * h * op("Id", s1) * op("Sz", s2)   
+ 
         # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
         hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * delta_tau * hj)
@@ -54,7 +53,7 @@ end
 let 
     N = 50
     cutoff = 1E-8
-    Δτ = 1.0; ttotal = 10
+    Δτ = 1.0; ttotal = 15
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -121,24 +120,21 @@ let
         time ≈ ttotal && break
         SvN[index - 1, :] = entanglement_entropy(ψ_copy, N)
         
-        
-        #  
+        # Start timing the procedure where one-site and two-site gates are applied
         tmp_t1 = Dates.now()
         
         # Apply the kicked gates at integer time
         if (abs((time / Δτ) % distance) < 1E-8)
-            # println("")
-            # println("Apply the kicked gates at integer time $time")
-            # println("")
             ψ_copy = apply(kick_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
             # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         end
 
-        # Apply the Ising interaction and longitudinal gates
+        # Apply the two-site gates which include the Ising interaction and longitudinal fields
         ψ_copy = apply(gates, ψ_copy; cutoff)
         normalize!(ψ_copy)
 
+        # Ending time the procedure where one-site and two-site gates are applied
         tmp_t2 = Dates.now()
         Δt = Dates.value(tmp_t2 - tmp_t1)
         push!(timing, Δt)
