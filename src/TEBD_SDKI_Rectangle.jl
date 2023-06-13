@@ -8,50 +8,12 @@ using Base: Float64, Real
 using Random
 using Dates
 include("Entanglement.jl")
+include("TEBD_Time_Evolution_Gates.jl")
 ITensors.disable_warn_order()
 
 
-
-function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, upper_bound :: Int, 
-    amplitude :: Real, delta_tau :: Real, tmp_sites)
-    tmp_gates = []
-    for ind in starting_index : 2 : ending_index
-        s1 = tmp_sites[ind]
-        s2 = tmp_sites[ind + 1]
-
-        if (ind - 1 < 1E-8)
-            tmp1 = 2 
-            tmp2 = 1
-        elseif (abs(ind - (upper_bound - 1)) < 1E-8)
-            tmp1 = 1
-            tmp2 = 2
-        else
-            tmp1 = 1
-            tmp2 = 1
-        end
- 
-        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
-        hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
-        Gj = exp(-1.0im * delta_tau * hj)
-        push!(tmp_gates, Gj)
-    end
-    return tmp_gates
-end
-
-# Build a sequence of one-site kick gates
-function build_kick_gates(tmp_site, starting_index :: Int, ending_index :: Int)
-    tmp_gates = ITensor[]
-    for index in starting_index : ending_index
-        tmpS = tmp_site[index]
-        tmpHamiltonian = π/2 * op("Sx", tmpS)
-        tmpGate = exp(-1.0im * tmpHamiltonian)
-        push!(tmp_gates, tmpGate)
-    end
-    return tmp_gates
-end
-
 let 
-    N = 50
+    N = 100
     cutoff = 1E-8
     Δτ = 1.0; ttotal = 15
     h = 0.2                                            # an integrability-breaking longitudinal field h 
@@ -74,12 +36,11 @@ let
     # Construct a layer of kicked gates
     kick_gates = build_kick_gates(s, 1, N)
 
-    
     # Initialize the wavefunction using a Neel state
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = MPS(s, states)
     ψ_copy = deepcopy(ψ)
-    # ψ_overlap = Complex{Float64}[]
+    ψ_overlap = Complex{Float64}[]
 
     # # Intialize the wvaefunction as a random MPS   
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
@@ -138,7 +99,7 @@ let
         tmp_t2 = Dates.now()
         Δt = Dates.value(tmp_t2 - tmp_t1)
         push!(timing, Δt)
-        @show timing
+        @show time, timing
         
         # Local observables e.g. Sx, Sz
         Sx[index, :] = expect(ψ_copy, "Sx"; sites = 1 : N) 
