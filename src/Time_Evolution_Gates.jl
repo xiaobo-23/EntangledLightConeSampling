@@ -15,16 +15,14 @@ function left_light_cone(number_of_gates :: Int, parity :: Int, longitudinal_fie
         s2 = tmp_sites[tmp_index + 1]
        
         if tmp_index - 1 < 1E-8
-            coeff₁ = 2
-            coeff₂ = 1
+            coeff = 2
         else
-            coeff₁ = 1
-            coeff₂ = 1
+            coeff = 1
         end
 
         # hj = coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
         # hj = π * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
-        hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff₁ * longitudinal_field * op("Sz", s1) * op("Id", s2) + coeff₂ * longitudinal_field * op("Id", s1) * op("Sz", s2)
+        hj = π/2 * op("Sz", s1) * op("Sz", s2) + coeff * longitudinal_field * op("Sz", s1) * op("Id", s2) + longitudinal_field * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * Δτ * hj)
         push!(gates, Gj)
     end
@@ -52,7 +50,6 @@ function diagonal_right_edge(input_index :: Int, total_sites :: Int, longitudina
 
     return gates
 end
-
 
 
 # # Construct layers of two-site gate including the Ising interaction and longitudinal fields in the right light cone

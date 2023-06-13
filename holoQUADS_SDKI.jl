@@ -16,7 +16,7 @@ include("src/Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 3                                                          
+    floquet_time = 24                                                          
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
@@ -25,7 +25,7 @@ let
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2 
-    N_total = 50
+    N_total = 100
     N_diagonal = div(N_total - N_corner, 2)                       # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     
@@ -240,7 +240,7 @@ let
     
 
     # Store data in hdf5 file
-    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sx.h5", "w")
+    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
