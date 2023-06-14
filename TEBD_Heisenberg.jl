@@ -2,7 +2,7 @@
 using ITensors
 using ITensors.HDF5
 
-let 
+let
     N = 500
     cutoff = 1E-8
     tau = 0.1
@@ -13,13 +13,14 @@ let
 
     # Make gates (1, 2), (2, 3), (3, 4) ...
     gates = ITensor[]
-    for ind in 1:(N - 1)
+    for ind = 1:(N-1)
         s1 = s[ind]
-        s2 = s[ind + 1]
-        hj = op("Sz", s1) * op("Sz", s2) + 
-            1/2 * op("S+", s1) * op("S-", s2) + 
-            1/2 * op("S-", s1) * op("S+", s2)
-        Gj = exp(-im * tau / 2* hj)
+        s2 = s[ind+1]
+        hj =
+            op("Sz", s1) * op("Sz", s2) +
+            1 / 2 * op("S+", s1) * op("S-", s2) +
+            1 / 2 * op("S-", s1) * op("S+", s2)
+        Gj = exp(-im * tau / 2 * hj)
         push!(gates, Gj)
     end
 
@@ -37,14 +38,14 @@ let
     Sz = complex(zeros(number_of_measurements, N))
     Overlap = complex(zeros(number_of_measurements))
     # Using TEBD to evolve the wavefunction in real time && taking measurements of local observables
-    
+
     index = 1
-    @time for time in 0.0:tau:ttotal
+    @time for time = 0.0:tau:ttotal
         # tmp_Sx = expect(ψ, "Sx", sites = 1 : N)
         # Sx[index, :] = tmp_Sx
         # tmp_Sy = epxect(ψ, "Sy", sites = 1 : N)
         # Sy[index, :] = tmp_Sy
-        tmp_Sz = expect(ψ, "Sz", sites = 1 : N)
+        tmp_Sz = expect(ψ, "Sz", sites = 1:N)
         Sz[index, :] = tmp_Sz
 
         tmp_overlap = abs(inner(ψ, ψ₀))
@@ -62,7 +63,8 @@ let
         normalize!(ψ)
     end
 
-    file = h5open("Data/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(tau)_AFM_Initialization.h5", "w")
+    file =
+        h5open("Data/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(tau)_AFM_Initialization.h5", "w")
     # write(file, "Sx", Sx)
     # write(file, "Sy", Sy)
     write(file, "Sz", Sz)
@@ -70,4 +72,4 @@ let
     close(file)
 
     return
-end 
+end

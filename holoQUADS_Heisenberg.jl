@@ -29,25 +29,25 @@ function sample(m::MPS, j::Int)
     # Take measurements and reset the two-site MPS to |up, down> Neel state
     # Need to be modified based on the initialization of MPS
     projn_up_matrix = [
-        1  0 
-        0  0
-    ] 
+        1 0
+        0 0
+    ]
     S⁻_matrix = [
-        0  0
-        1  0
+        0 0
+        1 0
     ]
     projn_dn_matrix = [
-        0  0 
-        0  1
-    ] 
-    S⁺_matrix = [
-        0  1 
-        0  0
+        0 0
+        0 1
     ]
-    
+    S⁺_matrix = [
+        0 1
+        0 0
+    ]
+
     result = zeros(Int, 2)
     A = m[j]
-    for ind in j:j+1
+    for ind = j:j+1
         tmpS = siteind(m, ind)
         # println("Before taking measurements")
         # @show(m[ind])
@@ -55,13 +55,13 @@ function sample(m::MPS, j::Int)
         pdisc = 0.0
         r = rand()
 
-        n = 1 
+        n = 1
         An = ITensor()
         pn = 0.0
 
         while n <= d
             projn = ITensor(tmpS)
-            projn[tmpS => n] = 1.0
+            projn[tmpS=>n] = 1.0
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
             pdisc += pn
@@ -69,13 +69,13 @@ function sample(m::MPS, j::Int)
             (r < pdisc) && break
             n += 1
         end
-        result[ind - j + 1] = n
+        result[ind-j+1] = n
         # @show result[ind - j + 1]
         # @show An
 
         if ind < mpsLength
-            A = m[ind + 1] * An
-            A *= (1. / sqrt(pn))
+            A = m[ind+1] * An
+            A *= (1.0 / sqrt(pn))
         end
 
         # '''
@@ -83,7 +83,7 @@ function sample(m::MPS, j::Int)
         #     # Comment: the reset procedure needs to be revised 
         #     # Use a product state of entangled (two-site) pairs and reset the state to |Psi (t=0)> instead of |up, down>. 
         # '''
-        
+
         # # n denotes the corresponding physical state: n=1 --> |up> and n=2 --> |down>
         # if ind % 2 == 1
         #     if n - 1 < 1E-8             
@@ -109,18 +109,26 @@ function sample(m::MPS, j::Int)
     # println("")
     # println("")
     return result
-end 
+end
 
 
 # Construct layers of two-site gates for the corner part of the holoQAUDS circuit
-function construct_corner_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
+function construct_corner_layer(
+    starting_index::Int,
+    ending_index::Int,
+    temp_sites,
+    Δτ::Float64,
+)
     gates = ITensor[]
-    for j in starting_index : 2 : ending_index
+    for j = starting_index:2:ending_index
         @show starting_index, j, j + 1
         temp_s1 = temp_sites[j]
-        temp_s2 = temp_sites[j + 1]
+        temp_s2 = temp_sites[j+1]
 
-        temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
+        temp_hj =
+            op("Sz", temp_s1) * op("Sz", temp_s2) +
+            1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) +
+            1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
         temp_Gj = exp(-1.0im * Δτ * temp_hj)
         push!(gates, temp_Gj)
     end
@@ -129,7 +137,12 @@ end
 
 
 # Construct layers of two-site gates for the diagonal part of the holoQUADS circuit
-function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, temp_sites, Δτ :: Float64)
+function construct_diagonal_layer(
+    starting_index::Int,
+    ending_index::Int,
+    temp_sites,
+    Δτ::Float64,
+)
     gates = ITensor[]
     if starting_index - 1 < 1E-8
         @show starting_index, ending_index
@@ -139,7 +152,10 @@ function construct_diagonal_layer(starting_index :: Int, ending_index :: Int, te
         @show starting_index, ending_index
         temp_s1 = temp_sites[starting_index]
         temp_s2 = temp_sites[ending_index]
-        temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
+        temp_hj =
+            op("Sz", temp_s1) * op("Sz", temp_s2) +
+            1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) +
+            1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
         temp_Gj = exp(-1.0im * Δτ * temp_hj)
         push!(gates, temp_Gj)
     end
@@ -148,27 +164,36 @@ end
 
 
 # Construct layers of two-site gates for the right corner part of the holoQUADS circuit
-function construct_right_light_cone_layer(starting_index :: Int, tmp_number_of_gates :: Int, period :: Int, temp_sites, Δτ :: Float64) 
+function construct_right_light_cone_layer(
+    starting_index::Int,
+    tmp_number_of_gates::Int,
+    period::Int,
+    temp_sites,
+    Δτ::Float64,
+)
     gates = Any[]
     gates_indices = []
-    
-    for ind in 1 : tmp_number_of_gates
+
+    for ind = 1:tmp_number_of_gates
         tmp_ind = (starting_index - 2 * (ind - 1) + period) % period
         if tmp_ind < 1E-8
             tmp_ind = period
         end
         push!(gates_indices, tmp_ind)
     end
-    
+
     for index in gates_indices
         @show index
         if index - 1 < 1E-8
             tmp_gate = long_range_gate(temp_sites, period, Δτ)
             push!(gates, tmp_gate)
         else
-            temp_s1 = temp_sites[index - 1]
+            temp_s1 = temp_sites[index-1]
             temp_s2 = temp_sites[index]
-            temp_hj = op("Sz", temp_s1) * op("Sz", temp_s2) + 1/2 * op("S+", temp_s1) * op("S-", temp_s2) + 1/2 * op("S-", temp_s1) * op("S+", temp_s2)
+            temp_hj =
+                op("Sz", temp_s1) * op("Sz", temp_s2) +
+                1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) +
+                1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
             temp_Gj = exp(-1.0im * Δτ * temp_hj)
             push!(gates, temp_Gj)
         end
@@ -178,12 +203,15 @@ end
 
 # 02/14/2023
 # Modify the long-range two-site gate: prefactor in the exponentiation
-function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
+function long_range_gate(tmp_site, position_index::Int, Δτ::Float64)
     s1 = tmp_site[1]
     s2 = tmp_site[position_index]
-    
+
     # Define the two-site Hamiltonian and set up a long-range gate
-    hj = op("Sz", s1) * op("Sz", s2) + 1/2 * op("S+", s1) * op("S-", s2) + 1/2 * op("S-", s1) * op("S+", s2)
+    hj =
+        op("Sz", s1) * op("Sz", s2) +
+        1 / 2 * op("S+", s1) * op("S-", s2) +
+        1 / 2 * op("S-", s1) * op("S+", s2)
     Gj = exp(-1.0im * Δτ * hj)
 
     # Benchmark gate that employs swap operations
@@ -206,7 +234,7 @@ function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
     # Grab the bond indices of U and V matrices
     if hastags(inds(U)[3], "Link,v") != true    # The original tag of this index of U matrix should be "Link,u".  But we absorbed S matrix into the U matrix.
         error("SVD: fail to grab the bond indice of matrix U by its tag!")
-    else 
+    else
         replacetags!(U, "Link,v", "i1")
     end
     # @show U
@@ -219,7 +247,7 @@ function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
     end
     # @show V
     # @show position_index
-    bondIndices[position_index - 1] = inds(V)[3]
+    bondIndices[position_index-1] = inds(V)[3]
     # @show (bondIndices[1], bondIndices[n - 1])
 
     #####################################################################################################################################
@@ -227,7 +255,7 @@ function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
     longrangeGate = MPO(position_index)
     longrangeGate[1] = U
 
-    for ind in 2 : position_index - 1
+    for ind = 2:position_index-1
         # Set up site indices
         if abs(ind - (position_index - 1)) > 1E-8
             bondString = "i" * string(ind)
@@ -236,7 +264,9 @@ function long_range_gate(tmp_site, position_index::Int, Δτ :: Float64)
 
         # Make the identity tensor
         # @show s[ind], s[ind]'
-        tmpIdentity = delta(tmp_site[ind], tmp_site[ind]') * delta(bondIndices[ind - 1], bondIndices[ind]) 
+        tmpIdentity =
+            delta(tmp_site[ind], tmp_site[ind]') *
+            delta(bondIndices[ind-1], bondIndices[ind])
         longrangeGate[ind] = tmpIdentity
     end
 
@@ -259,7 +289,7 @@ function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
 end
 
 
-let 
+let
     #####################################################################################################################################
     ##### Define parameters used in the holoQUADS circuit
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related/intertwined
@@ -274,13 +304,13 @@ let
     @show floquet_time, typeof(floquet_time)
     num_measurements = 1
     #####################################################################################################################################
-    
+
     # Make an array of 'site' indices && quantum numbers are CONSERVED for the Heisenberg model
     s = siteinds("S=1/2", N; conserve_qns = false)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     ψ = MPS(s, states)
-    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    
+    Sz₀ = expect(ψ, "Sz"; sites = 1:N)
+
     # Random.seed!(1234567)
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     # ψ = randomMPS(s, states, linkdims = 2)
@@ -308,14 +338,18 @@ let
 
     # ## Construct the holoQUADS circuit 
     # ## Consider to move this part outside the main function in the near future
-    
+
     # Random.seed!(2000)
-    for measure_ind in 1 : num_measurements
+    for measure_ind = 1:num_measurements
         println("")
         println("")
-        println("############################################################################")
+        println(
+            "############################################################################",
+        )
         println("#########  PERFORMING MEASUREMENTS LOOP #$measure_ind ")
-        println("############################################################################")
+        println(
+            "############################################################################",
+        )
         println("")
         println("")
 
@@ -323,37 +357,39 @@ let
         ψ_copy = deepcopy(ψ)
         ψ_overlap = Complex{Float64}[]
         tensor_index = 0
-        
+
         tmp_overlap = abs(inner(ψ, ψ_copy))
         println("The overlap of wavefuctions @T=0 is: $tmp_overlap")
         append!(ψ_overlap, tmp_overlap)
 
-        @time for ind₁ in 1 : div(N_time_slice, 2)
-            number_of_gates = div(N_time_slice, 2) - (ind₁ - 1); @show number_of_gates
+        @time for ind₁ = 1:div(N_time_slice, 2)
+            number_of_gates = div(N_time_slice, 2) - (ind₁ - 1)
+            @show number_of_gates
             for tmp_index in [2, 1]
                 tmp_starting_index = tmp_index
                 tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-                corner_gate = construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                corner_gate =
+                    construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
                 ψ_copy = apply(corner_gate, ψ_copy; cutoff)
             end
         end
-        normalize!(ψ_copy) 
+        normalize!(ψ_copy)
 
         if measure_ind - 1 < 1E-8
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1:N)
             Sz[1, :] = tmp_Sz
         end
-        Sz_sample[measure_ind, 1 : 2] = sample(ψ_copy, 1)
+        Sz_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
         if measure_ind - 1 < 1E-8
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1:N)
             Sz_Reset[1, :] = tmp_Sz
         end
         # normalize!(ψ_copy)
-        
+
         if N_diagonal_circuit > 1E-8
-            @time for ind₁ in 1 : N_diagonal_circuit
+            @time for ind₁ = 1:N_diagonal_circuit
                 gate_seeds = []
-                for gate_ind in 1 : N_time_slice
+                for gate_ind = 1:N_time_slice
                     tmp_ind = (2 * ind₁ - gate_ind + N) % N
                     if tmp_ind == 0
                         tmp_ind = N
@@ -362,13 +398,17 @@ let
                 end
                 println("")
                 println("")
-                println("#########################################################################################")
+                println(
+                    "#########################################################################################",
+                )
                 @show size(gate_seeds)[1]
-                println("#########################################################################################")
+                println(
+                    "#########################################################################################",
+                )
                 println("")
                 println("")
 
-                for ind₂ in 1 : N_time_slice
+                for ind₂ = 1:N_time_slice
                     tmp_starting_index = gate_seeds[ind₂]
                     if tmp_starting_index - 1 < 1E-8
                         tmp_ending_index = N
@@ -376,21 +416,28 @@ let
                         tmp_ending_index = tmp_starting_index - 1
                     end
                     @show tmp_starting_index, tmp_ending_index
-                    diagonal_gate = construct_diagonal_layer(tmp_starting_index, tmp_ending_index, s, tau)
+                    diagonal_gate = construct_diagonal_layer(
+                        tmp_starting_index,
+                        tmp_ending_index,
+                        s,
+                        tau,
+                    )
                     ψ_copy = apply(diagonal_gate, ψ_copy; cutoff)
                 end
-                normalize!(ψ_copy) 
-                
+                normalize!(ψ_copy)
+
                 if measure_ind - 1 < 1E-8
-                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-                    Sz[ind₁ + 1, :] = tmp_Sz
-                    println(""); @show tmp_Sz
+                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1:N)
+                    Sz[ind₁+1, :] = tmp_Sz
+                    println("")
+                    @show tmp_Sz
                 end
-                Sz_sample[measure_ind, 2 * ind₁ + 1 : 2 * ind₁ + 2] = sample(ψ_copy, 2 * ind₁ + 1)
+                Sz_sample[measure_ind, 2*ind₁+1:2*ind₁+2] = sample(ψ_copy, 2 * ind₁ + 1)
                 if measure_ind - 1 < 1E-8
-                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-                    Sz_Reset[ind₁ + 1, :] = tmp_Sz
-                    println(""); @show tmp_Sz
+                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1:N)
+                    Sz_Reset[ind₁+1, :] = tmp_Sz
+                    println("")
+                    @show tmp_Sz
                 end
                 # normalize!(ψ_copy)
             end
@@ -413,12 +460,12 @@ let
 
 
         # The right light cone structure in the holoQAUDS circuit
-        @time for ind₁ in 1 : div(N_time_slice, 2)
+        @time for ind₁ = 1:div(N_time_slice, 2)
             number_of_gates = ind₁
             starting_tensor = (tensor_index - 1 + div(N, 2)) % div(N, 2)
             if starting_tensor < 1E-8
                 starting_tensor = div(N, 2)
-            end    
+            end
             starting_point = 2 * starting_tensor
 
             if abs(ind₁ - div(N_time_slice, 2)) > 1E-8
@@ -429,7 +476,8 @@ let
             @show ind₁, number_of_gates, index_array
 
             for tmp_index in index_array
-                right_light_cone_layer = construct_right_light_cone_layer(tmp_index, number_of_gates, N, s, tau)
+                right_light_cone_layer =
+                    construct_right_light_cone_layer(tmp_index, number_of_gates, N, s, tau)
                 for temporary_gate in right_light_cone_layer
                     ψ_copy = apply(temporary_gate, ψ_copy; cutoff)
                     normalize!(ψ_copy)
@@ -439,28 +487,39 @@ let
         normalize!(ψ_copy)
 
         if measure_ind - 1 < 1E-8
-            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N)
-            Sz[N_diagonal_circuit + 2, :] = tmp_Sz
+            tmp_Sz = expect(ψ_copy, "Sz"; sites = 1:N)
+            Sz[N_diagonal_circuit+2, :] = tmp_Sz
         end
-        
+
         # # List of indices of sites that need to be samples in the right light cone
         # index_to_sample = []
         # for ind in 1 : div(N - 2, 2)
-            
+
         # end
     end
     replace!(Sz_sample, 1.0 => 0.5, 2.0 => -0.5)
-     
 
-    println("################################################################################")
-    println("################################################################################")
+
+    println(
+        "################################################################################",
+    )
+    println(
+        "################################################################################",
+    )
     println("Projection in the Sz basis of the initial MPS")
     @show Sz₀
-    println("################################################################################")
-    println("################################################################################")
-    
+    println(
+        "################################################################################",
+    )
+    println(
+        "################################################################################",
+    )
+
     # Store data in hdf5 file
-    file = h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_Finite_N$(N)_T$(floquet_time)_AFM.h5", "w")
+    file = h5open(
+        "Data_Benchmark/holoQUADS_Circuit_Heisenberg_Finite_N$(N)_T$(floquet_time)_AFM.h5",
+        "w",
+    )
     write(file, "Initial Sz", Sz₀)
     # write(file, "Sx", Sx)
     # write(file, "Sy", Sy)
@@ -474,4 +533,4 @@ let
     close(file)
 
     return
-end  
+end

@@ -4,9 +4,9 @@ using ITensors
 using ITensors: orthocenter, sites, copy, complex, real
 
 # Measure von Neumann entanglment entropy on a sequence of bonds
-function entanglement_entropy(tmp_ψ :: MPS, length :: Int)
+function entanglement_entropy(tmp_ψ::MPS, length::Int)
     entropy = []
-    for site_index in 1 : length - 1 
+    for site_index = 1:length-1
         orthogonalize!(tmp_ψ, site_index)
         if abs(site_index - 1) < 1E-8
             i₁ = siteind(tmp_ψ, site_index)
@@ -17,7 +17,7 @@ function entanglement_entropy(tmp_ψ :: MPS, length :: Int)
         end
         C1 = matrix(C1)
         SvN₁ = compute_entropy(C1)
-        
+
         # @show site_index, SvN₁
         push!(entropy, SvN₁)
     end
@@ -28,7 +28,7 @@ end
 # Compute von Neumann entanglement entropy given the eigen values
 function compute_entropy(input_matrix)
     local tmpEntropy = 0
-    for index in 1 : size(input_matrix, 1) 
+    for index = 1:size(input_matrix, 1)
         tmp = input_matrix[index, index]^2
         if tmp > 1E-8
             tmpEntropy += -tmp * log(tmp)
