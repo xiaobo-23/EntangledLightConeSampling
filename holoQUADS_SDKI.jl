@@ -16,7 +16,7 @@ include("src/SDKI_Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let 
-    floquet_time = 1                                                          
+    floquet_time = 24                                                          
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
@@ -101,6 +101,9 @@ let
             Sz = tmp_Sz
         end
 
+
+
+        
         # Sample the first two sites after applying the left light cone
         # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
 
@@ -109,9 +112,8 @@ let
         Bond[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
 
         samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-        # sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+        sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
         normalize!(ψ_copy)
-
 
         SvN[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
         Bond[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
@@ -164,7 +166,7 @@ let
                 SvN[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
                 Bond[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
                 samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = expect(ψ_copy, "Sx"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
-                # sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
                 normalize!(ψ_copy)
                 SvN[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
                 Bond[measure_index, (2 * tensor_pointer - 1) * (N_total - 1) + 1 : 2 * tensor_pointer * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
@@ -216,20 +218,16 @@ let
 
             # Measure local observables directly from the wavefunction
             if measure_index - 1 < 1E-8
-                # tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N_total)
-                # tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N_total)
-                # tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N_total)
-    
-                Sx[left_ptr : right_ptr] = expect(ψ_copy, "Sx"; sites = 1 : N_total)[left_ptr : right_ptr]
-                Sy[left_ptr : right_ptr] = expect(ψ_copy, "Sy"; sites = 1 : N_total)[left_ptr : right_ptr]
-                Sz[left_ptr : right_ptr] = expect(ψ_copy, "Sz"; sites = 1 : N_total)[left_ptr : right_ptr]
+                Sx[left_ptr : right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr : right_ptr)
+                Sy[left_ptr : right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr : right_ptr)
+                Sz[left_ptr : right_ptr] = expect(ψ_copy, "Sz"; sites = left_ptr : right_ptr)
             end
 
             # Measure and generate samples from the wavefunction
             SvN[measure_index, (left_ptr - 1) * (N_total - 1) + 1 : left_ptr * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total) 
             Bond[measure_index, (left_ptr - 1) * (N_total - 1) + 1 : left_ptr * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
             samples[measure_index, left_ptr : right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr : right_ptr)
-            # sample(ψ_copy, left_ptr, "Sx")
+            sample(ψ_copy, left_ptr, "Sx")
             normalize!(ψ_copy)
             SvN[measure_index, (right_ptr - 1) * (N_total - 1) + 1 : right_ptr * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total) 
             Bond[measure_index, (right_ptr - 1) * (N_total - 1) + 1 : right_ptr * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)

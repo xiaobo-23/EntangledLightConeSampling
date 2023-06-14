@@ -3,19 +3,27 @@
 
 using ITensors
 using ITensors.HDF5
-using ITensors: orthocenter, sites, copy, complex, site
-using Base: Float64, Real
+using ITensors: orthocenter, sites, copy, complex, site, timer
+using Base: Float64, Real, Integer
 using Random
 using Dates
+using TimerOutputs
+using MKL
+using AppleAccelerate
+using AppleAccelerateLinAlgWrapper
+
+const to = TimerOutput()
+ITensors.disable_warn_order()
+
 include("Entanglement.jl")
 include("TEBD_Time_Evolution_Gates.jl")
-ITensors.disable_warn_order()
 
 
 let 
     N = 100
     cutoff = 1E-8
-    Δτ = 1.0; ttotal = 15
+    Δτ = 1.0 
+    ttotal = 10
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -77,29 +85,22 @@ let
 
     
     distance = Int(1.0 / Δτ); index = 2
-    @time for time in 0.0 : Δτ : ttotal
+    for time in 0.0 : Δτ : ttotal
         time ≈ ttotal && break
         SvN[index - 1, :] = entanglement_entropy(ψ_copy, N)
         
-        # Start timing the procedure where one-site and two-site gates are applied
-        tmp_t1 = Dates.now()
-        
         # Apply the kicked gates at integer time
-        if (abs((time / Δτ) % distance) < 1E-8)
+        @timeit to "kick gates" if (abs((time / Δτ) % distance) < 1E-8)
             ψ_copy = apply(kick_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
             # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         end
 
         # Apply the two-site gates which include the Ising interaction and longitudinal fields
-        ψ_copy = apply(gates, ψ_copy; cutoff)
-        normalize!(ψ_copy)
-
-        # Ending time the procedure where one-site and two-site gates are applied
-        tmp_t2 = Dates.now()
-        Δt = Dates.value(tmp_t2 - tmp_t1)
-        push!(timing, Δt)
-        @show time, timing
+        @timeit to "two-site gates" begin
+            ψ_copy = apply(gates, ψ_copy; cutoff)
+            normalize!(ψ_copy)
+        end
         
         # Local observables e.g. Sx, Sz
         Sx[index, :] = expect(ψ_copy, "Sx"; sites = 1 : N) 
@@ -115,15 +116,10 @@ let
         # tmp_overlap = abs(inner(ψ, ψ_copy))
         # println("The inner product is: $tmp_overlap")
         # append!(ψ_overlap, tmp_overlap)
+        @show to
     end
 
-    println("################################################################################")
-    println("################################################################################")
-    println("Projective measurements of the initial MPS in the Sz basis")
-    @show Sz[1, :]
-    println("################################################################################")
-    println("################################################################################")
-
+    
     # Store data into a hdf5 file
     file = h5open("TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal).h5", "w")
     write(file, "Sx", Sx)
@@ -134,7 +130,7 @@ let
     write(file, "Czz", Czz)
     # write(file, "Wavefunction Overlap", ψ_overlap)
     write(file, "Entropy", SvN)
-    write(file, "Time Sequence", timing)
+    # write(file, "Time Sequence", timing)
     write(file, "Initial Sx", Sx[1, :])
     write(file, "Initial Sy", Sy[1, :])
     write(file, "Initial Sz", Sz[1, :])
