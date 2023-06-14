@@ -29,7 +29,10 @@ function build_a_layer_of_gates(
             tmp2 = 1
         end
 
-        # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
+        # hj = 
+        #     π * op("Sz", s1) * op("Sz", s2) + 
+        #     tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + 
+        #     tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
         hj =
             π / 2 * op("Sz", s1) * op("Sz", s2) +
             tmp1 * amplitude * op("Sz", s1) * op("Id", s2) +
