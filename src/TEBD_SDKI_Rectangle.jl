@@ -9,8 +9,11 @@ using Random
 using Dates
 using TimerOutputs
 using MKL
-using AppleAccelerate
-using AppleAccelerateLinAlgWrapper
+# using AppleAccelerate
+# using AppleAccelerateLinAlgWrapper
+
+using LinearAlgebra
+BLAS.set_num_threads(8)
 
 const to = TimerOutput()
 ITensors.disable_warn_order()
@@ -23,7 +26,7 @@ let
     N = 100
     cutoff = 1E-8
     Δτ = 1.0 
-    ttotal = 10
+    ttotal = 20
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -59,7 +62,9 @@ let
     # ψ_copy = deepcopy(ψ)
     # ψ_overlap = Complex{Float64}[]
 
-    timeSlices = Int(ttotal / Δτ) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
+    timeSlices = Int(ttotal / Δτ) + 1
+    println("Total number of time slices that need to be saved is : $(timeSlices)")
+    
     # Local observables including various one-point functions
     Sx = Array{ComplexF64}(undef, timeSlices, N)
     Sy = Array{ComplexF64}(undef, timeSlices, N)
@@ -70,24 +75,24 @@ let
     Cyy = Array{ComplexF64}(undef, timeSlices, N * N)
     Czz = Array{ComplexF64}(undef, timeSlices, N * N)
     SvN = Array{Float64}(undef, timeSlices, N - 1)
-
-    timing = Float64[]
-
+    
     # Take measurements of the initial wavefunction
     Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
-    Sy[1, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
+    # Sy[1, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
     Sz[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
 
     Cxx[1, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
-    Cyy[1, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
+    # Cyy[1, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
     Czz[1, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
-    append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-
     
-    distance = Int(1.0 / Δτ); index = 2
+    SvN[1, :] = entanglement_entropy(ψ_copy, N)
+    # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+
+    distance = Int(1.0 / Δτ)
+    index = 2
+    
     for time in 0.0 : Δτ : ttotal
         time ≈ ttotal && break
-        SvN[index - 1, :] = entanglement_entropy(ψ_copy, N)
         
         # Apply the kicked gates at integer time
         @timeit to "kick gates" if (abs((time / Δτ) % distance) < 1E-8)
@@ -111,12 +116,13 @@ let
         Cxx[index, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
         Cyy[index, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
         Czz[index, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
-        index += 1
+        SvN[index, :] = entanglement_entropy(ψ_copy, N)
 
-        # tmp_overlap = abs(inner(ψ, ψ_copy))
-        # println("The inner product is: $tmp_overlap")
-        # append!(ψ_overlap, tmp_overlap)
-        @show to
+        index += 1
+        # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
+        
+        # @show to
+        show(to)
     end
 
     

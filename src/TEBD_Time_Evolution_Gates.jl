@@ -6,7 +6,7 @@ using ITensors
 using ITensors: orthocenter, sites, copy, complex, real
 
 function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, upper_bound :: Int, 
-    amplitude :: Real, delta_tau :: Real, tmp_sites :: AbstractVector)
+    amplitude :: Real, delta_tau :: Real, tmp_sites)
     tmp_gates = []
     for ind in starting_index : 2 : ending_index
         s1 = tmp_sites[ind]
@@ -32,7 +32,7 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
 end
 
 # Build a sequence of one-site kick gates
-function build_kick_gates(tmp_site :: AbstractVector, starting_index :: Integer, ending_index :: Integer)
+function build_kick_gates(tmp_site, starting_index :: Integer, ending_index :: Integer)
     tmp_gates = ITensor[]
     for index in starting_index : ending_index
         tmpS = tmp_site[index]
