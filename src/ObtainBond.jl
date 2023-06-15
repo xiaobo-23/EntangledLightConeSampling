@@ -1,5 +1,5 @@
-## 05/11/2023
-## Obtain Bond Dimension
+## 06/15/2023
+## Compute the bond dimension of an input MPS
 using ITensors
 using ITensors: orthocenter, sites, copy, complex, real
 

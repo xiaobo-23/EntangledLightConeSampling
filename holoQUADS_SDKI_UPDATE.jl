@@ -16,7 +16,7 @@ include("src/holoQUADS_Time_Evolution_Gates.jl")
 
 # Assemble the holoQUADS circuit 
 let
-    floquet_time = 24
+    floquet_time = 10
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
@@ -210,8 +210,7 @@ let
             tensor_pointer += 1
             left_ptr = 2 * tensor_pointer - 1
             right_ptr = 2 * tensor_pointer
-            @show ind, left_ptr, right_ptr
-
+            # @show ind, left_ptr, right_ptr
 
             @time for time_index = 1:circuit_time-2*(ind-1)
                 if time_index == 1
@@ -260,6 +259,7 @@ let
             Bond[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
                 obtain_bond_dimension(ψ_copy, N_total)
         end
+        @show Bond[measure_index, :]
     end
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
@@ -277,7 +277,6 @@ let
     # println(
     #     "################################################################################",
     # )
-
 
     # Store data in hdf5 file
     file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
