@@ -2,7 +2,7 @@
 using ITensors
 using ITensors.HDF5
 
-let
+let 
     N = 42
     cutoff = 1E-8
     tau = 0.05
@@ -11,30 +11,24 @@ let
     # Make an array of 'site' indices
     s = siteinds("S=1/2", N; conserve_qns = false)
 
-
+    
     # Construct layers of two-site gates used in TEBD
     gates = ITensor[]
 
     # Construct the layer with div(N, 2) - 1 two-site gates
-    for ind = 2:2:(N-2)
+    for ind in 2 : 2 : (N - 2)
         s1 = s[ind]
-        s2 = s[ind+1]
-        hj =
-            op("Sz", s1) * op("Sz", s2) +
-            1 / 2 * op("S+", s1) * op("S-", s2) +
-            1 / 2 * op("S-", s1) * op("S+", s2)
+        s2 = s[ind + 1]
+        hj = op("Sz", s1) * op("Sz", s2) + 1/2 * op("S+", s1) * op("S-", s2) + 1/2 * op("S-", s1) * op("S+", s2)
         Gj = exp(-1.0im * tau * hj)
         push!(gates, Gj)
     end
 
     # Construct the layer with div(N, 2) two-site gates
-    for ind = 1:2:(N-1)
+    for ind in 1 : 2 : (N - 1)
         s1 = s[ind]
-        s2 = s[ind+1]
-        hj =
-            op("Sz", s1) * op("Sz", s2) +
-            1 / 2 * op("S+", s1) * op("S-", s2) +
-            1 / 2 * op("S-", s1) * op("S+", s2)
+        s2 = s[ind + 1]
+        hj = op("Sz", s1) * op("Sz", s2) + 1/2 * op("S+", s1) * op("S-", s2) + 1/2 * op("S-", s1) * op("S+", s2)
         Gj = exp(-1.0im * tau * hj)
         push!(gates, Gj)
     end
@@ -44,9 +38,9 @@ let
     ψ = deepcopy(ψ₀)
 
     # Take a measurement of the initial random MPS to make sure the same random MPS is used through all codes.
-    Sx₀ = expect(ψ, "Sx", sites = 1:N)
-    Sy₀ = expect(ψ, "Sy", sites = 1:N)
-    Sz₀ = expect(ψ, "Sz", sites = 1:N)
+    Sx₀ = expect(ψ, "Sx", sites = 1 : N)
+    Sy₀ = expect(ψ, "Sy", sites = 1 : N)
+    Sz₀ = expect(ψ, "Sz", sites = 1 : N)
 
     # Take and store the local measurements
     number_of_measurements = Int(ttotal / tau) + 1
@@ -54,15 +48,15 @@ let
     Sy = complex(zeros(number_of_measurements, N))
     Sz = complex(zeros(number_of_measurements, N))
     Overlap = complex(zeros(number_of_measurements))
-
+     
     # Using TEBD to evolve the wavefunction in real time && taking measurements of local observables
     index = 1
-    @time for time = 0.0:tau:ttotal
+    @time for time in 0.0:tau:ttotal
         # tmp_Sx = expect(ψ, "Sx", sites = 1 : N)
         # Sx[index, :] = tmp_Sx
         # tmp_Sy = epxect(ψ, "Sy", sites = 1 : N)
         # Sy[index, :] = tmp_Sy
-        tmp_Sz = expect(ψ, "Sz", sites = 1:N)
+        tmp_Sz = expect(ψ, "Sz", sites = 1 : N)
         Sz[index, :] = tmp_Sz
 
         tmp_overlap = abs(inner(ψ, ψ₀))
@@ -91,4 +85,4 @@ let
     close(file)
 
     return
-end
+end 

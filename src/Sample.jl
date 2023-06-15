@@ -1,10 +1,10 @@
 ## 05/11/2023
 ## Set up the sample and reset procedure
-using ITensors
+using ITensors 
 include("Projection.jl")
 
 # Sample a two-site MPS to compute Sx, Sy or Sz
-function sample(m::MPS, j::Int, observable_type::AbstractString)
+function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
     mpsLength = length(m)
 
     # Move the orthogonality center of the MPS to site j
@@ -12,7 +12,7 @@ function sample(m::MPS, j::Int, observable_type::AbstractString)
     if orthocenter(m) != j
         error("sample: MPS m must have orthocenter(m) == j")
     end
-
+    
     # Check the normalization of the MPS
     if abs(1.0 - norm(m[j])) > 1E-8
         error("sample: MPS is not normalized, norm=$(norm(m[j]))")
@@ -38,22 +38,22 @@ function sample(m::MPS, j::Int, observable_type::AbstractString)
     # Sample the target observables
     result = zeros(Int, 2)
     A = m[j]
-
-    for ind = j:j+1
+    
+    for ind in j:j+1
         tmpS = siteind(m, ind)
         d = dim(tmpS)
         pdisc = 0.0
         r = rand()
 
-        n = 1
+        n = 1 
         An = ITensor()
         pn = 0.0
 
         while n <= d
             projn = ITensor(tmpS)
-            projn[tmpS=>1] = tmp_projn[n][1]
-            projn[tmpS=>2] = tmp_projn[n][2]
-
+            projn[tmpS => 1] = tmp_projn[n][1]
+            projn[tmpS => 2] = tmp_projn[n][2]
+        
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
             pdisc += pn
@@ -61,11 +61,11 @@ function sample(m::MPS, j::Int, observable_type::AbstractString)
             (r < pdisc) && break
             n += 1
         end
-        result[ind-j+1] = n
+        result[ind - j + 1] = n
 
         if ind < mpsLength
-            A = m[ind+1] * An
-            A *= (1.0 / sqrt(pn))
+            A = m[ind + 1] * An
+            A *= (1. / sqrt(pn))
         end
 
         # Collapse the site based on the measurements 
@@ -79,4 +79,4 @@ function sample(m::MPS, j::Int, observable_type::AbstractString)
         noprime!(m[ind])
     end
     return result
-end
+end 
