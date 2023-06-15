@@ -93,6 +93,7 @@ let
         end
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         # Measure the first two sites of an one-dimensional chain        
         if measure_index == 1
             # Measure Sx, Sy, and Sz on each site
@@ -100,6 +101,8 @@ let
             Sy[1:2] = expect(ψ_copy, "Sy"; sites = 1:2)
             Sz[1:2] = expect(ψ_copy, "Sz"; sites = 1:2)
 =======
+=======
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
         
         if measure_index - 1 < 1E-8
             # Measure Sx on each site
@@ -113,9 +116,23 @@ let
             # Measure Sz on each site
             tmp_Sz = expect(ψ_copy, "Sz"; sites = 1 : N_total)
             Sz = tmp_Sz
+<<<<<<< HEAD
 >>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
         end
 
+=======
+        end
+
+
+
+        
+        # Sample the first two sites after applying the left light cone
+        # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
+
+        # Measure von Neumann entanglement entropy before and after measurements 
+        SvN[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = entanglement_entropy(ψ_copy, N_total)
+        Bond[measure_index, (2 * tensor_pointer - 2) * (N_total - 1) + 1 : (2 * tensor_pointer - 1) * (N_total - 1)] = obtain_bond_dimension(ψ_copy, N_total)
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 
 
         
@@ -184,11 +201,14 @@ let
 
                 ## Measuring local observables directly from the wavefunction
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if measure_index == 1
                     tmp_Sx = expect(ψ_copy, "Sx"; sites = 1:N_total)
                     tmp_Sy = expect(ψ_copy, "Sy"; sites = 1:N_total)
                     tmp_Sz = expect(ψ_copy, "Sz"; sites = 1:N_total)
 =======
+=======
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
                 if measure_index - 1< 1E-8
                     tmp_Sx = expect(ψ_copy, "Sx"; sites = 1 : N_total)
                     tmp_Sy = expect(ψ_copy, "Sy"; sites = 1 : N_total)
@@ -241,8 +261,13 @@ let
             @show ind, left_ptr, right_ptr
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             @time for time_index = 1:circuit_time-2*(ind-1)
                 if time_index == 1
+=======
+            @time for time_index in 1 : circuit_time - 2 * (ind - 1)
+                if time_index - 1 < 1E-8
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 =======
             @time for time_index in 1 : circuit_time - 2 * (ind - 1)
                 if time_index - 1 < 1E-8
@@ -267,8 +292,14 @@ let
                 # Applying a sequence of two-site gates
                 if time_index - 1 > 1E-8
 <<<<<<< HEAD
+<<<<<<< HEAD
                     tmp_two_site_gate =
                         diagonal_right_edge(ending_index, N_total, h, tau, s)
+=======
+                    # @show time_index, ending_index
+                    tmp_two_site_gate = diagonal_right_edge(ending_index, N_total, h, tau, s)
+                    # @show tmp_two_site_gate
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 =======
                     # @show time_index, ending_index
                     tmp_two_site_gate = diagonal_right_edge(ending_index, N_total, h, tau, s)
@@ -281,11 +312,14 @@ let
 
             # Measure local observables directly from the wavefunction
 <<<<<<< HEAD
+<<<<<<< HEAD
             if measure_index == 1
                 Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
                 Sy[left_ptr:right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr:right_ptr)
                 Sz[left_ptr:right_ptr] = expect(ψ_copy, "Sz"; sites = left_ptr:right_ptr)
 =======
+=======
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
             if measure_index - 1 < 1E-8
                 Sx[left_ptr : right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr : right_ptr)
                 Sy[left_ptr : right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr : right_ptr)
