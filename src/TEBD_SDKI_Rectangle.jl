@@ -26,7 +26,7 @@ let
     N = 100
     cutoff = 1E-8
     Δτ = 1.0 
-    ttotal = 20
+    ttotal = 10
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
