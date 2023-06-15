@@ -33,16 +33,17 @@ let
     s = siteinds("S=1/2", N; conserve_qns = false);     # s = siteinds("S=1/2", N; conserve_qns = true)
 
     # Construct a layer (odd & even) of gates for the SDKI model
-    gates = ITensor[]
-    even_layer = build_a_layer_of_gates(2, N-2, N, h, Δτ, s)
-    for tmp₁ in even_layer
-        push!(gates, tmp₁)
-    end
+    @timeit to "Set up problem" begin
+    gates = Vector{ITensor}()
+    even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, gates)
+    # for tmp₁ in even_layer
+    #     push!(gates, tmp₁)
+    # end
 
-    odd_layer = build_a_layer_of_gates(1, N-1, N, h, Δτ, s)
-    for tmp₂ in odd_layer
-        push!(gates, tmp₂)
-    end
+    odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, gates)
+    # for tmp₂ in odd_layer
+    #     push!(gates, tmp₂)
+    # end
 
     # Construct a layer of kicked gates
     kick_gates = build_kick_gates(s, 1, N)
@@ -90,7 +91,7 @@ let
 
     distance = Int(1.0 / Δτ)
     index = 2
-    
+    end
     for time in 0.0 : Δτ : ttotal
         time ≈ ttotal && break
         
@@ -108,15 +109,19 @@ let
         end
         
         # Local observables e.g. Sx, Sz
-        Sx[index, :] = expect(ψ_copy, "Sx"; sites = 1 : N) 
-        Sy[index, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
-        Sz[index, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+        @timeit to "Compute expectation" begin 
+            Sx[index, :] = expect(ψ_copy, "Sx"; sites = 1 : N) 
+            # Sy[index, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
+            Sz[index, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
+        end
 
+        @timeit to "compute correlation functions" begin
         # Correlation functions e.g. Cxx, Czz
-        Cxx[index, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
-        Cyy[index, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
-        Czz[index, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
-        SvN[index, :] = entanglement_entropy(ψ_copy, N)
+            Cxx[index, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
+            # Cyy[index, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
+            Czz[index, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
+            SvN[index, :] = entanglement_entropy(ψ_copy, N)
+        end
 
         index += 1
         # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
@@ -142,5 +147,5 @@ let
     write(file, "Initial Sz", Sz[1, :])
     close(file)
     
-    return
+    returnz
 end  

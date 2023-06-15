@@ -5,9 +5,9 @@
 using ITensors
 using ITensors: orthocenter, sites, copy, complex, real
 
-function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, upper_bound :: Int, 
-    amplitude :: Real, delta_tau :: Real, tmp_sites)
-    tmp_gates = []
+function build_a_layer_of_gates!(starting_index :: Int, ending_index :: Int, upper_bound :: Int, 
+    amplitude :: Real, delta_tau :: Real, tmp_sites, gates)
+    # tmp_gates = []
     for ind in starting_index : 2 : ending_index
         s1 = tmp_sites[ind]
         s2 = tmp_sites[ind + 1]
@@ -26,9 +26,10 @@ function build_a_layer_of_gates(starting_index :: Int, ending_index :: Int, uppe
         # hj = π * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2) 
         hj = π/2 * op("Sz", s1) * op("Sz", s2) + tmp1 * amplitude * op("Sz", s1) * op("Id", s2) + tmp2 * amplitude * op("Id", s1) * op("Sz", s2)
         Gj = exp(-1.0im * delta_tau * hj)
-        push!(tmp_gates, Gj)
+        # push!(tmp_gates, Gj)
+        push!(gates, Gj)
     end
-    return tmp_gates
+    #return tmp_gates
 end
 
 # Build a sequence of one-site kick gates
