@@ -20,12 +20,15 @@ include("TEBD_Time_Evolution_Gates.jl")
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 let
     N = 100
     cutoff = 1E-8
     Δτ = 1.0
     ttotal = 20
 =======
+=======
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 =======
 >>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 
@@ -35,6 +38,9 @@ let
     Δτ = 1.0 
     ttotal = 10
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
+=======
 >>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 =======
 >>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
@@ -75,10 +81,14 @@ let
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     timeSlices = Int(ttotal / Δτ) + 1
     println("Total number of time slices that need to be saved is : $(timeSlices)")
 
 
+=======
+    timeSlices = Int(ttotal / Δτ) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 =======
     timeSlices = Int(ttotal / Δτ) + 1; println("Total number of time slices that need to be saved is : $(timeSlices)")
 >>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
@@ -98,7 +108,10 @@ let
 
     timing = Float64[]
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> parent of 02dfc4b (Speeding up the TEBD and holoQUADS circuits)
 
     # Take measurements of the initial wavefunction
     Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
