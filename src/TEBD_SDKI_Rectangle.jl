@@ -11,7 +11,6 @@ using TimerOutputs
 # using AppleAccelerate
 # using AppleAccelerateLinAlgWrapper
 
-
 using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)
@@ -21,13 +20,13 @@ ITensors.disable_warn_order()
 
 include("Entanglement.jl")
 include("TEBD_Time_Evolution_Gates.jl")
-
+include("ObtainBond.jl")
 
 let 
     N = 100
     cutoff = 1E-8
     Δτ = 1.0 
-    ttotal = 15
+    ttotal = 10
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -36,8 +35,8 @@ let
     # Construct a layer (odd & even) of gates for the SDKI model
     @timeit time_machine "Generating sequences of gates" begin
         gates = Vector{ITensor}()
-        even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, gates)
-        odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, gates)
+        even_layer = build_a_layer_of_gates(2, N-2, N, h, Δτ, s, gates)
+        odd_layer = build_a_layer_of_gates(1, N-1, N, h, Δτ, s, gates)
         kick_gates = build_kick_gates(s, 1, N)
     end
 
@@ -140,7 +139,7 @@ let
         index += 1
         # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         
-        @show to
+        @show time_machine
         @show SvN[index, :]
         
         # Store data into a hdf5 file
