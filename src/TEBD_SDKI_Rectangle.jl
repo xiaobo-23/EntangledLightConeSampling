@@ -1,5 +1,6 @@
 ## 03/29/2023
-## Implement time evolution block decimation (TEBD) using a brick wall pattern
+## Implement time evolution block decimation (TEBD) for the SDKI model
+## Using a brick-wall pattern
 
 using ITensors
 using ITensors.HDF5
@@ -8,6 +9,8 @@ using Base: Float64, Real, Integer
 using Random
 using Dates
 using TimerOutputs
+
+
 # using AppleAccelerate
 # using AppleAccelerateLinAlgWrapper
 
@@ -26,30 +29,19 @@ let
     N = 100
     cutoff = 1E-8
     Δτ = 1.0 
-    ttotal = 6
+    ttotal = 16
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)
 
-    # Construct a layer (odd & even) of gates for the SDKI model
+    # Construct layers of gates to perform the real-time evolution
     @timeit time_machine "Generating sequences of gates" begin
         gates = Vector{ITensor}()
-        even_layer = build_a_layer_of_gates(2, N-2, N, h, Δτ, s, gates)
-        odd_layer = build_a_layer_of_gates(1, N-1, N, h, Δτ, s, gates)
+        even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, gates)
+        odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, gates)
         kick_gates = build_kick_gates(s, 1, N)
     end
-
-    # # for tmp₁ in even_layer
-    # #     push!(gates, tmp₁)
-    # # end
-
-    # # for tmp₂ in odd_layer
-    # #     push!(gates, tmp₂)
-    # # end
-
-    # # Construct a layer of kicked gates
-    # kick_gates = build_kick_gates(s, 1, N)
 
     # Initialize the wavefunction using a Neel state
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
@@ -69,6 +61,7 @@ let
     timeSlices = Int(ttotal / Δτ) + 1
     println("Total number of time slices that need to be saved is : $(timeSlices)")
     
+    # Allocate memory for physical observables
     @timeit time_machine "Allocate memory" begin
         # Local observables including various one-point functions
         Sx = Array{ComplexF64}(undef, timeSlices, N)
@@ -85,6 +78,7 @@ let
         Bond = Array{Float64}(undef, timeSlices, N - 1)
     end
     
+    # Measure local observables, bond dimension and von Neumann entanglement entropy of the intiial wave function
     @timeit time_machine "Measure the initial wavefunction" begin
         Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
         # Sy[1, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
@@ -101,6 +95,7 @@ let
     distance = Int(1.0 / Δτ)
     index = 2
 
+    # Real time dynamics of the SDKI model
     for time in 0.0 : Δτ : ttotal
         time ≈ ttotal && break
         
@@ -108,7 +103,6 @@ let
         @timeit time_machine "Applying one-site gates" if (abs((time / Δτ) % distance) < 1E-8)
             ψ_copy = apply(kick_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
-            # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         end
 
         # Apply the two-site gates which include the Ising interaction and longitudinal fields
@@ -142,9 +136,8 @@ let
         @show Bond[index, :]
 
         index += 1
-        # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         
-        # Store data into a hdf5 file
+        # Store output data in a HDF5 file
         h5open("../Scalable_Data/TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_cuttoff$(cutoff).h5", "w") do file
             write(file, "Sx", Sx)
             write(file, "Sy", Sy)
@@ -159,6 +152,5 @@ let
             write(file, "Initial Sz", Sz[1, :])
         end
     end
-
     return
 end  

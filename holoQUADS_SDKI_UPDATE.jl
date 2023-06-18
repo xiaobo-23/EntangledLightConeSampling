@@ -1,46 +1,54 @@
 ## 05/02/2023
-## IMPLEMENT THE HOLOQAUDS CIRCUITS WITHOUT RECYCLING AND LONG-RANGE GATES.
+## Implement the holoQUADS circuit for the SDKI model
+## Skip the resetting part and avoid using a long-range two-site gate
+
 using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
 using Base: product
 using Random
+using TimerOutputs
+
 include("src/Sample.jl")
 include("src/Entanglement.jl")
 include("src/ObtainBond.jl")
 include("src/holoQUADS_Time_Evolution_Gates.jl")
 
+using MKL
+using LinearAlgebra
+BLAS.set_num_threads(8)
 
-# ITensors.disable_warn_order()
+const time_machine = TimerOutput()
+ITensors.disable_warn_order()
 
-# Assemble the holoQUADS circuit 
+
 let
-    floquet_time = 10
+    floquet_time = 2
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
-    h = 0.2                                                              # an integrability-breaking longitudinal field h 
-    number_of_samples = 1
+    h = 0.2                                            # an integrability-breaking longitudinal field h 
+    number_of_samples = 10
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
     N_total = 100
-    N_diagonal = div(N_total - N_corner, 2)                       # the number of diagonal parts of the holoQUADS circuit
+    N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     # @show typeof(s) 
 
-
-    # Allocate memory etc. for observables
-    Sx = Vector{ComplexF64}(undef, N_total)
-    Sy = Vector{ComplexF64}(undef, N_total)
-    Sz = Vector{ComplexF64}(undef, N_total)
-    samples = Array{Float64}(undef, number_of_samples, N_total)
-    SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
-    Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
-
-
-    # Initialize the wavefunction using a Neel state
+    # Allocation for observables
+    @timeit time_machine "" begin
+        Sx = Vector{ComplexF64}(undef, N_total)
+        Sy = Vector{ComplexF64}(undef, N_total)
+        Sz = Vector{ComplexF64}(undef, N_total)
+        samples = Array{Float64}(undef, number_of_samples, N_total)
+        SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+        Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+    end
+    
+    # Initialize the wavefunction as a Neel state
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
@@ -74,7 +82,7 @@ let
         ψ_copy = deepcopy(ψ)
         tensor_pointer = 1
 
-        @time for tmp_ind = 1:circuit_time
+        @timeit time_machine "Left Light Cone" for tmp_ind = 1:circuit_time
             # Apply a sequence of two-site gates
             tmp_parity = (tmp_ind - 1) % 2
             tmp_number_of_gates = Int(floquet_time) - floor(Int, (tmp_ind - 1) / 2)
@@ -92,41 +100,41 @@ let
             normalize!(ψ_copy)
         end
 
-        # Measure the first two sites of an one-dimensional chain        
-        if measure_index == 1
-            # Measure Sx, Sy, and Sz on each site
-            Sx[1:2] = expect(ψ_copy, "Sx"; sites = 1:2)
-            Sy[1:2] = expect(ψ_copy, "Sy"; sites = 1:2)
-            Sz[1:2] = expect(ψ_copy, "Sz"; sites = 1:2)
+        # Measure and timing the first two sites after applying the left light cone
+        @timeit time_machine "Measure LLC" begin
+            if measure_index == 1
+                # Measure Sx, Sy, and Sz on each site
+                Sx[1:2] = expect(ψ_copy, "Sx"; sites = 1:2)
+                Sy[1:2] = expect(ψ_copy, "Sy"; sites = 1:2)
+                Sz[1:2] = expect(ψ_copy, "Sz"; sites = 1:2)
+            end
+
+            # Measure von Neumann entanglement entropy before and after measurements 
+            SvN[
+                measure_index,
+                (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
+            ] = entanglement_entropy(ψ_copy, N_total)
+            Bond[
+                measure_index,
+                (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
+            ] = obtain_bond_dimension(ψ_copy, N_total)
+
+            # Take measurements of a two-site unit cell
+            samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+                expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+            sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+            normalize!(ψ_copy)
+
+            SvN[
+                measure_index,
+                (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
+            ] = entanglement_entropy(ψ_copy, N_total)
+            Bond[
+                measure_index,
+                (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
+            ] = obtain_bond_dimension(ψ_copy, N_total)
         end
-
-        # Sample the first two sites after applying the left light cone
-        # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 1, "Sz")
-
-        # Measure von Neumann entanglement entropy before and after measurements 
-        SvN[
-            measure_index,
-            (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
-        ] = entanglement_entropy(ψ_copy, N_total)
-        Bond[
-            measure_index,
-            (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
-        ] = obtain_bond_dimension(ψ_copy, N_total)
-
-        samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-            expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
-        sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
-        normalize!(ψ_copy)
-
-        SvN[
-            measure_index,
-            (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
-        ] = entanglement_entropy(ψ_copy, N_total)
-        Bond[
-            measure_index,
-            (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
-        ] = obtain_bond_dimension(ψ_copy, N_total)
-
+    
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
             for ind₁ = 1:N_diagonal
@@ -145,8 +153,8 @@ let
                 # println("")
                 # println("")
 
-                @time for ind₃ = 1:circuit_time
-                    # Apply the kicked gate at integer time
+                @timeit time_machine "Diagonal circuit evolution" for ind₃ = 1:circuit_time
+                    # Apply the kick gates at integer time
                     if ind₃ % 2 == 1
                         tmp_kick_gate =
                             build_kick_gates(gate_seeds[ind₃] - 1, gate_seeds[ind₃], s)
@@ -162,40 +170,43 @@ let
                     normalize!(ψ_copy)
                 end
 
-                if measure_index == 1
-                    tmp_Sx = expect(ψ_copy, "Sx"; sites = 1:N_total)
-                    tmp_Sy = expect(ψ_copy, "Sy"; sites = 1:N_total)
-                    tmp_Sz = expect(ψ_copy, "Sz"; sites = 1:N_total)
+                @timeit time_machine "Measure DC unit cell" begin
+                    if measure_index == 1
+                        Sx[2*tensor_pointer-1:2*tensor_pointer] = 
+                            expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                        Sy[2*tensor_pointer-1:2*tensor_pointer] =
+                            expect(ψ_copy, "Sy"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                        Sz[2*tensor_pointer-1:2*tensor_pointer] =
+                            expect(ψ_copy, "Sz"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                    end
+    
+                    # Compute von Neumann entanglement entropy before taking measurements
+                    SvN[
+                        measure_index,
+                        (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
+                    ] = entanglement_entropy(ψ_copy, N_total)
+                    Bond[
+                        measure_index,
+                        (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
+                    ] = obtain_bond_dimension(ψ_copy, N_total)
 
-                    Sx[2*tensor_pointer-1:2*tensor_pointer] =
-                    tmp_Sx[2*tensor_pointer-1:2*tensor_pointer]
-                    Sy[2*tensor_pointer-1:2*tensor_pointer] =
-                        tmp_Sy[2*tensor_pointer-1:2*tensor_pointer]
-                    Sz[2*tensor_pointer-1:2*tensor_pointer] =
-                        tmp_Sz[2*tensor_pointer-1:2*tensor_pointer]
+                    # Taking measurements of one two-site unit cell in the diagonal part of a circuit
+                    samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+                        expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                    sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                    normalize!(ψ_copy)
+
+                    # Compute von Neumann entanglement entropy after taking measurements
+                    SvN[
+                        measure_index,
+                        (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
+                    ] = entanglement_entropy(ψ_copy, N_total)
+                    Bond[
+                        measure_index,
+                        (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
+                    ] = obtain_bond_dimension(ψ_copy, N_total)
                 end
-
-                SvN[
-                    measure_index,
-                    (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
-                ] = entanglement_entropy(ψ_copy, N_total)
-                Bond[
-                    measure_index,
-                    (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
-                ] = obtain_bond_dimension(ψ_copy, N_total)
-                samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                    expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
-                normalize!(ψ_copy)
-                SvN[
-                    measure_index,
-                    (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
-                ] = entanglement_entropy(ψ_copy, N_total)
-                Bond[
-                    measure_index,
-                    (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
-                ] = obtain_bond_dimension(ψ_copy, N_total)
-
+                
                 # Previous sample and reset protocol
                 # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
                 # normalize!(ψ_copy)  
@@ -203,16 +214,14 @@ let
         end
 
         # 06/11/2023
-        # Reconstruct the right light cone for a finite chain
-        # Apply one-site and two-site gates in diagonal orders. 
-
+        # Reconstruct the right light cone to simulate a chain with finite length.
         for ind = 1:div(N_corner - 2, 2)
             tensor_pointer += 1
             left_ptr = 2 * tensor_pointer - 1
             right_ptr = 2 * tensor_pointer
             # @show ind, left_ptr, right_ptr
 
-            @time for time_index = 1:circuit_time-2*(ind-1)
+            @timeit time_machine "Right Light Cone Circuit" for time_index = 1:circuit_time-2*(ind-1)
                 if time_index == 1
                     ending_index = N_total
                     starting_index = N_total
@@ -226,7 +235,6 @@ let
                 if time_index % 2 == 1
                     # @show time_index, starting_index, ending_index
                     tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
-                    # @show tmp_kick_gates
                     ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
                 end
@@ -240,46 +248,38 @@ let
             end
 
             # Measure local observables directly from the wavefunctiongit 
-            if measure_index == 1
-                Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
-                Sy[left_ptr:right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr:right_ptr)
-                Sz[left_ptr:right_ptr] = expect(ψ_copy, "Sz"; sites = left_ptr:right_ptr)
-            end
-            # Measure and generate samples from the wavefunction
-            SvN[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
-            entanglement_entropy(ψ_copy, N_total)
-            Bond[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
-                obtain_bond_dimension(ψ_copy, N_total)
-            samples[measure_index, left_ptr:right_ptr] =
-                expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
-            sample(ψ_copy, left_ptr, "Sx")
-            normalize!(ψ_copy)
-            SvN[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
+            @timeit time_machine "Measure RLC unit cell" begin
+                if measure_index == 1
+                    Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
+                    Sy[left_ptr:right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr:right_ptr)
+                    Sz[left_ptr:right_ptr] = expect(ψ_copy, "Sz"; sites = left_ptr:right_ptr)
+                end
+
+                # Compute von Neumann entanglement entropy before taking measurements
+                SvN[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
                 entanglement_entropy(ψ_copy, N_total)
-            Bond[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
-                obtain_bond_dimension(ψ_copy, N_total)
+                Bond[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
+                    obtain_bond_dimension(ψ_copy, N_total)
+                
+                # Taking measurements of one two-site unit cell in the right light cone
+                samples[measure_index, left_ptr:right_ptr] =
+                    expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
+                sample(ψ_copy, left_ptr, "Sx")
+                normalize!(ψ_copy)
+
+                # Compute von Neumann entanglement entropy after taking measurements
+                SvN[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
+                    entanglement_entropy(ψ_copy, N_total)
+                Bond[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
+                    obtain_bond_dimension(ψ_copy, N_total) 
+            end
         end
         @show Bond[measure_index, :]
     end
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
-    # println(
-    #     "################################################################################",
-    # )
-    # println(
-    #     "################################################################################",
-    # )
-    # println("Local observables Sz at the final time step")
-    # @show Sz
-    # println(
-    #     "################################################################################",
-    # )
-    # println(
-    #     "################################################################################",
-    # )
-
     # Store data in hdf5 file
-    file = h5open("Data_Test/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
+    file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
@@ -288,6 +288,5 @@ let
     write(file, "Entropy", SvN)
     write(file, "Bond Dimension", SvN)
     close(file)
-
     return
 end
