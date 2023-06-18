@@ -26,7 +26,7 @@ let
     N = 100
     cutoff = 1E-8
     Δτ = 1.0 
-    ttotal = 10
+    ttotal = 6
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -136,11 +136,13 @@ let
             Bond[index, :] = obtain_bond_dimension(ψ_copy, N)
         end
 
-        index += 1
-        # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
-        
         @show time_machine
         @show SvN[index, :]
+        @show Sz[index, :]
+        @show Bond[index, :]
+
+        index += 1
+        # append!(ψ_overlap, abs(inner(ψ, ψ_copy)))
         
         # Store data into a hdf5 file
         h5open("../Scalable_Data/TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_cuttoff$(cutoff).h5", "w") do file
