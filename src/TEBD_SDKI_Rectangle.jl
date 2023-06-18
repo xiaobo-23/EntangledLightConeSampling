@@ -27,9 +27,9 @@ include("ObtainBond.jl")
 
 let 
     N = 100
-    cutoff = 1E-8
+    cutoff=1E-8
     Δτ = 1.0 
-    ttotal = 16
+    ttotal = 25
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -131,8 +131,8 @@ let
         end
 
         @show time_machine
-        @show SvN[index, :]
-        @show Sz[index, :]
+        # @show SvN[index, :]
+        # @show Sz[index, :]
         @show Bond[index, :]
 
         index += 1
