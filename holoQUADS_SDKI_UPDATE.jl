@@ -29,7 +29,7 @@ let
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples = 10
+    number_of_samples = 500
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
@@ -39,7 +39,7 @@ let
     # @show typeof(s) 
 
     # Allocation for observables
-    @timeit time_machine "" begin
+    @timeit time_machine "Allocation" begin
         Sx = Vector{ComplexF64}(undef, N_total)
         Sy = Vector{ComplexF64}(undef, N_total)
         Sz = Vector{ComplexF64}(undef, N_total)
@@ -274,8 +274,10 @@ let
                     obtain_bond_dimension(ψ_copy, N_total) 
             end
         end
-        @show Bond[measure_index, :]
+        # @show Bond[measure_index, :]
     end
+
+    @show time_machine
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
     # Store data in hdf5 file
@@ -286,7 +288,7 @@ let
     write(file, "Sz", Sz)
     write(file, "Samples", samples)
     write(file, "Entropy", SvN)
-    write(file, "Bond Dimension", SvN)
+    write(file, "Bond Dimension", Bond)
     close(file)
     return
 end
