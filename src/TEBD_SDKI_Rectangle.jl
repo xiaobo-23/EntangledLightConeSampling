@@ -29,7 +29,7 @@ let
     N = 100
     cutoff=1E-8
     Δτ = 1.0 
-    ttotal = 25
+    ttotal = 20
     h = 0.2                                            # an integrability-breaking longitudinal field h 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -84,9 +84,9 @@ let
         # Sy[1, :] = expect(ψ_copy, "Sy"; sites = 1 : N)
         Sz[1, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
 
-        Cxx[1, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
-        # Cyy[1, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
-        Czz[1, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
+        # Cxx[1, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
+        # # Cyy[1, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
+        # Czz[1, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
         
         SvN[1, :] = entanglement_entropy(ψ_copy, N)
         Bond[1, :] = obtain_bond_dimension(ψ_copy, N)
@@ -118,12 +118,12 @@ let
             Sz[index, :] = expect(ψ_copy, "Sz"; sites = 1 : N)
         end
 
-        @timeit time_machine "Compute two-point function" begin
-        # Correlation functions e.g. Cxx, Czz
-            Cxx[index, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
-            # Cyy[index, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
-            Czz[index, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
-        end
+        # @timeit time_machine "Compute two-point function" begin
+        # # Correlation functions e.g. Cxx, Czz
+        #     Cxx[index, :] = correlation_matrix(ψ_copy, "Sx", "Sx"; sites = 1 : N)
+        #     # Cyy[index, :] = correlation_matrix(ψ_copy, "Sy", "Sy"; sites = 1 : N)
+        #     Czz[index, :] = correlation_matrix(ψ_copy, "Sz", "Sz"; sites = 1 : N)
+        # end
 
         @timeit time_machine "Compute von Neumann entanglement entropy and bond dimension" begin
             SvN[index, :] = entanglement_entropy(ψ_copy, N)

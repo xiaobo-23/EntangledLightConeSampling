@@ -24,12 +24,12 @@ ITensors.disable_warn_order()
 
 
 let
-    floquet_time = 2
+    floquet_time = 20
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples = 500
+    number_of_samples = 1
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
@@ -82,7 +82,7 @@ let
         ψ_copy = deepcopy(ψ)
         tensor_pointer = 1
 
-        @timeit time_machine "Left Light Cone" for tmp_ind = 1:circuit_time
+        @timeit time_machine "LLC Evolution" for tmp_ind = 1:circuit_time
             # Apply a sequence of two-site gates
             tmp_parity = (tmp_ind - 1) % 2
             tmp_number_of_gates = Int(floquet_time) - floor(Int, (tmp_ind - 1) / 2)
@@ -101,7 +101,7 @@ let
         end
 
         # Measure and timing the first two sites after applying the left light cone
-        @timeit time_machine "Measure LLC" begin
+        @timeit time_machine "Measure LLC unit cell" begin
             if measure_index == 1
                 # Measure Sx, Sy, and Sz on each site
                 Sx[1:2] = expect(ψ_copy, "Sx"; sites = 1:2)
@@ -153,7 +153,7 @@ let
                 # println("")
                 # println("")
 
-                @timeit time_machine "Diagonal circuit evolution" for ind₃ = 1:circuit_time
+                @timeit time_machine "DC Evoltuion" for ind₃ = 1:circuit_time
                     # Apply the kick gates at integer time
                     if ind₃ % 2 == 1
                         tmp_kick_gate =
@@ -205,6 +205,7 @@ let
                         measure_index,
                         (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
+                    @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
                 end
                 
                 # Previous sample and reset protocol
@@ -221,7 +222,7 @@ let
             right_ptr = 2 * tensor_pointer
             # @show ind, left_ptr, right_ptr
 
-            @timeit time_machine "Right Light Cone Circuit" for time_index = 1:circuit_time-2*(ind-1)
+            @timeit time_machine "RLC Evolution" for time_index = 1:circuit_time-2*(ind-1)
                 if time_index == 1
                     ending_index = N_total
                     starting_index = N_total
