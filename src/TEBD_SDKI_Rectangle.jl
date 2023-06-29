@@ -40,7 +40,7 @@ let
         gates = Vector{ITensor}()
         even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, gates)
         odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, gates)
-        kick_gates = build_kick_gates(s, 1, N)
+        kick_gates = build_kick_gates_TEBD(s, 1, N)
     end
 
     # Initialize the wavefunction using a Neel state

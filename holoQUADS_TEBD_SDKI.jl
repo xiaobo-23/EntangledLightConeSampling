@@ -10,10 +10,11 @@ using Base: product
 using Random
 using TimerOutputs
 
-include("../Sample.jl")
-include("../Entanglement.jl")
-include("../ObtainBond.jl")
-include("../holoQUADS_Time_Evolution_Gates.jl")
+include("src/Sample.jl")
+include("src/Entanglement.jl")
+include("src/ObtainBond.jl")
+include("src/holoQUADS_Time_Evolution_Gates.jl")
+include("src/TEBD_Time_Evolution_Gates.jl")
 
 using MKL
 using LinearAlgebra
@@ -22,16 +23,14 @@ BLAS.set_num_threads(8)
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
+
 let
-    floquet_time = 30
+    floquet_time = 20
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    observable_string = "Sx"  
     number_of_samples = 1
-    sample_index=0
-
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
@@ -48,6 +47,14 @@ let
         samples = Array{Float64}(undef, number_of_samples, N_total)
         SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
         Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+    end
+
+    # Construct layers of gates to perform TEBD at the beginning
+    @timeit time_machine "Generating sequences of gates" begin
+        TEBD_gates = Vector{ITensor}()
+        even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, TEBD_gates)
+        odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, TEBD_gates)
+        TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N)
     end
     
     # Initialize the wavefunction as a Neel state
@@ -103,7 +110,7 @@ let
         end
 
         # Measure and timing the first two sites after applying the left light cone
-        @timeit time_machine "Measure LLC" begin
+        @timeit time_machine "Measure LLC unit cell" begin
             if measure_index == 1
                 # Measure Sx, Sy, and Sz on each site
                 Sx[1:2] = expect(ψ_copy, "Sx"; sites = 1:2)
@@ -123,8 +130,8 @@ let
 
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                expect(ψ_copy, observable_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            sample(ψ_copy, 2 * tensor_pointer - 1, observable_string)
+                expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+            sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
             normalize!(ψ_copy)
 
             SvN[
@@ -155,7 +162,7 @@ let
                 # println("")
                 # println("")
 
-                @timeit time_machine "DC Evolution" for ind₃ = 1:circuit_time
+                @timeit time_machine "DC Evoltuion" for ind₃ = 1:circuit_time
                     # Apply the kick gates at integer time
                     if ind₃ % 2 == 1
                         tmp_kick_gate =
@@ -172,7 +179,7 @@ let
                     normalize!(ψ_copy)
                 end
 
-                @timeit time_machine "Measure DC" begin
+                @timeit time_machine "Measure DC unit cell" begin
                     if measure_index == 1
                         Sx[2*tensor_pointer-1:2*tensor_pointer] = 
                             expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
@@ -194,8 +201,8 @@ let
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                        expect(ψ_copy, observable_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    sample(ψ_copy, 2 * tensor_pointer - 1, observable_string)
+                        expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                    sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
                     normalize!(ψ_copy)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -207,11 +214,9 @@ let
                         measure_index,
                         (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
+                    @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
                 end
-                @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]                
-
-
-
+                
                 # Previous sample and reset protocol
                 # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
                 # normalize!(ψ_copy)  
@@ -253,7 +258,7 @@ let
             end
 
             # Measure local observables directly from the wavefunctiongit 
-            @timeit time_machine "Measure RLC" begin
+            @timeit time_machine "Measure RLC unit cell" begin
                 if measure_index == 1
                     Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
                     Sy[left_ptr:right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr:right_ptr)
@@ -268,8 +273,8 @@ let
                 
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
-                    expect(ψ_copy, observable_string; sites = left_ptr:right_ptr)
-                sample(ψ_copy, left_ptr, observable_string)
+                    expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
+                sample(ψ_copy, left_ptr, "Sx")
                 normalize!(ψ_copy)
 
                 # Compute von Neumann entanglement entropy after taking measurements
@@ -286,7 +291,7 @@ let
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
     # Store data in hdf5 file
-    file = h5open("../Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_$(observable_string)_Sample$(sample_index).h5", "w")
+    file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)

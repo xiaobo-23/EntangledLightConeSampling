@@ -31,7 +31,7 @@ function build_a_layer_of_gates!(starting_index :: Int, ending_index :: Int, upp
 end
 
 # Build a sequence of one-site kick gates
-function build_kick_gates(tmp_site, starting_index :: Integer, ending_index :: Integer)
+function build_kick_gates_TEBD(tmp_site, starting_index :: Integer, ending_index :: Integer)
     # Return a sequence of one-site gates from the stating index to the ending index
     tmp_gates = ITensor[]
     
