@@ -25,15 +25,17 @@ ITensors.disable_warn_order()
 
 
 let
-    floquet_time = 20
-    circuit_time = 2 * Int(floquet_time)
+    total_time = 20
+    TEBD_time = 12
+    holoQUADS_time = int(total_time - TEBD_time)
+    circuit_time = 2 * Int(holoQUADS_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples = 1
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
-    N_corner = 2 * Int(floquet_time) + 2
+    N_corner = 2 * Int(holoQUADS_time) + 2
     N_total = 100
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
@@ -50,10 +52,10 @@ let
     end
 
     # Construct layers of gates to perform TEBD at the beginning
-    @timeit time_machine "Generating sequences of gates" begin
-        TEBD_gates = Vector{ITensor}()
-        even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, TEBD_gates)
-        odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, TEBD_gates)
+    @timeit time_machine "Initialize TEBD gates" begin
+        TEBD_evolution_gates = Vector{ITensor}()
+        even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, TEBD_evolution_gates)
+        odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, TEBD_evolution_gates)
         TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N)
     end
     
@@ -71,6 +73,8 @@ let
     # # ψ = initialization_ψ[1 : N]
     # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
     # # @show maxlinkdim(ψ)
+
+    
 
     for measure_index = 1:number_of_samples
         println("")
@@ -94,7 +98,7 @@ let
         @timeit time_machine "LLC Evolution" for tmp_ind = 1:circuit_time
             # Apply a sequence of two-site gates
             tmp_parity = (tmp_ind - 1) % 2
-            tmp_number_of_gates = Int(floquet_time) - floor(Int, (tmp_ind - 1) / 2)
+            tmp_number_of_gates = Int(holoQUADS_time) - floor(Int, (tmp_ind - 1) / 2)
 
             # APPLY ONE-SITE GATES
             if tmp_ind % 2 == 1
@@ -291,7 +295,7 @@ let
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
     # Store data in hdf5 file
-    file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
+    file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(holoQUADS_time)_Sample_Sx.h5", "w")
     write(file, "Initial Sz", Sz₀)
     write(file, "Sx", Sx)
     write(file, "Sy", Sy)
