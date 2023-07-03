@@ -23,14 +23,14 @@ BLAS.set_num_threads(8)
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
-
 let
-    total_time = 20
-    TEBD_time = 12
-    holoQUADS_time = int(total_time - TEBD_time)
+    total_time = 5
+    TEBD_time = 2
+    holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
-    cutoff = 1E-8
     tau = 1.0
+    time_separation = Int(1.0/tau)
+    cutoff = 1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples = 1
 
@@ -49,15 +49,22 @@ let
         samples = Array{Float64}(undef, number_of_samples, N_total)
         SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
         Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+
+        Sx_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+        Sy_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+        Sz_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+        SvN_TEBD =  Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
+        Bond_TEBD = Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
     end
 
     # Construct layers of gates to perform TEBD at the beginning
     @timeit time_machine "Initialize TEBD gates" begin
         TEBD_evolution_gates = Vector{ITensor}()
-        even_layer = build_a_layer_of_gates!(2, N-2, N, h, Δτ, s, TEBD_evolution_gates)
-        odd_layer = build_a_layer_of_gates!(1, N-1, N, h, Δτ, s, TEBD_evolution_gates)
-        TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N)
+        even_layer = build_a_layer_of_gates!(2, N_total-2, N_total, h, tau, s, TEBD_evolution_gates)
+        odd_layer = build_a_layer_of_gates!(1, N_total-1, N_total, h, tau, s, TEBD_evolution_gates)
+        TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N_total)
     end
+    
     
     # Initialize the wavefunction as a Neel state
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
@@ -65,16 +72,44 @@ let
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
     Random.seed!(123)
 
-    # # Initializa a random MPS
-    # # initialization_s = siteinds("S=1/2", N; conserve_qns = false)
-    # initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # Random.seed!(87900) 
-    # ψ = randomMPS(s, initialization_states, linkdims = 2)
-    # # ψ = initialization_ψ[1 : N]
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # # @show maxlinkdim(ψ)
-
     
+    # Measure the initial wavefunction
+    Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
+    # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
+    Sz_TEBD[1, :] = expect(ψ, "Sz"; sites=1:N_total)
+    SvN_TEBD[1, :] = entanglement_entropy(ψ, N_total)
+    Bond_TEBD[1, :] = obtain_bond_dimension(ψ, N_total)    
+
+
+    # Perform real-time evolution using TEBD
+    for tmp_time in 0:tau:TEBD_time
+        # @show tmp_time
+        tmp_time≈TEBD_time && break
+
+        # Apply kicked gates/transverse Ising fields @ integer time 
+        @timeit time_machine "Applying one-site gates in TEBD" if (abs((tmp_time / tau) % time_separation) < 1E-8)
+            ψ = apply(TEBD_kick_gates, ψ; cutoff)
+            normalize!(ψ)
+        end
+
+        # Apply two-sites gates that inlcude the Ising interaction and longitudinal fields
+        @timeit time_machine "Applying two-site gates in TEBD" begin
+            ψ = apply(TEBD_evolution_gates, ψ; cutoff)
+            normalize!(ψ)
+        end
+
+        # Measure observables in TEBD
+        @timeit time_machine "Meausre physical quantities" begin
+            index = Int(tmp_time/tau) + 2
+            Sx_TEBD[index, :] = expect(ψ, "Sx"; sites=1:N_total)
+            # Sy_TEBD[index, :] = expect(ψ, "Sy"; sites=1:N_total)
+            Sz_TEBD[index, :] = expect(ψ, "Sz"; sites=1:N_total)
+            SvN_TEBD[index, :] = entanglement_entropy(ψ, N_total)
+            Bond_TEBD[index, :] = obtain_bond_dimension(ψ, N_total)
+            @show Bond_TEBD[index, :]
+        end
+    end
+
 
     for measure_index = 1:number_of_samples
         println("")
@@ -94,6 +129,7 @@ let
         # Make a copy of the original wavefunction for each sample
         ψ_copy = deepcopy(ψ)
         tensor_pointer = 1
+        # @show obtain_bond_dimension(ψ_copy, N_total)
 
         @timeit time_machine "LLC Evolution" for tmp_ind = 1:circuit_time
             # Apply a sequence of two-site gates
@@ -294,15 +330,15 @@ let
     @show time_machine
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
-    # Store data in hdf5 file
-    file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(holoQUADS_time)_Sample_Sx.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    write(file, "Samples", samples)
-    write(file, "Entropy", SvN)
-    write(file, "Bond Dimension", Bond)
-    close(file)
+    # # Store data in hdf5 file
+    # file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(holoQUADS_time)_Sample_Sx.h5", "w")
+    # write(file, "Initial Sz", Sz₀)
+    # write(file, "Sx", Sx)
+    # write(file, "Sy", Sy)
+    # write(file, "Sz", Sz)
+    # write(file, "Samples", samples)
+    # write(file, "Entropy", SvN)
+    # write(file, "Bond Dimension", Bond)
+    # close(file)
     return
 end

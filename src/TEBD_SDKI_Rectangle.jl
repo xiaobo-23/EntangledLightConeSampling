@@ -93,11 +93,11 @@ let
     end
     
     distance = Int(1.0 / Δτ)
-    index = 2
 
     # Real time dynamics of the SDKI model
-    for time in 0.0 : Δτ : ttotal
+    for time in 0 : Δτ : ttotal
         time ≈ ttotal && break
+        index = Int(time/Δτ) + 1
         
         # Apply the kicked gates at integer time
         @timeit time_machine "Applying one-site gates" if (abs((time / Δτ) % distance) < 1E-8)
@@ -135,8 +135,6 @@ let
         # @show Sz[index, :]
         @show Bond[index, :]
 
-        index += 1
-        
         # Store output data in a HDF5 file
         h5open("../Scalable_Data/TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_cuttoff$(cutoff).h5", "w") do file
             write(file, "Sx", Sx)
