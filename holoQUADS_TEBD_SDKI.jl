@@ -6,7 +6,7 @@ using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
-using Base: product
+using Base: product, Integer
 using Random
 using TimerOutputs
 
@@ -44,6 +44,7 @@ let
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     # @show typeof(s) 
 
+    
     ## INITIALIZE WAVEFUNCTION 
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     ψ = MPS(s, states)
@@ -51,7 +52,6 @@ let
     Random.seed!(123)
 
 
-    
     ## OUTPUT THE INFORMATION OF WHETHER TEBD IS USED IN THE BEGINNING
     if TEBD_time < 1E-8
         println("############################################################################")
@@ -65,9 +65,10 @@ let
         Sx = Vector{ComplexF64}(undef, N_total)
         Sy = Vector{ComplexF64}(undef, N_total)
         Sz = Vector{ComplexF64}(undef, N_total)
-        samples = Array{Float64}(undef, number_of_samples, N_total)
         SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
         Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+        samples = Array{Float64}(undef, number_of_samples, N_total)
+        samples_bitstring = Array{Float64}(undef, number_of_samples, N_total)
 
         ## SET UP OBSERVABLES USED IN THE TEBD 
         if TEBD_time > 1E-8
@@ -79,6 +80,7 @@ let
         end
     end
 
+    
     ## CONSTRUCT GATES USED IN A BRICK-WALL PATTERN TEBD 
     if TEBD_time > 1E-8
         @timeit time_machine "Initialize TEBD gates" begin
@@ -90,7 +92,7 @@ let
     end
 
     
-    ## MEASURE OBSERVABLES IN TEBD
+    ## MEASURE OBSERVABLES IN TEBD @t=0
     if TEBD_time > 1E-8
         Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
         # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
@@ -187,7 +189,8 @@ let
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+            samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+                sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -218,7 +221,7 @@ let
                 # println("")
                 # println("")
 
-                @timeit time_machine "DC Evoltuion" for ind₃ = 1:circuit_time
+                @timeit time_machine "DC Evolution" for ind₃ = 1:circuit_time
                     # Apply the kick gates at integer time
                     if ind₃ % 2 == 1
                         tmp_kick_gate =
@@ -258,7 +261,8 @@ let
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                         expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                    samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                        sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
                     normalize!(ψ_copy)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -331,7 +335,8 @@ let
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
                     expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
-                sample(ψ_copy, left_ptr, sample_string)
+                samples_bitstring[measure_index, left_ptr:right_ptr] = 
+                    sample(ψ_copy, left_ptr, sample_string)
                 normalize!(ψ_copy)
 
                 # Compute von Neumann entanglement entropy after taking measurements
@@ -344,9 +349,13 @@ let
         # @show Bond[measure_index, :]
     end
 
+    if TEBD_time > 1E-8
+        @show Bond_TEBD[1, :]
+    end
+    replace!(samples_bitstring, 1 => 0.5, 2 => -0.5)
+    @show samples_bitstring
     @show time_machine
-    # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
-
+    
     # Store data in hdf5 file
     h5open("Scalable_Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w") do file
         write(file, "Initial Sz", Sz₀)

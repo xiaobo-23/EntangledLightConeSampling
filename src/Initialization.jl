@@ -1,15 +1,15 @@
-using Base: Integer
 ## 07/03/2023
 ## Initialize the wavefunction @t=0
 
+
+using Base: Integer
 using ITensors
 using ITensors.HDF5
 using Random
 
-
-
 # Use a random MPS as the initial wavefunction
 # For the SDKI model, the total quantum number is not conserved
+
 
 function random_initialization(site_type :: String, site_length :: Integer)
     tmp_sites = siteinds(site_type, site_length; conserve_qns = false)
