@@ -10,6 +10,8 @@ using Base: product
 using Random
 using TimerOutputs
 
+
+
 include("src/Sample.jl")
 include("src/Entanglement.jl")
 include("src/ObtainBond.jl")
@@ -24,8 +26,8 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time = 20
-    TEBD_time = 12
+    total_time = 12
+    TEBD_time = 0
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
     tau = 1.0
@@ -42,7 +44,23 @@ let
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     # @show typeof(s) 
 
-    # Allocation for observables
+    ## INITIALIZE WAVEFUNCTION 
+    states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
+    ψ = MPS(s, states)
+    Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
+    Random.seed!(123)
+
+
+    
+    ## OUTPUT THE INFORMATION OF WHETHER TEBD IS USED IN THE BEGINNING
+    if TEBD_time < 1E-8
+        println("############################################################################")
+        println("#########   Using holoQUADS without TEBD!")
+        println("############################################################################")
+    end
+
+    
+    ## PHYSICAL OBSERVABLES ALLOCATION
     @timeit time_machine "Allocation" begin
         Sx = Vector{ComplexF64}(undef, N_total)
         Sy = Vector{ComplexF64}(undef, N_total)
@@ -51,63 +69,65 @@ let
         SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
         Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
 
-        Sx_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
-        Sy_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
-        Sz_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
-        SvN_TEBD =  Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
-        Bond_TEBD = Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
+        ## SET UP OBSERVABLES USED IN THE TEBD 
+        if TEBD_time > 1E-8
+            Sx_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+            Sy_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+            Sz_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+            SvN_TEBD =  Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
+            Bond_TEBD = Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
+        end
     end
 
-    # Construct layers of gates to perform TEBD at the beginning
-    @timeit time_machine "Initialize TEBD gates" begin
-        TEBD_evolution_gates = Vector{ITensor}()
-        even_layer = build_a_layer_of_gates!(2, N_total-2, N_total, h, tau, s, TEBD_evolution_gates)
-        odd_layer = build_a_layer_of_gates!(1, N_total-1, N_total, h, tau, s, TEBD_evolution_gates)
-        TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N_total)
+    ## CONSTRUCT GATES USED IN A BRICK-WALL PATTERN TEBD 
+    if TEBD_time > 1E-8
+        @timeit time_machine "Initialize TEBD gates" begin
+            TEBD_evolution_gates = Vector{ITensor}()
+            even_layer = build_a_layer_of_gates!(2, N_total-2, N_total, h, tau, s, TEBD_evolution_gates)
+            odd_layer = build_a_layer_of_gates!(1, N_total-1, N_total, h, tau, s, TEBD_evolution_gates)
+            TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N_total)
+        end
     end
-    
-    
-    # Initialize the wavefunction as a Neel state
-    states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
-    ψ = MPS(s, states)
-    Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
-    Random.seed!(123)
 
     
-    # Measure the initial wavefunction
-    Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
-    # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
-    Sz_TEBD[1, :] = expect(ψ, "Sz"; sites=1:N_total)
-    SvN_TEBD[1, :] = entanglement_entropy(ψ, N_total)
-    Bond_TEBD[1, :] = obtain_bond_dimension(ψ, N_total)    
+    ## MEASURE OBSERVABLES IN TEBD
+    if TEBD_time > 1E-8
+        Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
+        # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
+        Sz_TEBD[1, :] = expect(ψ, "Sz"; sites=1:N_total)
+        SvN_TEBD[1, :] = entanglement_entropy(ψ, N_total)
+        Bond_TEBD[1, :] = obtain_bond_dimension(ψ, N_total)
+    end  
 
 
-    # Perform real-time evolution using TEBD
-    for tmp_time in 0:tau:TEBD_time
-        # @show tmp_time
-        tmp_time≈TEBD_time && break
+    ## PERFROM TEBD
+    if TEBD_time > 1E-8
+        for tmp_time in 0:tau:TEBD_time
+            # @show tmp_time
+            tmp_time≈TEBD_time && break
 
-        # Apply kicked gates/transverse Ising fields @ integer time 
-        @timeit time_machine "TEBD one-site gates" if (abs((tmp_time / tau) % time_separation) < 1E-8)
-            ψ = apply(TEBD_kick_gates, ψ; cutoff)
-            normalize!(ψ)
-        end
+            # Apply kicked gates/transverse Ising fields @ integer time 
+            @timeit time_machine "TEBD one-site gates" if (abs((tmp_time / tau) % time_separation) < 1E-8)
+                ψ = apply(TEBD_kick_gates, ψ; cutoff)
+                normalize!(ψ)
+            end
 
-        # Apply two-sites gates that inlcude the Ising interaction and longitudinal fields
-        @timeit time_machine "TEBD two-site gates" begin
-            ψ = apply(TEBD_evolution_gates, ψ; cutoff)
-            normalize!(ψ)
-        end
+            # Apply two-sites gates that inlcude the Ising interaction and longitudinal fields
+            @timeit time_machine "TEBD two-site gates" begin
+                ψ = apply(TEBD_evolution_gates, ψ; cutoff)
+                normalize!(ψ)
+            end
 
-        # Measure observables in TEBD
-        @timeit time_machine "TEBD measurements" begin
-            index = Int(tmp_time/tau) + 2
-            Sx_TEBD[index, :] = expect(ψ, "Sx"; sites=1:N_total)
-            # Sy_TEBD[index, :] = expect(ψ, "Sy"; sites=1:N_total)
-            Sz_TEBD[index, :] = expect(ψ, "Sz"; sites=1:N_total)
-            SvN_TEBD[index, :] = entanglement_entropy(ψ, N_total)
-            Bond_TEBD[index, :] = obtain_bond_dimension(ψ, N_total)
-            @show Bond_TEBD[index, :]
+            # Measure observables in TEBD
+            @timeit time_machine "TEBD measurements" begin
+                index = Int(tmp_time/tau) + 2
+                Sx_TEBD[index, :] = expect(ψ, "Sx"; sites=1:N_total)
+                # Sy_TEBD[index, :] = expect(ψ, "Sy"; sites=1:N_total)
+                Sz_TEBD[index, :] = expect(ψ, "Sz"; sites=1:N_total)
+                SvN_TEBD[index, :] = entanglement_entropy(ψ, N_total)
+                Bond_TEBD[index, :] = obtain_bond_dimension(ψ, N_total)
+                @show Bond_TEBD[index, :]
+            end
         end
     end
 
@@ -250,6 +270,7 @@ let
                         measure_index,
                         (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
+                    @show Bond[measure_index, (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1)]
                     @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
                 end
                 
@@ -327,19 +348,22 @@ let
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
     # Store data in hdf5 file
-    file = h5open("Scalable_Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    write(file, "Entropy", SvN)
-    write(file, "Bond Dimension", Bond)
-    write(file, "Samples", samples)
-    write(file, "TEBD Sx", Sx_TEBD)
-    write(file, "TEBD Sy", Sy_TEBD)
-    write(file, "TEBD Sz", Sz_TEBD)
-    write(file, "Entropy TEBD", SvN_TEBD)
-    write(file, "Bond Dimension TEBD", Bond_TEBD)
-    close(file)
+    h5open("Scalable_Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w") do file
+        write(file, "Initial Sz", Sz₀)
+        write(file, "Sx", Sx)
+        write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Entropy", SvN)
+        write(file, "Chi", Bond)
+        write(file, "Samples", samples)
+        if TEBD_time > 1E-8
+            write(file, "TEBD Sx", Sx_TEBD)
+            write(file, "TEBD Sy", Sy_TEBD)
+            write(file, "TEBD Sz", Sz_TEBD)
+            write(file, "Entropy TEBD", SvN_TEBD)
+            write(file, "Chi TEBD", Bond_TEBD)
+        end
+    end
+
     return
 end
