@@ -7,13 +7,10 @@ using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, site, timer
 using Base: Float64, Real, Integer
 using Random
-using Dates
 using TimerOutputs
-
 
 # using AppleAccelerate
 # using AppleAccelerateLinAlgWrapper
-
 using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)

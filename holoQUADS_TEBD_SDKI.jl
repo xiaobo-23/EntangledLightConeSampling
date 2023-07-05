@@ -24,8 +24,8 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time = 5
-    TEBD_time = 2
+    total_time = 20
+    TEBD_time = 12
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
     tau = 1.0
@@ -33,6 +33,7 @@ let
     cutoff = 1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples = 1
+    sample_string = "Sx"
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(holoQUADS_time) + 2
@@ -87,19 +88,19 @@ let
         tmp_time≈TEBD_time && break
 
         # Apply kicked gates/transverse Ising fields @ integer time 
-        @timeit time_machine "Applying one-site gates in TEBD" if (abs((tmp_time / tau) % time_separation) < 1E-8)
+        @timeit time_machine "TEBD one-site gates" if (abs((tmp_time / tau) % time_separation) < 1E-8)
             ψ = apply(TEBD_kick_gates, ψ; cutoff)
             normalize!(ψ)
         end
 
         # Apply two-sites gates that inlcude the Ising interaction and longitudinal fields
-        @timeit time_machine "Applying two-site gates in TEBD" begin
+        @timeit time_machine "TEBD two-site gates" begin
             ψ = apply(TEBD_evolution_gates, ψ; cutoff)
             normalize!(ψ)
         end
 
         # Measure observables in TEBD
-        @timeit time_machine "Meausre physical quantities" begin
+        @timeit time_machine "TEBD measurements" begin
             index = Int(tmp_time/tau) + 2
             Sx_TEBD[index, :] = expect(ψ, "Sx"; sites=1:N_total)
             # Sy_TEBD[index, :] = expect(ψ, "Sy"; sites=1:N_total)
@@ -111,18 +112,13 @@ let
     end
 
 
+    # Time evolve and sample the wvaefunction using holoQUADS
     for measure_index = 1:number_of_samples
         println("")
         println("")
-        println(
-            "############################################################################",
-        )
-        println(
-            "#########   PERFORMING MEASUREMENTS LOOP #$measure_index                    ",
-        )
-        println(
-            "############################################################################",
-        )
+        println("############################################################################")
+        println("#########   PERFORMING MEASUREMENTS LOOP #$measure_index                    ")
+        println("############################################################################")
         println("")
         println("")
 
@@ -170,8 +166,8 @@ let
 
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
+            sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -241,8 +237,8 @@ let
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                        expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                        expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                    sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
                     normalize!(ψ_copy)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -313,8 +309,8 @@ let
                 
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
-                    expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
-                sample(ψ_copy, left_ptr, "Sx")
+                    expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
+                sample(ψ_copy, left_ptr, sample_string)
                 normalize!(ψ_copy)
 
                 # Compute von Neumann entanglement entropy after taking measurements
@@ -330,15 +326,20 @@ let
     @show time_machine
     # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
 
-    # # Store data in hdf5 file
-    # file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(holoQUADS_time)_Sample_Sx.h5", "w")
-    # write(file, "Initial Sz", Sz₀)
-    # write(file, "Sx", Sx)
-    # write(file, "Sy", Sy)
-    # write(file, "Sz", Sz)
-    # write(file, "Samples", samples)
-    # write(file, "Entropy", SvN)
-    # write(file, "Bond Dimension", Bond)
-    # close(file)
+    # Store data in hdf5 file
+    file = h5open("Scalable_Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w")
+    write(file, "Initial Sz", Sz₀)
+    write(file, "Sx", Sx)
+    write(file, "Sy", Sy)
+    write(file, "Sz", Sz)
+    write(file, "Entropy", SvN)
+    write(file, "Bond Dimension", Bond)
+    write(file, "Samples", samples)
+    write(file, "TEBD Sx", Sx_TEBD)
+    write(file, "TEBD Sy", Sy_TEBD)
+    write(file, "TEBD Sz", Sz_TEBD)
+    write(file, "Entropy TEBD", SvN_TEBD)
+    write(file, "Bond Dimension TEBD", Bond_TEBD)
+    close(file)
     return
 end
