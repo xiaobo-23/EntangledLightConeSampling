@@ -6,9 +6,10 @@ using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
-using Base: product
+using Base: product, Integer
 using Random
 using TimerOutputs
+
 
 
 include("../Sample.jl")
@@ -25,7 +26,7 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time = 23
+    total_time = 26
     TEBD_time = 12
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
@@ -34,7 +35,7 @@ let
     cutoff = 1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples = 1
-    sample_string = "Sx"
+    sample_string = "Sz"
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(holoQUADS_time) + 2
@@ -43,72 +44,92 @@ let
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     # @show typeof(s) 
 
-    # Allocation for observables
-    @timeit time_machine "Allocation" begin
-        Sx = Vector{ComplexF64}(undef, N_total)
-        Sy = Vector{ComplexF64}(undef, N_total)
-        Sz = Vector{ComplexF64}(undef, N_total)
-        samples = Array{Float64}(undef, number_of_samples, N_total)
-        SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
-        Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
-
-        Sx_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
-        Sy_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
-        Sz_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
-        SvN_TEBD =  Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
-        Bond_TEBD = Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
-    end
-
-    # Construct layers of gates to perform TEBD at the beginning
-    @timeit time_machine "Initialize TEBD gates" begin
-        TEBD_evolution_gates = Vector{ITensor}()
-        even_layer = build_a_layer_of_gates!(2, N_total-2, N_total, h, tau, s, TEBD_evolution_gates)
-        odd_layer = build_a_layer_of_gates!(1, N_total-1, N_total, h, tau, s, TEBD_evolution_gates)
-        TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N_total)
-    end
     
-    
-    # Initialize the wavefunction as a Neel state
+    ## INITIALIZE WAVEFUNCTION 
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
     Random.seed!(123)
 
+
+    ## OUTPUT THE INFORMATION OF WHETHER TEBD IS USED IN THE BEGINNING
+    if TEBD_time < 1E-8
+        println("############################################################################")
+        println("#########   Using holoQUADS without TEBD!")
+        println("############################################################################")
+    end
+
     
-    # Measure the initial wavefunction
-    Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
-    # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
-    Sz_TEBD[1, :] = expect(ψ, "Sz"; sites=1:N_total)
-    SvN_TEBD[1, :] = entanglement_entropy(ψ, N_total)
-    Bond_TEBD[1, :] = obtain_bond_dimension(ψ, N_total)    
+    ## PHYSICAL OBSERVABLES ALLOCATION
+    @timeit time_machine "Allocation" begin
+        Sx = Vector{ComplexF64}(undef, N_total)
+        Sy = Vector{ComplexF64}(undef, N_total)
+        Sz = Vector{ComplexF64}(undef, N_total)
+        SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+        Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
+        samples = Array{Float64}(undef, number_of_samples, N_total)
+        samples_bitstring = Array{Float64}(undef, number_of_samples, N_total)
 
-
-    # Perform real-time evolution using TEBD
-    for tmp_time in 0:tau:TEBD_time
-        # @show tmp_time
-        tmp_time≈TEBD_time && break
-
-        # Apply kicked gates/transverse Ising fields @ integer time 
-        @timeit time_machine "TEBD one-site gates" if (abs((tmp_time / tau) % time_separation) < 1E-8)
-            ψ = apply(TEBD_kick_gates, ψ; cutoff)
-            normalize!(ψ)
+        ## SET UP OBSERVABLES USED IN THE TEBD 
+        if TEBD_time > 1E-8
+            Sx_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+            Sy_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+            Sz_TEBD = Array{ComplexF64}(undef, Int(TEBD_time)+1, N_total)
+            SvN_TEBD =  Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
+            Bond_TEBD = Array{Float64}(undef, Int(TEBD_time)+1, N_total-1)
         end
+    end
 
-        # Apply two-sites gates that inlcude the Ising interaction and longitudinal fields
-        @timeit time_machine "TEBD two-site gates" begin
-            ψ = apply(TEBD_evolution_gates, ψ; cutoff)
-            normalize!(ψ)
+    
+    ## CONSTRUCT GATES USED IN A BRICK-WALL PATTERN TEBD 
+    if TEBD_time > 1E-8
+        @timeit time_machine "Initialize TEBD gates" begin
+            TEBD_evolution_gates = Vector{ITensor}()
+            even_layer = build_a_layer_of_gates!(2, N_total-2, N_total, h, tau, s, TEBD_evolution_gates)
+            odd_layer = build_a_layer_of_gates!(1, N_total-1, N_total, h, tau, s, TEBD_evolution_gates)
+            TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N_total)
         end
+    end
 
-        # Measure observables in TEBD
-        @timeit time_machine "TEBD measurements" begin
-            index = Int(tmp_time/tau) + 2
-            Sx_TEBD[index, :] = expect(ψ, "Sx"; sites=1:N_total)
-            # Sy_TEBD[index, :] = expect(ψ, "Sy"; sites=1:N_total)
-            Sz_TEBD[index, :] = expect(ψ, "Sz"; sites=1:N_total)
-            SvN_TEBD[index, :] = entanglement_entropy(ψ, N_total)
-            Bond_TEBD[index, :] = obtain_bond_dimension(ψ, N_total)
-            @show Bond_TEBD[index, :]
+    
+    ## MEASURE OBSERVABLES IN TEBD @t=0
+    if TEBD_time > 1E-8
+        Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
+        # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
+        Sz_TEBD[1, :] = expect(ψ, "Sz"; sites=1:N_total)
+        SvN_TEBD[1, :] = entanglement_entropy(ψ, N_total)
+        Bond_TEBD[1, :] = obtain_bond_dimension(ψ, N_total)
+    end  
+
+
+    ## PERFROM TEBD
+    if TEBD_time > 1E-8
+        for tmp_time in 0:tau:TEBD_time
+            # @show tmp_time
+            tmp_time≈TEBD_time && break
+
+            # Apply kicked gates/transverse Ising fields @ integer time 
+            @timeit time_machine "TEBD one-site gates" if (abs((tmp_time / tau) % time_separation) < 1E-8)
+                ψ = apply(TEBD_kick_gates, ψ; cutoff)
+                normalize!(ψ)
+            end
+
+            # Apply two-sites gates that inlcude the Ising interaction and longitudinal fields
+            @timeit time_machine "TEBD two-site gates" begin
+                ψ = apply(TEBD_evolution_gates, ψ; cutoff)
+                normalize!(ψ)
+            end
+
+            # Measure observables in TEBD
+            @timeit time_machine "TEBD measurements" begin
+                index = Int(tmp_time/tau) + 2
+                Sx_TEBD[index, :] = expect(ψ, "Sx"; sites=1:N_total)
+                # Sy_TEBD[index, :] = expect(ψ, "Sy"; sites=1:N_total)
+                Sz_TEBD[index, :] = expect(ψ, "Sz"; sites=1:N_total)
+                SvN_TEBD[index, :] = entanglement_entropy(ψ, N_total)
+                Bond_TEBD[index, :] = obtain_bond_dimension(ψ, N_total)
+                @show Bond_TEBD[index, :]
+            end
         end
     end
 
@@ -168,7 +189,8 @@ let
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+            samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+                sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -199,7 +221,7 @@ let
                 # println("")
                 # println("")
 
-                @timeit time_machine "DC Evoltuion" for ind₃ = 1:circuit_time
+                @timeit time_machine "DC Evolution" for ind₃ = 1:circuit_time
                     # Apply the kick gates at integer time
                     if ind₃ % 2 == 1
                         tmp_kick_gate =
@@ -239,7 +261,8 @@ let
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                         expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                    samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                        sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
                     normalize!(ψ_copy)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -251,6 +274,7 @@ let
                         measure_index,
                         (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
+                    @show Bond[measure_index, (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1)]
                     @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
                 end
                 
@@ -311,7 +335,8 @@ let
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
                     expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
-                sample(ψ_copy, left_ptr, sample_string)
+                samples_bitstring[measure_index, left_ptr:right_ptr] = 
+                    sample(ψ_copy, left_ptr, sample_string)
                 normalize!(ψ_copy)
 
                 # Compute von Neumann entanglement entropy after taking measurements
@@ -324,23 +349,30 @@ let
         # @show Bond[measure_index, :]
     end
 
+    if TEBD_time > 1E-8
+        @show Bond_TEBD[1, :]
+    end
+    replace!(samples_bitstring, 1 => 0.5, 2 => -0.5)
+    @show samples_bitstring
     @show time_machine
-    # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
-
+    
     # Store data in hdf5 file
-    file = h5open("../Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    write(file, "Entropy", SvN)
-    write(file, "Bond Dimension", Bond)
-    write(file, "Samples", samples)
-    write(file, "TEBD Sx", Sx_TEBD)
-    write(file, "TEBD Sy", Sy_TEBD)
-    write(file, "TEBD Sz", Sz_TEBD)
-    write(file, "Entropy TEBD", SvN_TEBD)
-    write(file, "Bond Dimension TEBD", Bond_TEBD)
-    close(file)
+    h5open("Scalable_Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w") do file
+        write(file, "Initial Sz", Sz₀)
+        write(file, "Sx", Sx)
+        write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Entropy", SvN)
+        write(file, "Chi", Bond)
+        write(file, "Samples", samples)
+        if TEBD_time > 1E-8
+            write(file, "TEBD Sx", Sx_TEBD)
+            write(file, "TEBD Sy", Sy_TEBD)
+            write(file, "TEBD Sz", Sz_TEBD)
+            write(file, "Entropy TEBD", SvN_TEBD)
+            write(file, "Chi TEBD", Bond_TEBD)
+        end
+    end
+
     return
 end

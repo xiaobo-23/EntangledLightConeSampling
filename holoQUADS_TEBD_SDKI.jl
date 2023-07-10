@@ -95,7 +95,7 @@ let
     ## MEASURE OBSERVABLES IN TEBD @t=0
     if TEBD_time > 1E-8
         Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
-        # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
+        # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)  1z
         Sz_TEBD[1, :] = expect(ψ, "Sz"; sites=1:N_total)
         SvN_TEBD[1, :] = entanglement_entropy(ψ, N_total)
         Bond_TEBD[1, :] = obtain_bond_dimension(ψ, N_total)
@@ -134,7 +134,7 @@ let
     end
 
 
-    # Time evolve and sample the wvaefunction using holoQUADS
+    # TIME EVOLVE ANS SAMPLE THE WAVEFUNCTION USING holoQUADS
     for measure_index = 1:number_of_samples
         println("")
         println("")
