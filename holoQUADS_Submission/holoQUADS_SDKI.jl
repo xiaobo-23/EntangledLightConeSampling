@@ -22,16 +22,15 @@ BLAS.set_num_threads(8)
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
+
 let
-    floquet_time = 26
+    floquet_time=28
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    observable_string = "Sz" 
     number_of_samples = 1
-    sample_index=0
-
+    measure_string="Sx"
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
@@ -46,37 +45,24 @@ let
         Sy = Vector{ComplexF64}(undef, N_total)
         Sz = Vector{ComplexF64}(undef, N_total)
         samples = Array{Float64}(undef, number_of_samples, N_total)
+        samples_bitstring = Array{Float64}(undef, number_of_samples, N_total)
         SvN = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
         Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
     end
     
-    # Initialize the wavefunction as a Neel state 
+    # Initialize the wavefunction as a Neel state
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
     Random.seed!(123)
 
-    # # Initializa a random MPS
-    # # initialization_s = siteinds("S=1/2", N; conserve_qns = false)
-    # initialization_states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # Random.seed!(87900) 
-    # ψ = randomMPS(s, initialization_states, linkdims = 2)
-    # # ψ = initialization_ψ[1 : N]
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
-    # # @show maxlinkdim(ψ)
 
     for measure_index = 1:number_of_samples
         println("")
         println("")
-        println(
-            "############################################################################",
-        )
-        println(
-            "#########   PERFORMING MEASUREMENTS LOOP #$measure_index                    ",
-        )
-        println(
-            "############################################################################",
-        )
+        println("############################################################################")
+        println("#########   PERFORMING MEASUREMENTS LOOP #$measure_index                    ")
+        println("############################################################################")
         println("")
         println("")
 
@@ -103,7 +89,7 @@ let
         end
 
         # Measure and timing the first two sites after applying the left light cone
-        @timeit time_machine "Measure LLC" begin
+        @timeit time_machine "Measure LLC unit cell" begin
             if measure_index == 1
                 # Measure Sx, Sy, and Sz on each site
                 Sx[1:2] = expect(ψ_copy, "Sx"; sites = 1:2)
@@ -121,10 +107,12 @@ let
                 (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
             ] = obtain_bond_dimension(ψ_copy, N_total)
 
+            
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                expect(ψ_copy, observable_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            sample(ψ_copy, 2 * tensor_pointer - 1, observable_string)
+                expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
+            samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer]=
+                sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -155,7 +143,7 @@ let
                 # println("")
                 # println("")
 
-                @timeit time_machine "DC Evolution" for ind₃ = 1:circuit_time
+                @timeit time_machine "DC Evoltuion" for ind₃ = 1:circuit_time
                     # Apply the kick gates at integer time
                     if ind₃ % 2 == 1
                         tmp_kick_gate =
@@ -172,7 +160,7 @@ let
                     normalize!(ψ_copy)
                 end
 
-                @timeit time_machine "Measure DC" begin
+                @timeit time_machine "Measure DC unit cell" begin
                     if measure_index == 1
                         Sx[2*tensor_pointer-1:2*tensor_pointer] = 
                             expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
@@ -194,8 +182,9 @@ let
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                        expect(ψ_copy, observable_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    sample(ψ_copy, 2 * tensor_pointer - 1, observable_string)
+                        expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                    samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                        sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
                     normalize!(ψ_copy)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -207,14 +196,8 @@ let
                         measure_index,
                         (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
+                    @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
                 end
-                @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]                
-
-
-
-                # Previous sample and reset protocol
-                # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
-                # normalize!(ψ_copy)  
             end
         end
 
@@ -253,7 +236,7 @@ let
             end
 
             # Measure local observables directly from the wavefunctiongit 
-            @timeit time_machine "Measure RLC" begin
+            @timeit time_machine "Measure RLC unit cell" begin
                 if measure_index == 1
                     Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
                     Sy[left_ptr:right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr:right_ptr)
@@ -268,8 +251,9 @@ let
                 
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
-                    expect(ψ_copy, observable_string; sites = left_ptr:right_ptr)
-                sample(ψ_copy, left_ptr, observable_string)
+                    expect(ψ_copy, measure_string; sites = left_ptr:right_ptr)
+                samples_bitstring[measure_index, left_ptr:right_ptr] = 
+                    sample(ψ_copy, left_ptr, measure_string)
                 normalize!(ψ_copy)
 
                 # Compute von Neumann entanglement entropy after taking measurements
@@ -282,18 +266,20 @@ let
         # @show Bond[measure_index, :]
     end
 
+    replace!(samples_bitstring, 1.0 => 0.5, 2.0 => -0.5)
     @show time_machine
-    # replace!(samples, 1.0 => 0.5, 2.0 => -0.5)
+    
+    # STORE DATA IN A HDF5 FILE 
+    h5open("../Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w") do file
+        write(file, "Initial Sz", Sz₀)
+        write(file, "Sx", Sx)
+        write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Entropy", SvN)
+        write(file, "Bond Dimension", Bond)
+        write(file, "Samples", samples)
+        write(file, "Samples Bitstring", samples_bitstring)
+    end
 
-    # Store data in hdf5 file
-    file = h5open("../Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_$(observable_string)_Sample$(sample_index).h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    write(file, "Samples", samples)
-    write(file, "Entropy", SvN)
-    write(file, "Bond Dimension", Bond)
-    close(file)
     return
 end

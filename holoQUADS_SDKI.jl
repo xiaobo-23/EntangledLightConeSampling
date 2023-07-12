@@ -24,12 +24,13 @@ ITensors.disable_warn_order()
 
 
 let
-    floquet_time = 20
+    floquet_time = 10
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples = 1
+    measure_string="Sx"
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
@@ -109,9 +110,9 @@ let
             
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
             samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer]=
-                sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -181,9 +182,9 @@ let
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                        expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                        expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        sample(ψ_copy, 2 * tensor_pointer - 1, "Sx")
+                        sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
                     normalize!(ψ_copy)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -250,9 +251,9 @@ let
                 
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
-                    expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
+                    expect(ψ_copy, measure_string; sites = left_ptr:right_ptr)
                 samples_bitstring[measure_index, left_ptr:right_ptr] = 
-                    sample(ψ_copy, left_ptr, "Sx")
+                    sample(ψ_copy, left_ptr, measure_string)
                 normalize!(ψ_copy)
 
                 # Compute von Neumann entanglement entropy after taking measurements
@@ -265,19 +266,20 @@ let
         # @show Bond[measure_index, :]
     end
 
-    @show time_machine
     replace!(samples_bitstring, 1.0 => 0.5, 2.0 => -0.5)
+    @show time_machine
+    
+    # STORE DATA IN A HDF5 FILE 
+    h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w") do file
+        write(file, "Initial Sz", Sz₀)
+        write(file, "Sx", Sx)
+        write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Entropy", SvN)
+        write(file, "Bond Dimension", Bond)
+        write(file, "Samples", samples)
+        write(file, "Samples Bitstring", samples_bitstring)
+    end
 
-    # Store data in hdf5 file
-    file = h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w")
-    write(file, "Initial Sz", Sz₀)
-    write(file, "Sx", Sx)
-    write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    write(file, "Entropy", SvN)
-    write(file, "Bond Dimension", Bond)
-    write(file, "Samples", samples)
-    write(file, "Samples Bitstring", samples_bitstring)
-    close(file)
     return
 end
