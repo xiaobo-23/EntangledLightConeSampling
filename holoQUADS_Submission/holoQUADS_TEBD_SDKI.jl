@@ -25,8 +25,8 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time = 26
-    TEBD_time = 12
+    total_time=28
+    TEBD_time=12
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
     tau = 1.0
@@ -34,7 +34,7 @@ let
     cutoff = 1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples = 1
-    sample_string = "Sz"
+    sample_string = "Sx"
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(holoQUADS_time) + 2
@@ -356,7 +356,7 @@ let
     @show time_machine
     
     # Store data in hdf5 file
-    h5open("Scalable_Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w") do file
+    h5open("../Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         write(file, "Sy", Sy)

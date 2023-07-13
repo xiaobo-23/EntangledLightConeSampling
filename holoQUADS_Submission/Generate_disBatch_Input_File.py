@@ -16,7 +16,7 @@ def generate_input_file(input_index, task_file):
     '''Generate corresponding folders and input files based on chemical potential'''
     folder_name = "Sample" + "{}".format(input_index) + "/"
     task_file.write("cd " + folder_name \
-        + " &&  julia --threads=1 holoQUADS_SDKI.jl" + " &> holoQUADS_" \
+        + " &&  julia --threads=1 holoQUADS_TEBD_SDKI.jl" + " &> holoQUADS_" \
         + "{}".format(input_index) + ".log" + "\n")
     
 def main():

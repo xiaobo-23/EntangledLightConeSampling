@@ -17,7 +17,7 @@ include("src/holoQUADS_Time_Evolution_Gates.jl")
 
 using MKL
 using LinearAlgebra
-BLAS.set_num_threads(8)
+BLAS.set_num_threads(4)
 
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()

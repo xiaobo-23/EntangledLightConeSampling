@@ -24,7 +24,7 @@ ITensors.disable_warn_order()
 
 
 let
-    floquet_time=28
+    floquet_time=27
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
