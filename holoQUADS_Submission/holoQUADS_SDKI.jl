@@ -24,13 +24,14 @@ ITensors.disable_warn_order()
 
 
 let
-    floquet_time=27
+    floquet_time=3
     circuit_time = 2 * Int(floquet_time)
-    cutoff = 1E-8
-    tau = 1.0
+    cutoff=1E-8
+    tau=1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples = 1
-    measure_string="Sx"
+    measure_string="Sz"
+    sample_index=0
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
@@ -270,7 +271,7 @@ let
     @show time_machine
     
     # STORE DATA IN A HDF5 FILE 
-    h5open("../Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w") do file
+    h5open("../Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample$(sample_index).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         write(file, "Sy", Sy)

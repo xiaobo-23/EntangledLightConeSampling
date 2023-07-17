@@ -33,8 +33,10 @@ let
     time_separation = Int(1.0/tau)
     cutoff = 1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples = 1
+    number_of_samples=1
     sample_string = "Sx"
+    sample_index=0
+
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(holoQUADS_time) + 2
@@ -356,7 +358,7 @@ let
     @show time_machine
     
     # Store data in hdf5 file
-    h5open("../Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample_Sx.h5", "w") do file
+    h5open("../Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample$(sample_index).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         write(file, "Sy", Sy)
