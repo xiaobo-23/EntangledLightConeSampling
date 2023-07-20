@@ -17,6 +17,7 @@ include("../ObtainBond.jl")
 include("../holoQUADS_Time_Evolution_Gates.jl")
 include("../TEBD_Time_Evolution_Gates.jl")
 
+
 using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)
@@ -25,8 +26,8 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time=28
-    TEBD_time=12
+    total_time=20
+    TEBD_time=0
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
     tau = 1.0
@@ -34,7 +35,7 @@ let
     cutoff = 1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples=1
-    sample_string = "Sx"
+    sample_string="Sx"
     sample_index=0
 
 
