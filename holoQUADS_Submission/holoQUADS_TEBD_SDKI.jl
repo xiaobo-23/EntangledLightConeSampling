@@ -26,7 +26,7 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time=20
+    total_time=7
     TEBD_time=0
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
