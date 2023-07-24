@@ -26,7 +26,7 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time=25
+    total_time=20
     TEBD_time=0
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
@@ -38,16 +38,14 @@ let
     sample_string="Sx"
     sample_index=0
 
-
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(holoQUADS_time) + 2
     N_total = 100
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
-    s = siteinds("S=1/2", N_total; conserve_qns = false)
-    # @show typeof(s) 
-
+    bond_dimension_upper_bound=1000    
     
     ## INITIALIZE WAVEFUNCTION 
+    s = siteinds("S=1/2", N_total; conserve_qns = false); # @show typeof(s)
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
@@ -152,20 +150,19 @@ let
         # @show obtain_bond_dimension(ψ_copy, N_total)
 
         @timeit time_machine "LLC Evolution" for tmp_ind = 1:circuit_time
-            # Apply a sequence of two-site gates
             tmp_parity = (tmp_ind - 1) % 2
             tmp_number_of_gates = Int(holoQUADS_time) - floor(Int, (tmp_ind - 1) / 2)
 
             # APPLY ONE-SITE GATES
             if tmp_ind % 2 == 1
                 tmp_kick_gate = build_kick_gates(1, 2 * tmp_number_of_gates + 1, s)
-                ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
+                ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff, maxdim=bond_dimension_upper_bound)
                 normalize!(ψ_copy)
             end
 
             # APPLY TWO-SITE GATES
             tmp_two_site_gates = left_light_cone(tmp_number_of_gates, tmp_parity, h, tau, s)
-            ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
+            ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff, maxdim=bond_dimension_upper_bound)
             normalize!(ψ_copy)
         end
 
@@ -228,7 +225,7 @@ let
                     if ind₃ % 2 == 1
                         tmp_kick_gate =
                             build_kick_gates(gate_seeds[ind₃] - 1, gate_seeds[ind₃], s)
-                        ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
+                        ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff, maxdim=bond_dimension_upper_bound)
                         normalize!(ψ_copy)
                     end
 
@@ -236,7 +233,7 @@ let
                     # tmp_two_site_gates = diagonal_circuit(gate_seeds[ind₃], h, tau, s)
                     tmp_two_site_gate =
                         diagonal_right_edge(gate_seeds[ind₃], N_total, h, tau, s)
-                    ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
+                    ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff, maxdim=bond_dimension_upper_bound)
                     normalize!(ψ_copy)
                 end
 
@@ -308,14 +305,14 @@ let
                 if time_index % 2 == 1
                     # @show time_index, starting_index, ending_index
                     tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
-                    ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
+                    ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff, maxdim=bond_dimension_upper_bound)
                     normalize!(ψ_copy)
                 end
 
                 if time_index - 1 > 1E-8
                     tmp_two_site_gate =
                         diagonal_right_edge(ending_index, N_total, h, tau, s)
-                    ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
+                    ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff, maxdim=bond_dimension_upper_bound)
                     normalize!(ψ_copy)
                 end
             end

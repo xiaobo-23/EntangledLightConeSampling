@@ -1,0 +1,12 @@
+#!/bin/bash
+
+for index in $(seq 1000  500  5000)
+do
+    mkdir Chi$index
+    cp TEBD_SDKI.jl  Chi$index/TEBD_SDKI.jl
+    cd Chi$index
+
+    # Linux version
+    sed -i "s/bond_dimension_upper_bound=200/bond_dimension_upper_bound=$index/g" TEBD_SDKI.jl 
+    cd ..
+done

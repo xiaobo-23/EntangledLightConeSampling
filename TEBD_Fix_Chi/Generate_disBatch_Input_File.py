@@ -14,17 +14,18 @@ from io import StringIO
 
 def generate_input_file(input_index, task_file):
     '''Generate corresponding folders and input files based on chemical potential'''
-    folder_name = "Sample" + "{}".format(input_index) + "/"
+    folder_name = "Chi" + "{}".format(input_index) + "/"
     task_file.write("cd " + folder_name \
-        + " &&  julia --threads=1 holoQUADS_TEBD_SDKI.jl" + " &> holoQUADS_" \
+        + " &&  julia --threads=1 TEBD_SDKI.jl" + " &> TEBD_" \
         + "{}".format(input_index) + ".log" + "\n")
     
 def main():
-    sample_list = np.arange(1, 501, 1)
+    sample_list = np.arange(1000, 5500, 500)
     # location = os.path.dirname(os.path.realpath(__file__))
 
-    submit_file = open("T25", "a")
+    submit_file = open("Chi_Variation", "a")
     for tmp in sample_list:
         generate_input_file(tmp, submit_file)
-    submit_file.close()    
+    submit_file.close()
+
 main()
