@@ -31,7 +31,7 @@ let
     Δτ=1.0 
     ttotal=25
     h=0.2                                              # an integrability-breaking longitudinal field h 
-    bond_dimension_upper_bound=200
+    bond_dimension_upper_bound=100
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     s = siteinds("S=1/2", N; conserve_qns = false)

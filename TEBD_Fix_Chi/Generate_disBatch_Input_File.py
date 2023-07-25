@@ -20,7 +20,7 @@ def generate_input_file(input_index, task_file):
         + "{}".format(input_index) + ".log" + "\n")
     
 def main():
-    sample_list = np.arange(1000, 5500, 500)
+    sample_list = np.arange(200, 1200, 200)
     # location = os.path.dirname(os.path.realpath(__file__))
 
     submit_file = open("Chi_Variation", "a")

@@ -26,8 +26,8 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time=25
-    TEBD_time=0
+    total_time=26
+    TEBD_time=12
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
     tau = 1.0
@@ -367,6 +367,7 @@ let
         write(file, "Entropy", SvN)
         write(file, "Chi", Bond)
         write(file, "Samples", samples)
+        write(file, "Samples Bitstrings", samples_bitstring)
         if TEBD_time > 1E-8
             write(file, "TEBD Sx", Sx_TEBD)
             write(file, "TEBD Sy", Sy_TEBD)

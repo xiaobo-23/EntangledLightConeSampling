@@ -26,7 +26,7 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time=20
+    total_time=2
     TEBD_time=0
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
@@ -42,7 +42,7 @@ let
     N_corner = 2 * Int(holoQUADS_time) + 2
     N_total = 100
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
-    bond_dimension_upper_bound=1000    
+    bond_dimension_upper_bound=800   
     
     ## INITIALIZE WAVEFUNCTION 
     s = siteinds("S=1/2", N_total; conserve_qns = false); # @show typeof(s)
@@ -364,6 +364,7 @@ let
         write(file, "Entropy", SvN)
         write(file, "Chi", Bond)
         write(file, "Samples", samples)
+        write(file, "Samples Bitstring", samples_bitstring)
         if TEBD_time > 1E-8
             write(file, "TEBD Sx", Sx_TEBD)
             write(file, "TEBD Sy", Sy_TEBD)
