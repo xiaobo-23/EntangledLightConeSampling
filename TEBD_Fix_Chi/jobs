@@ -7,6 +7,6 @@ do
     cd Chi$index
 
     # Linux version
-    sed -i "s/bond_dimension_upper_bound=200/bond_dimension_upper_bound=$index/g" TEBD_SDKI.jl 
+    sed -i "s/bond_dimension_upper_bound=100/bond_dimension_upper_bound=$index/g" TEBD_SDKI.jl 
     cd ..
 done

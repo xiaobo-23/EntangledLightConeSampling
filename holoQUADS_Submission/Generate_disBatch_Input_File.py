@@ -1,16 +1,10 @@
 ##################################################################
-## Generate input files for disBatch
-## Infinite MPS and the extended Hubard model in 1D 
+## Generate input file for disBatch
+## Run holoQUADS circuits in parallel
 ##################################################################
 
 import numpy as np
-import sys
-import csv
-import os 
-import shutil
-import math
-from io import StringIO
-
+import os
 
 def generate_input_file(input_index, task_file):
     '''Generate corresponding folders and input files based on chemical potential'''
@@ -23,8 +17,9 @@ def main():
     sample_list = np.arange(1, 501, 1)
     # location = os.path.dirname(os.path.realpath(__file__))
 
-    submit_file = open("T26", "a")
+    submit_file = open("T12", "a")
     for tmp in sample_list:
         generate_input_file(tmp, submit_file)
     submit_file.close()    
+
 main()

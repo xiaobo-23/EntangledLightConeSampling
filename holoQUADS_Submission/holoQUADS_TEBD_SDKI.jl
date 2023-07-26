@@ -26,13 +26,13 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time=26
-    TEBD_time=12
+    total_time=12.0
+    TEBD_time=0.0 
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
     tau = 1.0
     time_separation = Int(1.0/tau)
-    cutoff = 1E-8
+    cutoff=1E-6
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples=1
     sample_string="Sx"
