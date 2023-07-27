@@ -17,7 +17,7 @@ def main():
     sample_list = np.arange(1, 501, 1)
     # location = os.path.dirname(os.path.realpath(__file__))
 
-    submit_file = open("T12", "a")
+    submit_file = open("T0", "a")
     for tmp in sample_list:
         generate_input_file(tmp, submit_file)
     submit_file.close()    

@@ -26,7 +26,7 @@ const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 let
-    total_time=2
+    total_time=0.0
     TEBD_time=0
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
@@ -42,7 +42,7 @@ let
     N_corner = 2 * Int(holoQUADS_time) + 2
     N_total = 100
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
-    bond_dimension_upper_bound=800   
+    bond_dimension_upper_bound=400  
     
     ## INITIALIZE WAVEFUNCTION 
     s = siteinds("S=1/2", N_total; conserve_qns = false); # @show typeof(s)
