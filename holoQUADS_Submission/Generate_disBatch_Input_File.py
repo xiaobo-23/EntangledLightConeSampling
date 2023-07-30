@@ -14,7 +14,10 @@ def generate_input_file(input_index, task_file):
         + "{}".format(input_index) + ".log" + "\n")
     
 def main():
-    sample_list = np.arange(1, 501, 1)
+    sample_seed=0
+    lower_bound=(sample_seed-1)*500+1
+    upper_bound=sample_seed*500+1
+    sample_list = np.arange(lower_bound, upper_bound, 1)
     # location = os.path.dirname(os.path.realpath(__file__))
 
     submit_file = open("T0", "a")

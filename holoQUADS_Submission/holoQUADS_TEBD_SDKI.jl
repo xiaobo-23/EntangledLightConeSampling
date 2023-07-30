@@ -32,7 +32,7 @@ let
     circuit_time = 2 * Int(holoQUADS_time)
     tau = 1.0
     time_separation = Int(1.0/tau)
-    cutoff=1E-6
+    cutoff=1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples=1
     sample_string="Sx"
