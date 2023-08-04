@@ -34,7 +34,7 @@ let
     time_separation = Int(1.0/tau)
     cutoff=1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples=1
+    number_of_samples=5
     sample_string="Sx"
     sample_index=0
 

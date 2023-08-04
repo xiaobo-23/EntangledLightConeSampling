@@ -15,8 +15,8 @@ def generate_input_file(input_index, task_file):
     
 def main():
     sample_seed=0
-    lower_bound=(sample_seed-1)*500+1
-    upper_bound=sample_seed*500+1
+    lower_bound=(sample_seed-1)*500+5001
+    upper_bound=sample_seed*500+5001
     sample_list = np.arange(lower_bound, upper_bound, 1)
     # location = os.path.dirname(os.path.realpath(__file__))
 

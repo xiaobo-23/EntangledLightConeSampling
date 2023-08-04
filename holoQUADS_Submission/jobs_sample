@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for time in $(seq 1  1  20)
+for time in $(seq 11  1  20)
 do 
     mkdir T$time
     cp holoQUADS_TEBD_SDKI.jl  T$time/holoQUADS_TEBD_SDKI.jl
@@ -22,7 +22,7 @@ do
         # # MacOS version
         # sed -i "" "s/total_time=0.0/total_time=$time/g" holoQUADS_TEBD_SDKI.jl 
             
-        for index in $(seq 1  1  5000)
+        for index in $(seq 5001  1  6000)
         do
             mkdir Sample$index 
             cp holoQUADS_TEBD_SDKI.jl  Sample$index/holoQUADS_TEBD_SDKI.jl
@@ -39,7 +39,7 @@ do
             cd ..
         done
 
-        for tmp_index in $(seq 1  1  10)
+        for tmp_index in $(seq 1  1  2)
         do 
             cp Generate_disBatch_Input_File.py Generate_disBatch_Input_File$tmp_index.py
 
