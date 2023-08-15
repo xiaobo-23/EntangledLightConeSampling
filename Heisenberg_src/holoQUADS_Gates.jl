@@ -24,15 +24,15 @@ end
 
 # Construct the left lightcone part of the holoQUADS circuit
 function construct_left_lightcone(input_ψ :: MPS, tmp_time_slices :: Int, input_sites)
-    gates = ITensor[]
     @time for ind₁ in 1:div(tmp_time_slices, 2)
         @show ind₁
+        gates = ITensor[]
         tmp_number_of_gates = div(tmp_time_slices, 2) - (ind₁ - 1)
         for tmp_index in [2, 1]
             construct_layers_of_gates(tmp_index, tmp_number_of_gates, input_sites, gates)
         end
+        input_ψ = apply(gates, input_ψ; running_cutoff)
     end
-    input_ψ = apply(gates, input_ψ; running_cutoff)
 end
 
 

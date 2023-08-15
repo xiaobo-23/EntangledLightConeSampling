@@ -72,7 +72,7 @@ function sample(m::MPS, j::Int)
         # println("After resetting")
         # @show m[ind]
     end
-
+    @show results
     return result
 end
 

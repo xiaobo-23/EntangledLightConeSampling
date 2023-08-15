@@ -35,7 +35,7 @@ let
 
     # Make an array of 'site' indices && quantum numbers are CONSERVED for the Heisenberg model
     # Using Neel state as the initial state
-    s = siteinds("S=1/2", N; conserve_qns = false)
+    s = siteinds("S=1/2", N; conserve_qns = true)
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N)
@@ -63,8 +63,8 @@ let
     #####################################################################################################################################    
     # Sx = complex(zeros(N_diagonal_circuit + 2, N))
     # Sy = complex(zeros(N_diagonal_circuit + 2, N))
-    Sz = Array{ComplexF64}(undef, div(N_time_slice, 2), N)
-    Sz_Reset = Array{ComplexF64}(undef, div(N_time_slice, 2), N)
+    Sz = Vector{ComplexF64}(undef, N)
+    Sz_Reset = Vector{ComplexF64}(undef, N)
 
     # ## Construct the holoQUADS circuit 
     # Random.seed!(2000)
@@ -90,15 +90,14 @@ let
         
         # Construct the left lightcone and measure the leftmost two sites
         construct_left_lightcone(ψ_copy, N_time_slice, s)
-        normalize!(ψ_copy)
-        if measure_ind == 1
-            Sz[2 * tensor_index - 1, :] = expect(ψ_copy, measurement_type; sites = 1:N)
-        end
-        bitstring_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        if measure_ind == 1
-            Sz_Reset[2 * tensor_index - 1, :] = expect(ψ_copy, measurement_type; sites = 1:N)
-        end
         # normalize!(ψ_copy)
+        @time if measure_ind == 1
+            Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
+        end
+        @time bitstring_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
+        @time if measure_ind == 1
+            Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
+        end
 
         # Construct the diagonal circuit and measure the corresponding sites
         if N_diagonal_circuit > 1E-8
@@ -107,16 +106,11 @@ let
                 tensor_index += 1
 
                 if measure_ind - 1 < 1E-8
-                    tmp_Sz = expect(ψ_copy, measurement_type; sites = 1:N)
-                    Sz[tensor_index, :] = tmp_Sz
-                    # println("")
-                    # @show tmp_Sz
+                    Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)                   
                 end
                 bitstring_sample[measure_ind, 2 * tensor_index - 1 : 2 * tensor_index] = sample(ψ_copy, 2 * tensor_index - 1)
                 if measure_ind - 1 < 1E-8
-                    Sz_Reset[tensor_index, :] = expect(ψ_copy, measurement_type; sites = 1:N)
-                    # println("")
-                    # @show tmp_Sz
+                    Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
                 end
             end
         end
@@ -127,11 +121,11 @@ let
             construct_right_lightcone(ψ_copy, index_RL, N_time_slice, s)
             
             if measure_ind - 1 < 1E-8
-                Sz[tensor_index, :] = expect(ψ_copy, "Sz"; sites = 1:N)
+                Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
             end
             bitstring_sample[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = sample(ψ_copy, 2 * tensor_index - 1)
             if measure_ind - 1 < 1E-8
-                Sz_Reset[tensor_index, :] = expect(ψ_copy, measurement_type; sites = 1:N)
+                Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
             end
         end        
     end
