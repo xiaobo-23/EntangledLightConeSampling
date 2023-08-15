@@ -68,7 +68,7 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
         end
 
         # Collapse the site based on the measurements 
-        if n - 1 < 1E-8
+        if abs(n - 1) < 1E-8
             tmp_reset = ITensor(projn_up, tmpS', tmpS)
         else
             tmp_reset = ITensor(projn_dn, tmpS', tmpS)

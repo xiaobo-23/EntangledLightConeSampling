@@ -3,7 +3,7 @@ using ITensors
 using ITensors.HDF5
 
 let
-    N = 500
+    N = 100
     cutoff = 1E-8
     tau = 0.1
     ttotal = 5.0
@@ -63,13 +63,13 @@ let
         normalize!(ψ)
     end
 
-    file =
-        h5open("Data/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(tau)_AFM_Initialization.h5", "w")
-    # write(file, "Sx", Sx)
-    # write(file, "Sy", Sy)
-    write(file, "Sz", Sz)
-    write(file, "Overlap", Overlap)
-    close(file)
+    # file =
+    #     h5open("Data/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(tau)_AFM_Initialization.h5", "w")
+    # # write(file, "Sx", Sx)
+    # # write(file, "Sy", Sy)
+    # write(file, "Sz", Sz)
+    # write(file, "Overlap", Overlap)
+    # close(file)
 
     return
 end

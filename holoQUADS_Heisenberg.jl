@@ -24,7 +24,7 @@ let
     global N_time_slice = Int(floquet_time/Δτ) * 2
     global unit_cell_size = N_time_slice + 2                                                            # Number of total sites on a MPS
     
-    number_of_DC = (N - unit_cell_size) // 2                           
+    number_of_DC = div(N - unit_cell_size, 2)               
     num_measurements = 1
     measurement_type = "Sz"
 
@@ -35,7 +35,7 @@ let
 
     # Make an array of 'site' indices && quantum numbers are CONSERVED for the Heisenberg model
     # Using Neel state as the initial state
-    s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false)
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N)
@@ -69,11 +69,11 @@ let
     # ## Construct the holoQUADS circuit 
     # Random.seed!(2000)
     
-    for measure_ind = 1:num_measurements
+    for measure_index = 1:num_measurements
         println("")
         println("")
         println("############################################################################")
-        println("#########  GENERATE SAMPLE #$measure_ind ")
+        println("#########  GENERATE SAMPLE #$measure_index ")
         println("############################################################################")
         println("")
         println("")
@@ -91,25 +91,25 @@ let
         # Construct the left lightcone and measure the leftmost two sites
         construct_left_lightcone(ψ_copy, N_time_slice, s)
         # normalize!(ψ_copy)
-        @time if measure_ind == 1
+        @time if measure_index == 1
             Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
         end
-        @time bitstring_sample[measure_ind, 1:2] = sample(ψ_copy, 1)
-        @time if measure_ind == 1
+        @time bitstring_sample[measure_index, 1:2] = sample(ψ_copy, 1)
+        @time if measure_index == 1
             Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
         end
 
         # Construct the diagonal circuit and measure the corresponding sites
-        if N_diagonal_circuit > 1E-8
-            @time for index_DC = 1:N_diagonal_circuit
+        if number_of_DC > 1E-8
+            @time for index_DC = 1 : number_of_DC
                 construct_diagonal_part(ψ_copy, N_time_slice, index_DC, s)
                 tensor_index += 1
 
-                if measure_ind - 1 < 1E-8
+                if measure_index == 1
                     Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)                   
                 end
-                bitstring_sample[measure_ind, 2 * tensor_index - 1 : 2 * tensor_index] = sample(ψ_copy, 2 * tensor_index - 1)
-                if measure_ind - 1 < 1E-8
+                bitstring_sample[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = sample(ψ_copy, 2 * tensor_index - 1)
+                if measure_index == 1
                     Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
                 end
             end
@@ -120,11 +120,11 @@ let
             tensor_index += 1
             construct_right_lightcone(ψ_copy, index_RL, N_time_slice, s)
             
-            if measure_ind - 1 < 1E-8
+            if measure_index == 1
                 Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
             end
             bitstring_sample[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = sample(ψ_copy, 2 * tensor_index - 1)
-            if measure_ind - 1 < 1E-8
+            if measure_index == 1
                 Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
             end
         end        

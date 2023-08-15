@@ -9,30 +9,32 @@ function construct_layers_of_gates(starting_index :: Int, number_of_gates :: Int
     # gates = ITensor[]
     for j = 1 : number_of_gates
         index1 = starting_index + 2 * (j - 1)
-        index2 = index1 + 1
+        index2 = index1 + 1; @show number_of_gates
        
         tmp1 = tmp_sites[index1]
         tmp2 = tmp_sites[index2]
 
         tmp_hj = op("Sz", tmp1) * op("Sz", tmp2) + 1/2 * op("S+", tmp1) * op("S-", tmp2) + 1/2 * op("S-", tmp1) * op("S+", tmp2)
-        tmp_Gj = exp(-1.0im * Δτ * tmp_hj)
+        tmp_Gj = exp(-1.0im * Δτ/2 * tmp_hj)
         push!(input_gates , tmp_Gj)
         # push!(gates, tmp_Gj)
     end
     # return gates
 end
 
+
 # Construct the left lightcone part of the holoQUADS circuit
 function construct_left_lightcone(input_ψ :: MPS, tmp_time_slices :: Int, input_sites)
+    gates = ITensor[]
     @time for ind₁ in 1:div(tmp_time_slices, 2)
-        @show ind₁
-        gates = ITensor[]
+        @show ind₁, running_cutoff
         tmp_number_of_gates = div(tmp_time_slices, 2) - (ind₁ - 1)
         for tmp_index in [2, 1]
             construct_layers_of_gates(tmp_index, tmp_number_of_gates, input_sites, gates)
         end
-        input_ψ = apply(gates, input_ψ; running_cutoff)
     end
+    input_ψ = apply(gates, input_ψ; cutoff=running_cutoff)
+    normalize!(input_ψ)
 end
 
 
@@ -51,13 +53,11 @@ end
 
 # Construct the right lightcone of the holoQUADS circuit
 function construct_right_lightcone(input_ψ :: MPS, input_index :: Int, tmp_time_slices :: Int, input_sites)
-    
-    @show input_index
-    gates = ITensor[]
+    gates = ITensor[]; @show input_index
     tmp_number_of_gates = tmp_time_slices - 2 * input_index + 1
     for tmp_index=1:tmp_number_of_gates
         starting_index = N - tmp_index
-        construct_layers_of_gates(starting_index, 1, input_sites, gates)
+        construct_layers_of_gates(starting_index, tmp_index, input_sites, gates)
     end
     input_ψ = apply(gates, input_ψ; running_cutoff)
     normalize!(input_ψ)

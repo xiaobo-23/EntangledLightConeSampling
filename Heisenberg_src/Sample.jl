@@ -35,6 +35,7 @@ function sample(m::MPS, j::Int)
         while n <= d
             projn = ITensor(tmpS)
             projn[tmpS=>n] = 1.0
+            
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
             pdisc += pn
@@ -52,27 +53,24 @@ function sample(m::MPS, j::Int)
         ## 08/15/2023
         ## The matrices used in the reset procedure depend on the physical state of the site and the initial wavefunction
         
-        ## Reset to the initial Neel state |up, down, up, down, ...> with n=1 --> |up> and n=2 --> |down>
+        # Reset to the initial Neel state |up, down, up, down, ...> with n=1 --> |up> and n=2 --> |down>
         if ind % 2 == 1
             if n == 1             
-                tmpReset = ITensor(Sz_matrix, tmpS', tmpS)
+                tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(S⁺_matrix, tmpS', tmpS)
+                tmp_reset = ITensor(S⁺_matrix, tmpS', tmpS)
             end
         else
             if n == 1
-                tmpReset = ITensor(S⁻_matrix, tmpS', tmpS)
+                tmp_reset = ITensor(S⁻_matrix, tmpS', tmpS)
             else
-                tmpReset = ITensor(Sz_matrix, tmpS', tmpS)
+                tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
             end
         end
         
-        m[ind] *= tmpReset
+        m[ind] *= tmp_reset
         noprime!(m[ind])
-        # println("After resetting")
-        # @show m[ind]
     end
-    @show results
     return result
 end
 
