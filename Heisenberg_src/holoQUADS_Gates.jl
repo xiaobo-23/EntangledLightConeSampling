@@ -5,12 +5,12 @@ using ITensors
 using ITensors: orthocenter, sites, copy, complex, real
 
 ## Construct a layer of two-site gates with an arbitrary number of gates
-function construct_layers_of_gates(starting_index :: Int, number_of_gates :: Int, Δτ :: Float64, tmp_sites, input_gates)
+function construct_layers_of_gates(starting_index :: Int, number_of_gates :: Int, tmp_sites, input_gates)
     # gates = ITensor[]
     for j = 1 : number_of_gates
         index1 = starting_index + 2 * (j - 1)
         index2 = index1 + 1
-
+       
         tmp1 = tmp_sites[index1]
         tmp2 = tmp_sites[index2]
 
@@ -23,93 +23,46 @@ function construct_layers_of_gates(starting_index :: Int, number_of_gates :: Int
 end
 
 # Construct the left lightcone part of the holoQUADS circuit
-function construct_left_lightcone(input_ψ :: MPS, tmp_time_slices :: Int, tmp_Δτ :: Float64, tmp_cutoff :: Float64, input_sites)
+function construct_left_lightcone(input_ψ :: MPS, tmp_time_slices :: Int, input_sites)
     gates = ITensor[]
     @time for ind₁ in 1:div(tmp_time_slices, 2)
+        @show ind₁
         tmp_number_of_gates = div(tmp_time_slices, 2) - (ind₁ - 1)
         for tmp_index in [2, 1]
-            construct_layers_of_gates(tmp_index, tmp_number_of_gates, tmp_Δτ, input_sites, gates)
+            construct_layers_of_gates(tmp_index, tmp_number_of_gates, input_sites, gates)
         end
     end
-    input_ψ = apply(gates, input_ψ; tmp_cutoff)
+    input_ψ = apply(gates, input_ψ; running_cutoff)
 end
 
-# @time for ind₁ = 1:div(N_time_slice, 2)
-#     number_of_gates = div(N_time_slice, 2) - (ind₁ - 1)
-#     @show number_of_gates
-#     for tmp_index in [2, 1]
-#         tmp_starting_index = tmp_index
-#         tmp_ending_index = tmp_starting_index + 2 * number_of_gates - 1
-#         corner_gate =
-#             construct_corner_layer(tmp_starting_index, tmp_ending_index, s, tau)
-#         ψ_copy = apply(corner_gate, ψ_copy; cutoff)
-#     end
-# end
 
-# Construct layers of two-site gates for the diagonal part of the holoQUADS circuit
-function construct_diagonal_layer(
-    starting_index::Int,
-    ending_index::Int,
-    temp_sites,
-    Δτ::Float64,
-)
+# Construct the diagonal parts of the holoQUADS circuits
+function construct_diagonal_part(input_ψ :: MPS, tmp_time_slices :: Int, input_index :: Int, input_sites)
+    @show input_index
     gates = ITensor[]
-    if starting_index - 1 < 1E-8
-        @show starting_index, ending_index
-        tmp_gate = long_range_gate(temp_sites, ending_index, Δτ)
-        return tmp_gate
-    else
-        @show starting_index, ending_index
-        temp_s1 = temp_sites[starting_index]
-        temp_s2 = temp_sites[ending_index]
-        temp_hj =
-            op("Sz", temp_s1) * op("Sz", temp_s2) +
-            1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) +
-            1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
-        temp_Gj = exp(-1.0im * Δτ * temp_hj)
-        push!(gates, temp_Gj)
+    for temporary_index in 1:tmp_time_slices
+        starting_index = unit_cell_size + 2 * (input_index - 1) - (temporary_index - 1)
+        construct_layers_of_gates(starting_index, 1, input_sites, gates)
     end
-    return gates
+    input_ψ = apply(gates, input_ψ; running_cutoff)
+    normalize!(input_ψ) 
 end
 
 
-# Construct layers of two-site gates for the right corner part of the holoQUADS circuit
-function construct_right_light_cone_layer(
-    starting_index::Int,
-    tmp_number_of_gates::Int,
-    period::Int,
-    temp_sites,
-    Δτ::Float64,
-)
-    gates = Any[]
-    gates_indices = []
-
-    for ind = 1:tmp_number_of_gates
-        tmp_ind = (starting_index - 2 * (ind - 1) + period) % period
-        if tmp_ind < 1E-8
-            tmp_ind = period
-        end
-        push!(gates_indices, tmp_ind)
+# Construct the right lightcone of the holoQUADS circuit
+function construct_right_lightcone(input_ψ :: MPS, input_index :: Int, tmp_time_slices :: Int, input_sites)
+    
+    @show input_index
+    gates = ITensor[]
+    tmp_number_of_gates = tmp_time_slices - 2 * input_index + 1
+    for tmp_index=1:tmp_number_of_gates
+        starting_index = N - tmp_index
+        construct_layers_of_gates(starting_index, 1, input_sites, gates)
     end
-
-    for index in gates_indices
-        @show index
-        if index - 1 < 1E-8
-            tmp_gate = long_range_gate(temp_sites, period, Δτ)
-            push!(gates, tmp_gate)
-        else
-            temp_s1 = temp_sites[index-1]
-            temp_s2 = temp_sites[index]
-            temp_hj =
-                op("Sz", temp_s1) * op("Sz", temp_s2) +
-                1 / 2 * op("S+", temp_s1) * op("S-", temp_s2) +
-                1 / 2 * op("S-", temp_s1) * op("S+", temp_s2)
-            temp_Gj = exp(-1.0im * Δτ * temp_hj)
-            push!(gates, temp_Gj)
-        end
-    end
-    return gates
+    input_ψ = apply(gates, input_ψ; running_cutoff)
+    normalize!(input_ψ)
 end
+
 
 # # The long-range two-site gate is only used when the recycle procedure is turned on
 # function long_range_gate(tmp_site, position_index::Int, Δτ::Float64)

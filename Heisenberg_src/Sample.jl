@@ -75,3 +75,15 @@ function sample(m::MPS, j::Int)
 
     return result
 end
+
+
+# Compute the overlap between the time-evolved wavefunction and 
+function compute_overlap(tmp_ψ₁::MPS, tmp_ψ₂::MPS)
+    overlap = abs(inner(tmp_ψ₁, tmp_ψ₂))
+    println("")
+    println("")
+    @show overlap
+    println("")
+    println("")
+    return overlap
+end
