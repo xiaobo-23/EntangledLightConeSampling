@@ -18,7 +18,6 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
         error("sample: MPS is not normalized, norm=$(norm(m[j]))")
     end
 
-
     if observable_type == "Sx"
         tmp_projn = Sx_projn
         projn_up = Sx_projn_plus
