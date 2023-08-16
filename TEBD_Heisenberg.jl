@@ -3,13 +3,13 @@ using ITensors
 using ITensors.HDF5
 
 let
-    N = 100
-    cutoff = 1E-8
+    N=100
+    cutoff=1E-8
     tau = 0.1
     ttotal = 5.0
 
     # Make an array of 'site' indices
-    s = siteinds("S=1/2", N; conserve_qns = true)
+    s = siteinds("S=1/2", N; conserve_qns = false)
 
     # Make gates (1, 2), (2, 3), (3, 4) ...
     gates = ITensor[]
@@ -40,16 +40,15 @@ let
     # Using TEBD to evolve the wavefunction in real time && taking measurements of local observables
 
     index = 1
-    @time for time = 0.0:tau:ttotal
+    @time for time = 0.0 : tau : ttotal
         # tmp_Sx = expect(ψ, "Sx", sites = 1 : N)
         # Sx[index, :] = tmp_Sx
         # tmp_Sy = epxect(ψ, "Sy", sites = 1 : N)
         # Sy[index, :] = tmp_Sy
-        tmp_Sz = expect(ψ, "Sz", sites = 1:N)
-        Sz[index, :] = tmp_Sz
-
+        tmp_Sz = expect(ψ, "Sz", sites = 1 : N)
+        Sz[index, :] = expect(ψ, "Sz", sites = 1 : N)
         tmp_overlap = abs(inner(ψ, ψ₀))
-        Overlap[index] = tmp_overlap
+        Overlap[index] = abs(inner(ψ, ψ₀))
         index += 1
 
         println("")
@@ -58,18 +57,16 @@ let
         println("")
 
         time ≈ ttotal && break
-        @show time
+        # @show time
         ψ = apply(gates, ψ; cutoff)
         normalize!(ψ)
     end
 
-    # file =
-    #     h5open("Data/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(tau)_AFM_Initialization.h5", "w")
-    # # write(file, "Sx", Sx)
-    # # write(file, "Sy", Sy)
-    # write(file, "Sz", Sz)
-    # write(file, "Overlap", Overlap)
-    # close(file)
-
+    h5open("Data_Benchmark/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(tau).h5", "w") do file
+        # write(file, "Sx", Sx)
+        # write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Overlap", Overlap)
+    end
     return
 end

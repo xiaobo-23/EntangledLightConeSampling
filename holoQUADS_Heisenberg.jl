@@ -32,7 +32,6 @@ let
     #####################################################################################################################################
     #####################################################################################################################################
 
-
     # Make an array of 'site' indices && quantum numbers are CONSERVED for the Heisenberg model
     # Using Neel state as the initial state
     s = siteinds("S=1/2", N; conserve_qns = false)
@@ -70,8 +69,6 @@ let
     # Random.seed!(2000)
     
     for measure_index = 1:num_measurements
-        println("")
-        println("")
         println("############################################################################")
         println("#########  GENERATE SAMPLE #$measure_index ")
         println("############################################################################")
@@ -138,21 +135,18 @@ let
     println("################################################################################")
     println("################################################################################")
 
-    # # Store data in hdf5 file
-    # file = h5open(
-    #     "Data_Benchmark/holoQUADS_Circuit_Heisenberg_Finite_N$(N)_T$(floquet_time)_AFM.h5",
-    #     "w",
-    # )
-    # write(file, "Initial Sz", Sz₀)
-    # # write(file, "Sx", Sx)
-    # # write(file, "Sy", Sy)
-    # write(file, "Sz", Sz)
-    # write(file, "Sz after reset", Sz_Reset)
-    # # write(file, "Cxx", Cxx)
-    # # write(file, "Cyy", Cyy)
-    # # write(file, "Czz", Czz)
-    # write(file, "Sz samples", bitstring_sample)
-    # # write(file, "Wavefunction Overlap", ψ_overlap)
-    # close(file)
+    # Store data in hdf5 file
+    h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time).h5", "w") do file
+        write(file, "Initial Sz", Sz₀)
+        # write(file, "Sx", Sx)
+        # write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Sz after reset", Sz_Reset)
+        # write(file, "Cxx", Cxx)
+        # write(file, "Cyy", Cyy)
+        # write(file, "Czz", Czz)
+        write(file, "Sz samples", bitstring_sample)
+        # write(file, "Wavefunction Overlap", ψ_overlap)
+    end
     return
 end

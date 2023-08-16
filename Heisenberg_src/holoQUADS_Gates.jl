@@ -9,7 +9,7 @@ function construct_layers_of_gates(starting_index :: Int, number_of_gates :: Int
     # gates = ITensor[]
     for j = 1 : number_of_gates
         index1 = starting_index + 2 * (j - 1)
-        index2 = index1 + 1; @show number_of_gates
+        index2 = index1 + 1; @show index2
        
         tmp1 = tmp_sites[index1]
         tmp2 = tmp_sites[index2]
@@ -53,11 +53,11 @@ end
 
 # Construct the right lightcone of the holoQUADS circuit
 function construct_right_lightcone(input_ψ :: MPS, input_index :: Int, tmp_time_slices :: Int, input_sites)
-    gates = ITensor[]; @show input_index
+    gates = ITensor[]
     tmp_number_of_gates = tmp_time_slices - 2 * input_index + 1
     for tmp_index=1:tmp_number_of_gates
         starting_index = N - tmp_index
-        construct_layers_of_gates(starting_index, tmp_index, input_sites, gates)
+        construct_layers_of_gates(starting_index, 1, input_sites, gates)
     end
     input_ψ = apply(gates, input_ψ; running_cutoff)
     normalize!(input_ψ)
