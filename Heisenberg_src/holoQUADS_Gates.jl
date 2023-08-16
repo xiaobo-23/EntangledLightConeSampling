@@ -15,7 +15,7 @@ function construct_layers_of_gates(starting_index :: Int, number_of_gates :: Int
         tmp2 = tmp_sites[index2]
 
         tmp_hj = op("Sz", tmp1) * op("Sz", tmp2) + 1/2 * op("S+", tmp1) * op("S-", tmp2) + 1/2 * op("S-", tmp1) * op("S+", tmp2)
-        tmp_Gj = exp(-1.0im * Δτ/2 * tmp_hj)
+        tmp_Gj = exp(-1.0im * Δτ * tmp_hj)
         push!(input_gates , tmp_Gj)
         # push!(gates, tmp_Gj)
     end
@@ -33,8 +33,13 @@ function construct_left_lightcone(input_ψ :: MPS, tmp_time_slices :: Int, input
             construct_layers_of_gates(tmp_index, tmp_number_of_gates, input_sites, gates)
         end
     end
-    input_ψ = apply(gates, input_ψ; cutoff=running_cutoff)
-    normalize!(input_ψ)
+    # @show sizeof(gates)
+    return gates
+
+    # tmp_ψ = deepcopy(input_ψ)
+    # input_ψ = apply(gates, input_ψ; cutoff=running_cutoff)
+    # @show inner(tmp_ψ, input_ψ)
+    # normalize!(input_ψ)
 end
 
 
@@ -46,8 +51,9 @@ function construct_diagonal_part(input_ψ :: MPS, tmp_time_slices :: Int, input_
         starting_index = unit_cell_size + 2 * (input_index - 1) - (temporary_index - 1)
         construct_layers_of_gates(starting_index, 1, input_sites, gates)
     end
-    input_ψ = apply(gates, input_ψ; running_cutoff)
-    normalize!(input_ψ) 
+    return gates
+    # input_ψ = apply(gates, input_ψ; cutoff=running_cutoff)
+    # normalize!(input_ψ) 
 end
 
 
@@ -59,8 +65,9 @@ function construct_right_lightcone(input_ψ :: MPS, input_index :: Int, tmp_time
         starting_index = N - tmp_index
         construct_layers_of_gates(starting_index, 1, input_sites, gates)
     end
-    input_ψ = apply(gates, input_ψ; running_cutoff)
-    normalize!(input_ψ)
+    return gates
+    # input_ψ = apply(gates, input_ψ; cutoff=running_cutoff)
+    # normalize!(input_ψ)
 end
 
 

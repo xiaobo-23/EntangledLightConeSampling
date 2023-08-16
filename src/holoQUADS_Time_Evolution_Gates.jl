@@ -20,7 +20,7 @@ function left_light_cone(
         s1 = tmp_sites[tmp_index]
         s2 = tmp_sites[tmp_index+1]
 
-        if tmp_index - 1 < 1E-8
+        if abs(tmp_index - 1) < 1E-8
             coeff = 2
         else
             coeff = 1

@@ -17,10 +17,10 @@ let
     ##### Define parameters used in the holoQUADS circuit                                                                           #####
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related                   #####
     #####################################################################################################################################
-    global floquet_time=2.0
+    global floquet_time=1.0
     global Δτ=0.1        
     global running_cutoff=1E-8                                                                         # Trotter decomposition time step 
-    global N=50
+    global N=100
     global N_time_slice = Int(floquet_time/Δτ) * 2
     global unit_cell_size = N_time_slice + 2                                                            # Number of total sites on a MPS
     
@@ -36,6 +36,7 @@ let
     # Using Neel state as the initial state
     s = siteinds("S=1/2", N; conserve_qns = false)
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
+    @show states
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N)
 
@@ -80,14 +81,16 @@ let
         ψ_overlap = Complex{Float64}[]
         tensor_index=1
 
-        tmp_overlap = abs(inner(ψ, ψ_copy))
-        println("The overlap of wavefuctions @T=0 is: $tmp_overlap")
-        append!(ψ_overlap, tmp_overlap)
-
+        # tmp_overlap = abs(inner(ψ, ψ_copy))
+        # println("The overlap of wavefuctions @T=0 is: $tmp_overlap")
+        # append!(ψ_overlap, tmp_overlap)
         
         # Construct the left lightcone and measure the leftmost two sites
-        construct_left_lightcone(ψ_copy, N_time_slice, s)
-        # normalize!(ψ_copy)
+        LC_gates = construct_left_lightcone(ψ_copy, N_time_slice, s)
+        ψ_copy = apply(LC_gates, ψ_copy; cutoff=running_cutoff)
+        normalize!(ψ_copy)
+        @show inner(ψ, ψ_copy) 
+
         @time if measure_index == 1
             Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
         end
@@ -99,9 +102,12 @@ let
         # Construct the diagonal circuit and measure the corresponding sites
         if number_of_DC > 1E-8
             @time for index_DC = 1 : number_of_DC
-                construct_diagonal_part(ψ_copy, N_time_slice, index_DC, s)
                 tensor_index += 1
-
+                DC_gates = construct_diagonal_part(ψ_copy, N_time_slice, index_DC, s)
+                ψ_copy = apply(DC_gates, ψ_copy; cutoff=running_cutoff)
+                normalize!(ψ_copy) 
+                @show inner(ψ, ψ_copy)
+                
                 if measure_index == 1
                     Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)                   
                 end
@@ -115,8 +121,11 @@ let
         # The right light cone structure in the holoQAUDS circuit
         @time for index_RL = 1:div(N_time_slice, 2)
             tensor_index += 1
-            construct_right_lightcone(ψ_copy, index_RL, N_time_slice, s)
-            
+            RL_gates = construct_right_lightcone(ψ_copy, index_RL, N_time_slice, s)
+            ψ_copy = apply(RL_gates, ψ_copy; cutoff=running_cutoff)
+            normalize!(ψ_copy) 
+            @show inner(ψ, ψ_copy) 
+
             if measure_index == 1
                 Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
             end
