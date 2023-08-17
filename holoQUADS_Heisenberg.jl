@@ -47,28 +47,22 @@ let
     # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                
     # Random.seed!(8000000)
 
-    #####################################################################################################################################
-    # Sample from the time-evolved wavefunction and store the measurements
-    #####################################################################################################################################
-    # Sx = complex(zeros(timeSlices, N))
-    # Sy = complex(zeros(timeSlices, N))
-    # Sz = complex(zeros(timeSlices, N))
-    # Cxx = complex(zeros(timeSlices, N))
-    # Czz = complex(zeros(timeSlices, N))
-    # Sz = complex(zeros(num_measurements, N))
-    bitstring_sample = real(zeros(num_measurements, N))
-
-    #####################################################################################################################################
-    # Sample from the time-evolved wavefunction and store the measurements
-    #####################################################################################################################################    
-    # Sx = complex(zeros(N_diagonal_circuit + 2, N))
-    # Sy = complex(zeros(N_diagonal_circuit + 2, N))
+    ## 08/17/2023
+    ## Set up the variables for measurements
+    Sx = Vector{ComplexF64}(undef, N)
+    Sy = Vector{ComplexF64}(undef, N)
     Sz = Vector{ComplexF64}(undef, N)
-    Sz_Reset = Vector{ComplexF64}(undef, N)
-
-    # ## Construct the holoQUADS circuit 
-    # Random.seed!(2000)
+    # Sz_Reset = Vector{ComplexF64}(undef, N)
     
+    SvN  = Array{Float64}(undef, number_of_samples, N * (N - 1))
+    bond = Array{Float64}(undef, number_of_samples, N * (N - 1))
+    samples = Array{Float64}(undef, number_of_samples, N)
+    samples_bitstring = Array{Float64}(undef, number_of_samples, N)
+
+    #####################################################################################################################################
+    ## Take measurements and generate the snapshots 
+    #####################################################################################################################################
+
     for measure_index = 1:num_measurements
         println("############################################################################")
         println("#########  GENERATE SAMPLE #$measure_index ")
@@ -76,28 +70,31 @@ let
         println("")
         println("")
 
-        # Compute the overlap between the original and time evolved wavefunctions
+        # Make a copy of the original wavefunciton and time evolve the copy
         ψ_copy = deepcopy(ψ)
-        ψ_overlap = Complex{Float64}[]
         tensor_index=1
 
+        # Compute the overlap between the original and time evolved wavefunctions
+        # ψ_overlap = Complex{Float64}[]
         # tmp_overlap = abs(inner(ψ, ψ_copy))
         # println("The overlap of wavefuctions @T=0 is: $tmp_overlap")
         # append!(ψ_overlap, tmp_overlap)
         
-        # Construct the left lightcone and measure the leftmost two sites
+        # Set up the left lightcone, apply all the gates to, and take measurements of the first two sites
         LC_gates = construct_left_lightcone(ψ_copy, N_time_slice, s)
         ψ_copy = apply(LC_gates, ψ_copy; cutoff=running_cutoff)
         normalize!(ψ_copy)
-        @show inner(ψ, ψ_copy) 
+        # @show inner(ψ, ψ_copy) 
 
-        @time if measure_index == 1
-            Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
-        end
-        @time bitstring_sample[measure_index, 1:2] = sample(ψ_copy, 1)
-        @time if measure_index == 1
-            Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
-        end
+        # # Debug the holoQUADS when the collapse part is turned off
+        # if measure_index == 1
+        #     Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
+        # end
+        samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+            expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+        samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+            expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+        normalize!(ψ_copy)
 
         # Construct the diagonal circuit and measure the corresponding sites
         if number_of_DC > 1E-8
@@ -108,13 +105,17 @@ let
                 normalize!(ψ_copy) 
                 @show inner(ψ, ψ_copy)
                 
+                # Debug the holoQUADS citcuit when the collapse part is turned off
                 if measure_index == 1
                     Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)                   
                 end
-                bitstring_sample[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = sample(ψ_copy, 2 * tensor_index - 1)
-                if measure_index == 1
-                    Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
-                end
+                
+
+                samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+                    expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+                samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+                    expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+                normalize!(ψ_copy)
             end
         end
 
@@ -126,13 +127,16 @@ let
             normalize!(ψ_copy) 
             @show inner(ψ, ψ_copy) 
 
-            if measure_index == 1
-                Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
-            end
-            bitstring_sample[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = sample(ψ_copy, 2 * tensor_index - 1)
-            if measure_index == 1
-                Sz_Reset[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
-            end
+            # Debug the holoQUADS when the measurement/collapse part is turned off
+            # if measure_index == 1
+            #     Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
+            # end
+            
+            samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+                    expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+            samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+                expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+            normalize!(ψ_copy)
         end        
     end
     replace!(bitstring_sample, 1.0 => 0.5, 2.0 => -0.5)
@@ -144,18 +148,16 @@ let
     println("################################################################################")
     println("################################################################################")
 
-    # Store data in hdf5 file
+    # Store data in a HDF5 file
     h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         # write(file, "Sx", Sx)
         # write(file, "Sy", Sy)
         write(file, "Sz", Sz)
-        write(file, "Sz after reset", Sz_Reset)
-        # write(file, "Cxx", Cxx)
-        # write(file, "Cyy", Cyy)
-        # write(file, "Czz", Czz)
-        write(file, "Sz samples", bitstring_sample)
+        write(file, "MPS/MPO samples", samples)
+        write(file, "Bistring samples", samples_bitstring)
         # write(file, "Wavefunction Overlap", ψ_overlap)
     end
+    
     return
 end
