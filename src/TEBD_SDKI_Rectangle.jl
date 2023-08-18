@@ -18,9 +18,9 @@ BLAS.set_num_threads(8)
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
-include("Entanglement.jl")
-include("TEBD_Time_Evolution_Gates.jl")
-include("ObtainBond.jl")
+include("SDKI/Entanglement.jl")
+include("SDKI/TEBD_Time_Evolution_Gates.jl")
+include("SDKI/ObtainBond.jl")
 
 let 
     N = 100
@@ -59,7 +59,7 @@ let
     println("Total number of time slices that need to be saved is : $(timeSlices)")
     
     # Allocate memory for physical observables
-    @timeit time_machine "Allocate memory" begin
+    @timeit time_machine "Memory Allocation" begin
         # Local observables including various one-point functions
         Sx = Array{ComplexF64}(undef, timeSlices, N)
         Sy = Array{ComplexF64}(undef, timeSlices, N)
@@ -127,7 +127,7 @@ let
             Bond[index, :] = obtain_bond_dimension(ψ_copy, N)
         end
 
-        @show time_machine
+       
         # @show SvN[index, :]
         # @show Sz[index, :]
         @show Bond[index, :]
@@ -147,5 +147,7 @@ let
             write(file, "Initial Sz", Sz[1, :])
         end
     end
+
+    @show time_machine
     return
 end  
