@@ -15,7 +15,7 @@ include("src/Heisenberg/Sample.jl")
 include("src/Heisenberg/holoQUADS_Gates.jl")
 include("src/Heisenberg/Entanglement.jl")
 include("src/Heisenberg/ObtainBond.jl")
-include("src/Heisenberg/Measure_Chi_and_SvN.jl")
+include("src/Heisenberg/Sample_and_Measure.jl")
 
 
 let
@@ -26,12 +26,12 @@ let
     global floquet_time=1.0
     global Δτ=0.1        
     global running_cutoff=1E-8                                                                         # Trotter decomposition time step 
-    global N=100
+    global N=500
     global N_time_slice = Int(floquet_time/Δτ) * 2
     global unit_cell_size = N_time_slice + 2                                                            # Number of total sites on a MPS
     
     number_of_DC = div(N - unit_cell_size, 2)               
-    num_measurements = 1
+    number_of_samples = 1
     measurement_type = "Sz"
 
     @show floquet_time, typeof(floquet_time)
@@ -42,7 +42,6 @@ let
     # Using Neel state as the initial state
     s = siteinds("S=1/2", N; conserve_qns = false)
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
-    @show states
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N)
 
@@ -69,7 +68,7 @@ let
     ## Take measurements and generate the snapshots 
     #####################################################################################################################################
 
-    for measure_index = 1:num_measurements
+    for measure_index = 1:number_of_samples
         println("############################################################################")
         println("#########  GENERATE SAMPLE #$measure_index ")
         println("############################################################################")
@@ -92,21 +91,26 @@ let
         normalize!(ψ_copy)
         # @show inner(ψ, ψ_copy) 
 
-        # # Debug the holoQUADS when the collapse part is turned off
-        # if measure_index == 1
-        #     Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
-        # end
+        # Debug the holoQUADS when the collapse part is turned off
+        if measure_index == 1
+            Sz[2 * tensor_index - 1 : 2 * tensor_index] = (
+                expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)
+            )
+        end
 
-        # Measure the bond dimension, entanglement entropy and sample the wavefunction
-        measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
+        sample_and_measure!(ψ_copy, 2 * tensor_index - 1, measure_index, measurement_type, 
+        SvN, bond, samples, samples_bitstring)
+
+        # # Measure the bond dimension, entanglement entropy and sample the wavefunction
+        # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
         
-        samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-            expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-        samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-            expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-        normalize!(ψ_copy)
+        # samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+        #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+        # samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+        #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+        # normalize!(ψ_copy)
 
-        meausre_chi_and_SvN!(ψ_copy, 2 * tensor_index, meausre_index, SvN, bond)
+        # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index, measure_index, SvN, bond)
 
         # Construct the diagonal circuit and measure the corresponding sites
         if number_of_DC > 1E-8
@@ -121,17 +125,20 @@ let
                 if measure_index == 1
                     Sz[2 * tensor_index - 1 : 2 * tensor_index] = expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index)                   
                 end
+
+                sample_and_measure!(ψ_copy, 2 * tensor_index - 1, measure_index, measurement_type, 
+                SvN, bond, samples, samples_bitstring)
                 
-                # Measure the bond dimension, entanglement entropy and sample the wavefunction
-                measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
+                # # Measure the bond dimension, entanglement entropy and sample the wavefunction
+                # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
 
-                samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-                    expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-                samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-                    expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-                normalize!(ψ_copy)
+                # samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+                #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+                # samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+                #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+                # normalize!(ψ_copy)
 
-                meausre_chi_and_SvN!(ψ_copy, 2 * tensor_index, meausre_index, SvN, bond)
+                # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index, measure_index, SvN, bond)
             end
         end
 
@@ -143,25 +150,28 @@ let
             normalize!(ψ_copy) 
             @show inner(ψ, ψ_copy) 
 
-            # # Debug the holoQUADS when the measurement/collapse part is turned off
-            # if measure_index == 1
-            #     Sz[2 * tensor_index - 1 : 2 * tensor_index] = 
-            #     (expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-            # end
+            # Debug the holoQUADS when the measurement/collapse part is turned off
+            if measure_index == 1
+                Sz[2 * tensor_index - 1 : 2 * tensor_index] = 
+                (expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+            end
             
-            # Measure the bond dimension, entanglement entropy and sample the wavefunction
-            measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
+            sample_and_measure!(ψ_copy, 2 * tensor_index - 1, measure_index, measurement_type, 
+            SvN, bond, samples, samples_bitstring)
 
-            samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-                    expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-            samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-                expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-            normalize!(ψ_copy)
+            # # Measure the bond dimension, entanglement entropy and sample the wavefunction
+            # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
 
-            meausre_chi_and_SvN!(ψ_copy, 2 * tensor_index, meausre_index, SvN, bond)  
+            # samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+            #         expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+            # samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
+            #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
+            # normalize!(ψ_copy)
+
+            # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index, measure_index, SvN, bond)
         end        
     end
-    replace!(bitstring_sample, 1.0 => 0.5, 2.0 => -0.5)
+    replace!(samples_bitstring, 1.0 => 0.5, 2.0 => -0.5)
 
     println("################################################################################")
     println("################################################################################")
@@ -170,16 +180,18 @@ let
     println("################################################################################")
     println("################################################################################")
 
-    # Store data in a HDF5 file
-    h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time).h5", "w") do file
-        write(file, "Initial Sz", Sz₀)
-        # write(file, "Sx", Sx)
-        # write(file, "Sy", Sy)
-        write(file, "Sz", Sz)
-        write(file, "MPS/MPO samples", samples)
-        write(file, "Bistring samples", samples_bitstring)
-        # write(file, "Wavefunction Overlap", ψ_overlap)
-    end
+    # # Store data in a HDF5 file
+    # h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time).h5", "w") do file
+    #     write(file, "Initial Sz", Sz₀)
+    #     # write(file, "Sx", Sx)
+    #     # write(file, "Sy", Sy)
+    #     write(file, "Sz", Sz)
+    #     write(file, "MPS/MPO samples", samples)
+    #     write(file, "Bistring samples", samples_bitstring)
+    #     write(file, "SvN", SvN)
+    #     write(file, "chi", bond)
+    #     # write(file, "Wavefunction Overlap", ψ_overlap)
+    # end
     
     return
 end
