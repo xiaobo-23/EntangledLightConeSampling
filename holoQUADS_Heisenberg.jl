@@ -128,17 +128,6 @@ let
 
                 sample_and_measure!(ψ_copy, 2 * tensor_index - 1, measure_index, measurement_type, 
                 SvN, bond, samples, samples_bitstring)
-                
-                # # Measure the bond dimension, entanglement entropy and sample the wavefunction
-                # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
-
-                # samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-                #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-                # samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-                #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-                # normalize!(ψ_copy)
-
-                # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index, measure_index, SvN, bond)
             end
         end
 
@@ -158,17 +147,6 @@ let
             
             sample_and_measure!(ψ_copy, 2 * tensor_index - 1, measure_index, measurement_type, 
             SvN, bond, samples, samples_bitstring)
-
-            # # Measure the bond dimension, entanglement entropy and sample the wavefunction
-            # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index - 1, measure_index, SvN, bond)
-
-            # samples[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-            #         expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-            # samples_bitstring[measure_index, 2 * tensor_index - 1 : 2 * tensor_index] = (
-            #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
-            # normalize!(ψ_copy)
-
-            # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index, measure_index, SvN, bond)
         end        
     end
     replace!(samples_bitstring, 1.0 => 0.5, 2.0 => -0.5)
@@ -180,18 +158,19 @@ let
     println("################################################################################")
     println("################################################################################")
 
-    # # Store data in a HDF5 file
-    # h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time).h5", "w") do file
-    #     write(file, "Initial Sz", Sz₀)
-    #     # write(file, "Sx", Sx)
-    #     # write(file, "Sy", Sy)
-    #     write(file, "Sz", Sz)
-    #     write(file, "MPS/MPO samples", samples)
-    #     write(file, "Bistring samples", samples_bitstring)
-    #     write(file, "SvN", SvN)
-    #     write(file, "chi", bond)
-    #     # write(file, "Wavefunction Overlap", ψ_overlap)
-    # end
+    # Store data in a HDF5 file
+    h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time).h5", "w") do file
+        write(file, "Initial Sz", Sz₀)
+        # write(file, "Sx", Sx)
+        # write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "MPS/MPO samples", samples)
+        write(file, "Bistring samples", samples_bitstring)
+        write(file, "SvN", SvN)
+        write(file, "chi", bond)
+        # write(file, "Wavefunction Overlap", ψ_overlap)
+    end
+    
     
     return
 end
