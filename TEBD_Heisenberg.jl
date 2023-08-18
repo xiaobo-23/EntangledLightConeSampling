@@ -122,7 +122,7 @@ let
         ## Measure bond dimension and von Neumann entanglement entropy
         @timeit time_machine "Compute von Neumann entanglement entropy and bond dimension" begin
             SvN[index, :]  = entanglement_entropy(ψ, N)
-            Bond[index, :] = entanglement_entropy(ψ, N)
+            Bond[index, :] = obtain_bond_dimension(ψ, N)
         end
 
         ## Print the fidelity of wavefunction and Sz to monitor the time evolution
@@ -152,5 +152,5 @@ let
     @show time_machine
     return
 
-    
+
 end
