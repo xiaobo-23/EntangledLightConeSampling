@@ -27,7 +27,7 @@ end
 
 # Compute von Neumann entanglement entropy given the eigen values
 function compute_entropy(input_matrix)
-    local tmpEntropy = 0
+    local tmpEntropy = 0.0
     for index in 1 : size(input_matrix, 1) 
         tmp = input_matrix[index, index]^2
         if tmp > 1E-8
