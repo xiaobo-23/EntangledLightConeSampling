@@ -29,10 +29,10 @@ let
     ##### Define parameters used in the holoQUADS circuit                                                                           #####
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related                   #####
     #####################################################################################################################################
-    global floquet_time=1.0
+    global floquet_time=2.0
     global Δτ=0.1        
     global running_cutoff=1E-8                                                                         # Trotter decomposition time step 
-    global N=500
+    global N=100
     global N_time_slice = Int(floquet_time/Δτ) * 2
     global unit_cell_size = N_time_slice + 2                                                            # Number of total sites on a MPS
     
@@ -45,20 +45,19 @@ let
     #####################################################################################################################################
     #####################################################################################################################################
 
-    ## Use a product state e.g. Neel state as the initial state
-    s = siteinds("S=1/2", N; conserve_qns = false)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
-    ψ = MPS(s, states)
-    Sz₀ = expect(ψ, "Sz"; sites = 1:N)
-    Random.seed!(123456)
+    # ## Use a product state e.g. Neel state as the initial state
+    # s = siteinds("S=1/2", N; conserve_qns = false)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
+    # ψ = MPS(s, states)
+    # Sz₀ = expect(ψ, "Sz"; sites = 1:N)
+    # Random.seed!(123456)
+ 
+    # Use a random state as the initial state for debug purpose
+    Random.seed!(1234567)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ = randomMPS(s, states, linkdims = 2)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                
 
-    
-    ## Using a random state as the initial state
-    # Random.seed!(1234567)
-    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    # ψ = randomMPS(s, states, linkdims = 2)
-    # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                
-    # Random.seed!(8000000)
 
     ## 08/17/2023
     ## Set up the variables for measurements
@@ -84,6 +83,7 @@ let
         println("############################################################################")
         println("")
         println("")
+        # Random.seed!(123456)
 
         # Make a copy of the original wavefunciton and time evolve the copy
         ψ_copy = deepcopy(ψ)
@@ -194,7 +194,7 @@ let
     # println("################################################################################")
 
     # Store data in a HDF5 file
-    h5open("Data_Benchmark/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_Sample$(sample_index).h5", "w") do file
+    h5open("Data_Test/holoQUADS_Heisenberg_N$(N)_T$(floquet_time)_Sample$(sample_index).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         # write(file, "Sy", Sy)

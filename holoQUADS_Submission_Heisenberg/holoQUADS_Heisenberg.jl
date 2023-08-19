@@ -50,7 +50,7 @@ let
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N)
-    Random.seed!(123456)
+    
 
     ## Using a random state as the initial state
     # Random.seed!(1234567)
@@ -83,6 +83,7 @@ let
         println("############################################################################")
         println("")
         println("")
+        Random.seed!(123456)
 
         # Make a copy of the original wavefunciton and time evolve the copy
         ψ_copy = deepcopy(ψ)
@@ -199,7 +200,7 @@ let
         # write(file, "Sy", Sy)
         write(file, "Sz", Sz)
         write(file, "MPS/MPO samples", samples)
-        write(file, "Bistring samples", samples_bitstring)
+        write(file, "Bitstring samples", samples_bitstring)
         write(file, "SvN", SvN)
         write(file, "chi", bond)
         # write(file, "Wavefunction Overlap", ψ_overlap)

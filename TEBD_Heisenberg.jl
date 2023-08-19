@@ -54,7 +54,7 @@ function generate_gates_in_staircase_pattern!(length_of_chain :: Int, input_gate
 end
 
 let
-    N = 500
+    N = 100
     running_cutoff = 1E-8
     ttotal = 5.2
     global Δτ = 0.1
@@ -67,7 +67,7 @@ let
     # gates = ITensor[]
     # generate_gates_in_staircase_pattern!(N, gates, s)
 
-
+    
     ## 08/16/2023
     ## Geenrate the time evolution gates using brickwall pattern for one time slice/step
     @timeit time_machine "Generate gates in the brickwall pattern" begin
@@ -76,10 +76,18 @@ let
         generate_gates_in_brickwall_pattern!(1, N - 1, gates, s)
     end
     
+    
+    # ## Use a product state e.g. Neel state as the initial state
+    # ψ₀ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+    # ψ = deepcopy(ψ₀)
 
-    # Initialize the wavefunction
-    ψ₀ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
+
+    ## Use a random state as the initial state
+    Random.seed!(1234567)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    ψ₀ = randomMPS(s, states, linkdims = 2)
     ψ = deepcopy(ψ₀)
+    Sz₀ = expect(ψ₀, "Sz"; sites = 1 : N)              
 
 
     ## Initialize observables used in the time evolution process

@@ -56,7 +56,6 @@ let
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
     Random.seed!(123)
 
-
     for measure_index = 1:number_of_samples
         println("")
         println("")

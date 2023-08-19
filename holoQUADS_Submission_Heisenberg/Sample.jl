@@ -50,26 +50,26 @@ function sample(m::MPS, j::Int)
             A *= (1.0 / sqrt(pn))
         end
 
-        # ## 08/15/2023
-        # ## The matrices used in the reset procedure depend on the physical state of the site and the initial wavefunction
+        ## 08/15/2023
+        ## The matrices used in the reset procedure depend on the physical state of the site and the initial wavefunction
         
-        # # Reset to the initial Neel state |up, down, up, down, ...> with n=1 --> |up> and n=2 --> |down>
-        # if ind % 2 == 1
-        #     if n == 1             
-        #         tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
-        #     else
-        #         tmp_reset = ITensor(S⁺_matrix, tmpS', tmpS)
-        #     end
-        # else
-        #     if n == 1
-        #         tmp_reset = ITensor(S⁻_matrix, tmpS', tmpS)
-        #     else
-        #         tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
-        #     end
-        # end
+        # Reset to the initial Neel state |up, down, up, down, ...> with n=1 --> |up> and n=2 --> |down>
+        if ind % 2 == 1
+            if n == 1             
+                tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
+            else
+                tmp_reset = ITensor(S⁺_matrix, tmpS', tmpS)
+            end
+        else
+            if n == 1
+                tmp_reset = ITensor(S⁻_matrix, tmpS', tmpS)
+            else
+                tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
+            end
+        end
         
-        # m[ind] *= tmp_reset
-        # noprime!(m[ind])
+        m[ind] *= tmp_reset
+        noprime!(m[ind])
     end
     return result
 end
