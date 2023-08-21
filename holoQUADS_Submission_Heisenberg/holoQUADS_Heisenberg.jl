@@ -16,11 +16,11 @@ using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)
 
-include("src/Heisenberg/Sample.jl")
-include("src/Heisenberg/holoQUADS_Gates.jl")
-include("src/Heisenberg/Entanglement.jl")
-include("src/Heisenberg/ObtainBond.jl")
-include("src/Heisenberg/Sample_and_Measure.jl")
+include("../Sample.jl")
+include("../holoQUADS_Gates.jl")
+include("../Entanglement.jl")
+include("../ObtainBond.jl")
+include("../Sample_and_Measure.jl")
 
 const time_machine = TimerOutput()
 
@@ -128,7 +128,7 @@ let
         #     expect(ψ_copy, measurement_type; sites = 2 * tensor_index - 1 : 2 * tensor_index))
         # normalize!(ψ_copy)
 
-        # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index, measure_index, SvN, bond)
+        # measure_chi_and_SvN!(ψ_copy, 2 * tensor_index, measure_index, SvN, boind)
 
         # Construct the diagonal circuit and measure the corresponding sites
         if number_of_DC > 1E-8
@@ -187,12 +187,12 @@ let
     replace!(samples_bitstring, 1 => 0.5, 2 => -0.5)
     @show time_machine
 
-    # println("################################################################################")
-    # println("################################################################################")
-    # println("Projection in the Sz basis of the initial MPS")
-    # @show Sz₀
-    # println("################################################################################")
-    # println("################################################################################")
+    println("################################################################################")
+    println("################################################################################")
+    println("Projection in the Sz basis of the initial MPS")
+    @show Sz₀
+    println("################################################################################")
+    println("################################################################################")
 
     # Store data in a HDF5 file
     h5open("../Data/holoQUADS_Heisenberg_N$(N)_T$(floquet_time)_Sample$(sample_index).h5", "w") do file

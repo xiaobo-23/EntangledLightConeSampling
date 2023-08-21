@@ -4,22 +4,22 @@ using ITensors
 
 # Define projectors ni the Sz basis
 
-# Measure Sz
-## Need to be modified based on the initialization of MPS
-Sz_matrix = [
-    1 0
-    0 1
-]
+# # Measure Sz
+# ## Need to be modified based on the initialization of MPS
+# Sz_matrix = [
+#     1 0
+#     0 1
+# ]
 
-S⁺_matrix = [
-    0 1
-    0 0
-]
+# S⁺_matrix = [
+#     0 1
+#     0 0
+# ]
 
-S⁻_matrix = [
-    0 0
-    1 0
-]
+# S⁻_matrix = [
+#     0 0
+#     1 0
+# ]
 
 
 ## 08/20/2023
@@ -27,10 +27,7 @@ S⁻_matrix = [
 ## Using the corresponding functions from the SDKI model
 
 # Measure Sz
-Sz_projn = [
-    1  0
-    0  1
-]
+Sz_projn = [[1, 0], [0, 1]]
 
 Sz_projn_up = [
     1  0

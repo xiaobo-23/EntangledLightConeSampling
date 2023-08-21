@@ -27,10 +27,7 @@ S⁻_matrix = [
 ## Using the corresponding functions from the SDKI model
 
 # Measure Sz
-Sz_projn = [
-    1  0
-    0  1
-]
+Sz_projn = [[1, 0], [0, 1]]
 
 Sz_projn_up = [
     1  0

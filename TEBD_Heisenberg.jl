@@ -54,9 +54,9 @@ function generate_gates_in_staircase_pattern!(length_of_chain :: Int, input_gate
 end
 
 let
-    N = 100
+    N = 500
     running_cutoff = 1E-8
-    ttotal = 8.2
+    ttotal = 7.2
     global Δτ = 0.1
 
     # Make an array of 'site' indices

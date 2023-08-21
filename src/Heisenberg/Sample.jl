@@ -25,6 +25,7 @@ function sample(m::MPS, j::Int)
     result = zeros(Int, 2)
     A = m[j]
     for ind = j:j+1
+        @show ind
         tmpS = siteind(m, ind)
         # println("Before taking measurements")
         # @show(m[ind])
