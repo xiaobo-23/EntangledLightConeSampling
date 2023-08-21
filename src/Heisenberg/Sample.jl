@@ -18,6 +18,10 @@ function sample(m::MPS, j::Int)
         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
     end
 
+    tmp_projn = Sz_projn
+    projn_up = Sz_projn_up
+    projn_dn = Sz_projn_dn
+
     result = zeros(Int, 2)
     A = m[j]
     for ind = j:j+1
@@ -33,8 +37,12 @@ function sample(m::MPS, j::Int)
         pn = 0.0
 
         while n <= d
+            # projn = ITensor(tmpS)
+            # projn[tmpS=>n] = 1.0
+
             projn = ITensor(tmpS)
-            projn[tmpS=>n] = 1.0
+            projn[tmpS => 1] = tmp_projn[n][1]
+            projn[tmpS => 2] = tmp_projn[n][2]
             
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
@@ -68,8 +76,18 @@ function sample(m::MPS, j::Int)
         #     end
         # end
         
-        # m[ind] *= tmp_reset
-        # noprime!(m[ind])
+
+        ## 08/20/2023
+        ## Debig the projection & sampling part
+        ## Using the projection and sampling code from the SDKI model
+        if abs(n - 1) < 1E-8
+            tmp_reset = ITensor(projn_up, tmpS', tmpS)
+        else
+            tmp_reset = ITensor(projn_dn, tmpS', tmpS)
+        end
+
+        m[ind] *= tmp_reset
+        noprime!(m[ind])
     end
     return result
 end

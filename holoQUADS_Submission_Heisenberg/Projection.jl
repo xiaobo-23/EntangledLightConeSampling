@@ -20,3 +20,24 @@ S⁻_matrix = [
     0 0
     1 0
 ]
+
+
+## 08/20/2023
+## Debug the projection & sampling part.
+## Using the corresponding functions from the SDKI model
+
+# Measure Sz
+Sz_projn = [
+    1  0
+    0  1
+]
+
+Sz_projn_up = [
+    1  0
+    0  0
+]
+
+Sz_projn_dn = [
+    0  0
+    0  1
+]

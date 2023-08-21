@@ -56,7 +56,7 @@ end
 let
     N = 100
     running_cutoff = 1E-8
-    ttotal = 5.2
+    ttotal = 8.2
     global Δτ = 0.1
 
     # Make an array of 'site' indices
@@ -91,7 +91,7 @@ let
 
 
     ## Initialize observables used in the time evolution process
-    number_of_measurements = Int(ttotal / Δτ) + 1
+    number_of_measurements = ceil(Int, ttotal/Δτ) + 1
     @timeit time_machine "Memory Allocation" begin
         Sx = Array{ComplexF64}(undef, number_of_measurements, N)
         Sy = Array{ComplexF64}(undef, number_of_measurements, N)
@@ -147,7 +147,7 @@ let
         index += 1
         
         ## Store results in a output file
-        h5open("Data_Benchmark/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(Δτ)_Brickwall.h5", "w") do file
+        h5open("Data_Test/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(Δτ).h5", "w") do file
             # write(file, "Sx", Sx)
             # write(file, "Sy", Sy)
             write(file, "Sz", Sz)

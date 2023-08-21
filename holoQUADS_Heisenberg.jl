@@ -29,7 +29,7 @@ let
     ##### Define parameters used in the holoQUADS circuit                                                                           #####
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related                   #####
     #####################################################################################################################################
-    global floquet_time=2.0
+    global floquet_time=3.0
     global Δτ=0.1        
     global running_cutoff=1E-8                                                                         # Trotter decomposition time step 
     global N=100
@@ -54,6 +54,7 @@ let
  
     # Use a random state as the initial state for debug purpose
     Random.seed!(1234567)
+    s = siteinds("S=1/2", N; conserve_qns = false)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     ψ = randomMPS(s, states, linkdims = 2)
     Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                
@@ -200,7 +201,7 @@ let
         # write(file, "Sy", Sy)
         write(file, "Sz", Sz)
         write(file, "MPS/MPO samples", samples)
-        write(file, "Bistring samples", samples_bitstring)
+        write(file, "Bitstring samples", samples_bitstring)
         write(file, "SvN", SvN)
         write(file, "chi", bond)
         # write(file, "Wavefunction Overlap", ψ_overlap)

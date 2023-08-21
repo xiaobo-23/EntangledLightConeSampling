@@ -16,11 +16,11 @@ using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)
 
-include("../Sample.jl")
-include("../holoQUADS_Gates.jl")
-include("../Entanglement.jl")
-include("../ObtainBond.jl")
-include("../Sample_and_Measure.jl")
+include("src/Heisenberg/Sample.jl")
+include("src/Heisenberg/holoQUADS_Gates.jl")
+include("src/Heisenberg/Entanglement.jl")
+include("src/Heisenberg/ObtainBond.jl")
+include("src/Heisenberg/Sample_and_Measure.jl")
 
 const time_machine = TimerOutput()
 
@@ -50,14 +50,15 @@ let
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N]
     ψ = MPS(s, states)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N)
-    
-
-    ## Using a random state as the initial state
+    # Random.seed!(123456)
+ 
+    # # Use a random state as the initial state for debug purpose
     # Random.seed!(1234567)
+    # s = siteinds("S=1/2", N; conserve_qns = false)
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     # ψ = randomMPS(s, states, linkdims = 2)
     # Sz₀ = expect(ψ, "Sz"; sites = 1 : N)                
-    # Random.seed!(8000000)
+
 
     ## 08/17/2023
     ## Set up the variables for measurements
@@ -194,7 +195,7 @@ let
     # println("################################################################################")
 
     # Store data in a HDF5 file
-    h5open("../Data/holoQUADS_Circuit_Heisenberg_N$(N)_T$(floquet_time)_Sample$(sample_index).h5", "w") do file
+    h5open("../Data/holoQUADS_Heisenberg_N$(N)_T$(floquet_time)_Sample$(sample_index).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         # write(file, "Sy", Sy)

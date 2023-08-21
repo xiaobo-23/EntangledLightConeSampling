@@ -18,6 +18,10 @@ function sample(m::MPS, j::Int)
         error("sample: MPS is not normalized, norm=$(norm(m[1]))")
     end
 
+    tmp_projn = Sz_projn
+    projn_up = Sz_projn_up
+    projn_dn = Sz_projn_dn
+
     result = zeros(Int, 2)
     A = m[j]
     for ind = j:j+1
@@ -33,8 +37,12 @@ function sample(m::MPS, j::Int)
         pn = 0.0
 
         while n <= d
+            # projn = ITensor(tmpS)
+            # projn[tmpS=>n] = 1.0
+
             projn = ITensor(tmpS)
-            projn[tmpS=>n] = 1.0
+            projn[tmpS => 1] = tmp_projn[n][1]
+            projn[tmpS => 2] = tmp_projn[n][2]
             
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
@@ -50,24 +58,34 @@ function sample(m::MPS, j::Int)
             A *= (1.0 / sqrt(pn))
         end
 
-        ## 08/15/2023
-        ## The matrices used in the reset procedure depend on the physical state of the site and the initial wavefunction
+        # ## 08/15/2023
+        # ## The matrices used in the reset procedure depend on the physical state of the site and the initial wavefunction
         
-        # Reset to the initial Neel state |up, down, up, down, ...> with n=1 --> |up> and n=2 --> |down>
-        if ind % 2 == 1
-            if n == 1             
-                tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
-            else
-                tmp_reset = ITensor(S⁺_matrix, tmpS', tmpS)
-            end
+        # # Reset to the initial Neel state |up, down, up, down, ...> with n=1 --> |up> and n=2 --> |down>
+        # if ind % 2 == 1
+        #     if n == 1             
+        #         tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
+        #     else
+        #         tmp_reset = ITensor(S⁺_matrix, tmpS', tmpS)
+        #     end
+        # else
+        #     if n == 1
+        #         tmp_reset = ITensor(S⁻_matrix, tmpS', tmpS)
+        #     else
+        #         tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
+        #     end
+        # end
+        
+
+        ## 08/20/2023
+        ## Debig the projection & sampling part
+        ## Using the projection and sampling code from the SDKI model
+        if abs(n - 1) < 1E-8
+            tmp_reset = ITensor(projn_up, tmpS', tmpS)
         else
-            if n == 1
-                tmp_reset = ITensor(S⁻_matrix, tmpS', tmpS)
-            else
-                tmp_reset = ITensor(Sz_matrix, tmpS', tmpS)
-            end
+            tmp_reset = ITensor(projn_dn, tmpS', tmpS)
         end
-        
+
         m[ind] *= tmp_reset
         noprime!(m[ind])
     end
