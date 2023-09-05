@@ -26,7 +26,7 @@ do
 
         python3 Generate_disBatch_Input_File.py
          
-        for index in $(seq 1  1  500)
+        for index in $(seq 1  1  1000)
         do
             mkdir Sample$index 
             cp holoQUADS_Heisenberg.jl  Sample$index/holoQUADS_Heisenberg.jl
@@ -43,7 +43,7 @@ do
             cd ..
         done
 
-        for tmp_index in $(seq 1  1  2)
+        for tmp_index in $(seq 1  1  4)
         do
             cp Generate_disBatch_Input_File.py Generate_disBatch_Input_File$tmp_index.py
 

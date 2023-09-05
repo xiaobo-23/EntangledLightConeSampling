@@ -30,9 +30,9 @@ let
     ##### Given the light-cone structure of the real-time dynamics, circuit depth and number of sites are related                   #####
     #####################################################################################################################################
     global floquet_time=1.0
-    global Δτ=0.1        
-    global running_cutoff=1E-8                                                                         # Trotter decomposition time step 
-    global N=500
+    global Δτ=0.1                                                                                       # Trotter decomposition time step 
+    global running_cutoff=1E-6                                                                          
+    global N=400
     global N_time_slice = Int(floquet_time/Δτ) * 2
     global unit_cell_size = N_time_slice + 2                                                            # Number of total sites on a MPS
     

@@ -54,14 +54,15 @@ function generate_gates_in_staircase_pattern!(length_of_chain :: Int, input_gate
 end
 
 let
-    N = 500
-    running_cutoff = 1E-8
-    ttotal = 7.2
+    N = 400
+    running_cutoff=1E-2
+    ttotal = 15.0
     global Δτ = 0.1
 
     # Make an array of 'site' indices
     s = siteinds("S=1/2", N; conserve_qns = false)
     
+   
     # ## 08/16/2023
     # ## Generate the time evolution gates using the staircase pattern for one time slice/step
     # gates = ITensor[]
@@ -119,8 +120,6 @@ let
             Sz[index, :] = tmp_Sz
         end
         
-
-
         ## Measure the overlap between time-evolved wavefunction and the original wavefunction
         @timeit time_machine "Compute overlap of wavefunctions" begin
             tmp_overlap = abs(inner(ψ, ψ₀))
@@ -147,7 +146,7 @@ let
         index += 1
         
         ## Store results in a output file
-        h5open("Data_Test/TEBD_Heisenberg_N$(N)_T$(ttotal)_tau$(Δτ).h5", "w") do file
+        h5open("Data_Test/TEBD_Heisenberg_N$(N)_cutoff$(running_cutoff)_T$(ttotal)_tau$(Δτ).h5", "w") do file
             # write(file, "Sx", Sx)
             # write(file, "Sy", Sy)
             write(file, "Sz", Sz)
@@ -159,6 +158,5 @@ let
     
     @show time_machine
     return
-
-
+    
 end
