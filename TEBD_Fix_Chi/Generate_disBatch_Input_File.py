@@ -4,13 +4,7 @@
 ##################################################################
 
 import numpy as np
-import sys
-import csv
-import os 
-import shutil
-import math
 from io import StringIO
-
 
 def generate_input_file(input_index, task_file):
     '''Generate corresponding folders and input files based on chemical potential'''
@@ -20,7 +14,7 @@ def generate_input_file(input_index, task_file):
         + "{}".format(input_index) + ".log" + "\n")
     
 def main():
-    sample_list = np.arange(200, 1200, 200)
+    sample_list = np.arange(50, 160, 50)
     # location = os.path.dirname(os.path.realpath(__file__))
 
     submit_file = open("Chi_Variation", "a")

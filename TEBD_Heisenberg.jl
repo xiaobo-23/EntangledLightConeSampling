@@ -77,17 +77,17 @@ let
     end
     
     
-    # ## Use a product state e.g. Neel state as the initial state
-    # ψ₀ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
-    # ψ = deepcopy(ψ₀)
-
-
-    ## Use a random state as the initial state
-    Random.seed!(1234567)
-    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ₀ = randomMPS(s, states, linkdims = 2)
+    ## Use a product state e.g. Neel state as the initial state
+    ψ₀ = productMPS(s, n -> isodd(n) ? "Up" : "Dn")
     ψ = deepcopy(ψ₀)
-    Sz₀ = expect(ψ₀, "Sz"; sites = 1 : N)              
+
+
+    # ## Use a random state as the initial state
+    # Random.seed!(1234567)
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    # ψ₀ = randomMPS(s, states, linkdims = 2)
+    # ψ = deepcopy(ψ₀)
+    # Sz₀ = expect(ψ₀, "Sz"; sites = 1 : N)              
 
 
     ## Initialize observables used in the time evolution process

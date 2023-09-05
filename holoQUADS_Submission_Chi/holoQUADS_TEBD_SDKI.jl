@@ -34,7 +34,7 @@ let
     time_separation = Int(1.0/tau)
     cutoff = 1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples=5
+    number_of_samples=16
     sample_string="Sx"
     sample_index=0
 
@@ -42,7 +42,7 @@ let
     N_corner = 2 * Int(holoQUADS_time) + 2
     N_total = 100
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
-    bond_dimension_upper_bound=1000
+    bond_dimension_upper_bound=20
     
     ## INITIALIZE WAVEFUNCTION 
     s = siteinds("S=1/2", N_total; conserve_qns = false); # @show typeof(s)
