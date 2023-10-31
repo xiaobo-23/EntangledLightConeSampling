@@ -17,6 +17,11 @@ include("../ObtainBond.jl")
 include("../holoQUADS_Time_Evolution_Gates.jl")
 include("../TEBD_Time_Evolution_Gates.jl")
 
+# include("Sample.jl")
+# include("Entanglement.jl")
+# include("ObtainBond.jl")
+# include("holoQUADS_Time_Evolution_Gates.jl")
+# include("TEBD_Time_Evolution_Gates.jl")
 
 using MKL
 using LinearAlgebra
@@ -34,8 +39,8 @@ let
     time_separation = Int(1.0/tau)
     cutoff=1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples=5
-    sample_string="Sx"
+    number_of_samples=1
+    sample_string="Sz"
     sample_index=0
 
 
@@ -71,6 +76,7 @@ let
         Bond = Array{Float64}(undef, number_of_samples, N_total * (N_total - 1))
         samples = Array{Float64}(undef, number_of_samples, N_total)
         samples_bitstring = Array{Float64}(undef, number_of_samples, N_total)
+        samples_correlation = Array{Float64}(undef, number_of_samples, N_total)
 
         ## SET UP OBSERVABLES USED IN THE TEBD 
         if TEBD_time > 1E-8
@@ -88,7 +94,7 @@ let
         @timeit time_machine "Initialize TEBD gates" begin
             TEBD_evolution_gates = Vector{ITensor}()
             even_layer = build_a_layer_of_gates!(2, N_total-2, N_total, h, tau, s, TEBD_evolution_gates)
-            odd_layer = build_a_layer_of_gates!(1, N_total-1, N_total, h, tau, s, TEBD_evolution_gates)
+            odd_layer  = build_a_layer_of_gates!(1, N_total-1, N_total, h, tau, s, TEBD_evolution_gates)
             TEBD_kick_gates = build_kick_gates_TEBD(s, 1, N_total)
         end
     end
@@ -191,8 +197,20 @@ let
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
+            tmp = correlation_matrix(ψ_copy, "Sz", "Sz", sites=1:2)
+            samples_correlation[measure_index, 1:2] = real(tmp[1, :]) 
+            # println("tmp = $(real(tmp[1, :]))")
+            # println(typeof(tmp))
+            # println(size(tmp))
+            
+            
+            # 10/31/2023
+            # To test the idea of enhanced sampling for two-point function
+            # Sample the first two sites without projection
+            # samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+            #     sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                sample_without_projection(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -259,6 +277,13 @@ let
                         measure_index,
                         (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
+
+                    # 10/31/2023
+                    # Test the idea of enhanced sampling for two-point function
+                    println("$(2 * tensor_pointer)")
+                    tmp = correlation_matrix(ψ_copy, "Sz", "Sz", sites=1:(2 * tensor_pointer))
+                    samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
+                    samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
@@ -333,6 +358,13 @@ let
                 entanglement_entropy(ψ_copy, N_total)
                 Bond[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
                     obtain_bond_dimension(ψ_copy, N_total)
+
+                # 10/31/2023
+                # Test the idea of enhanced sampling for two-point function
+                println("$(2 * tensor_pointer)")
+                tmp = correlation_matrix(ψ_copy, "Sz", "Sz", sites=1:(2 * tensor_pointer))
+                samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
+                samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
                 
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
@@ -356,6 +388,7 @@ let
     end
     replace!(samples_bitstring, 1 => 0.5, 2 => -0.5)
     @show samples_bitstring
+    @show samples_correlation
     @show time_machine
     
     # Store data in hdf5 file
@@ -368,6 +401,7 @@ let
         write(file, "Chi", Bond)
         write(file, "Samples", samples)
         write(file, "Samples Bitstrings", samples_bitstring)
+        write(file, "Samples Correlation", samples_correlation)
         if TEBD_time > 1E-8
             write(file, "TEBD Sx", Sx_TEBD)
             write(file, "TEBD Sy", Sy_TEBD)
