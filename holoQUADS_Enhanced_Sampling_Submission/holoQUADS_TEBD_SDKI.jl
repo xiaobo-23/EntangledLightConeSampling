@@ -40,7 +40,7 @@ let
     cutoff=1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples=1
-    sample_string="Sz"
+    sample_string="Sx"
     sample_index=0
 
 
@@ -197,7 +197,7 @@ let
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            tmp = correlation_matrix(ψ_copy, "Sz", "Sz", sites=1:2)
+            tmp = correlation_matrix(ψ_copy,  "Sx", "Sx", sites=1:2)
             samples_correlation[measure_index, 1:2] = real(tmp[1, :]) 
             # println("tmp = $(real(tmp[1, :]))")
             # println(typeof(tmp))
@@ -281,7 +281,7 @@ let
                     # 10/31/2023
                     # Test the idea of enhanced sampling for two-point function
                     println("$(2 * tensor_pointer)")
-                    tmp = correlation_matrix(ψ_copy, "Sz", "Sz", sites=1:(2 * tensor_pointer))
+                    tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
                     samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
                     samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
 
@@ -362,7 +362,7 @@ let
                 # 10/31/2023
                 # Test the idea of enhanced sampling for two-point function
                 println("$(2 * tensor_pointer)")
-                tmp = correlation_matrix(ψ_copy, "Sz", "Sz", sites=1:(2 * tensor_pointer))
+                tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
                 samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
                 samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
                 
