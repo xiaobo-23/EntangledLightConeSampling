@@ -42,6 +42,7 @@ let
     number_of_samples=1
     sample_string="Sx"
     sample_index=0
+    reference_index = 26
 
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -197,8 +198,8 @@ let
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            tmp = correlation_matrix(ψ_copy,  "Sx", "Sx", sites=1:2)
-            samples_correlation[measure_index, 1:2] = real(tmp[1, :]) 
+            # tmp = correlation_matrix(ψ_copy,  "Sx", "Sx", sites=1:2)
+            # samples_correlation[measure_index, 1:2] = real(tmp[1, :]) 
             # println("tmp = $(real(tmp[1, :]))")
             # println(typeof(tmp))
             # println(size(tmp))
@@ -207,10 +208,10 @@ let
             # 10/31/2023
             # To test the idea of enhanced sampling for two-point function
             # Sample the first two sites without projection
-            # samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-            #     sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                sample_without_projection(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+            # samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+            #     sample_without_projection(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -280,17 +281,40 @@ let
 
                     # 10/31/2023
                     # Test the idea of enhanced sampling for two-point function
-                    println("$(2 * tensor_pointer)")
-                    tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
-                    samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
-                    samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
+                    # println("$(2 * tensor_pointer)")
+                    # tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
+                    # samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
+                    # samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                         expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                    
+                    # 11/02/2023
+                    # Test the idea of enhanced sampling for two-point function using an arbitrary reference site
+                    if tensor_pointer == reference_index
+                        println("$(2 * tensor_pointer)")
+                        tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=2 * tensor_pointer - 1 : 2 * tensor_pointer)
+                        samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = real(tmp[1, 1:2]) 
+                        
+                        samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                        sample_without_projection(ψ_copy, 2 * tensor_pointer - 1, sample_string) 
+                        normalize!(ψ_copy)
+                    elseif tensor_pointer > reference_index
+                        println("$(2 * tensor_pointer)")
+                        tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites= 2 * reference_index - 1 : 2 * tensor_pointer)
+                        samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
+                        real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
+
+                        samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
                         sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
-                    normalize!(ψ_copy)
+                        normalize!(ψ_copy)                        
+                    else
+                        samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                        sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                        normalize!(ψ_copy)
+                    end
+                    
 
                     # Compute von Neumann entanglement entropy after taking measurements
                     SvN[
@@ -359,16 +383,26 @@ let
                 Bond[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
                     obtain_bond_dimension(ψ_copy, N_total)
 
-                # 10/31/2023
-                # Test the idea of enhanced sampling for two-point function
-                println("$(2 * tensor_pointer)")
-                tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
-                samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
-                samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
+                # # 10/31/2023
+                # # Test the idea of enhanced sampling for two-point function
+                # println("$(2 * tensor_pointer)")
+                # tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
+                # samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
+                # samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
+
+
+                # 11/02/2023
+                # Test the idea of enhanced sampling for two-point function using an arbitrary reference site
                 
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
                     expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
+
+                # println("$(2 * tensor_pointer)")
+                tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites= 2 * reference_index - 1 : 2 * tensor_pointer)
+                samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
+                real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
+
                 samples_bitstring[measure_index, left_ptr:right_ptr] = 
                     sample(ψ_copy, left_ptr, sample_string)
                 normalize!(ψ_copy)
