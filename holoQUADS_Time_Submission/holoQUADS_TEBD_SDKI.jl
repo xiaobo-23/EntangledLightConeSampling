@@ -1,21 +1,15 @@
-## 05/02/2023
-## Implement the holoQUADS circuit for the SDKI model
-## Skip the resetting part and avoid using a long-range two-site gate
-
+# """
+#     Implementation of the entangled light-cone sampling (ELCS) algorithm for the 1D kicked Ising model
+#     Avoid using long-range two-site gates in this version
+# """
 using ITensors
 using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, real
-using Base: Float64
-using Base: product, Integer
 using Random
 using TimerOutputs
-
-
-# include("../Sample.jl")
-# include("../Entanglement.jl")
-# include("../ObtainBond.jl")
-# include("../holoQUADS_Time_Evolution_Gates.jl")
-# include("../TEBD_Time_Evolution_Gates.jl")
+using MKL
+using LinearAlgebra
+BLAS.set_num_threads(8)
 
 include("../Sample.jl")
 include("../Entanglement.jl")
@@ -23,10 +17,12 @@ include("../ObtainBond.jl")
 include("../holoQUADS_Time_Evolution_Gates.jl")
 include("../TEBD_Time_Evolution_Gates.jl")
 
+# include("Sample.jl")
+# include("Entanglement.jl")
+# include("ObtainBond.jl")
+# include("holoQUADS_Time_Evolution_Gates.jl")
+# include("TEBD_Time_Evolution_Gates.jl")
 
-using MKL
-using LinearAlgebra
-BLAS.set_num_threads(8)
 
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
@@ -39,7 +35,7 @@ let
     tau = 1.0
     time_separation = Int(1.0/tau)
     cutoff=1E-8
-    h = 0.2                                            # an integrability-breaking longitudinal field h 
+    h=0.2                                              # an integrability-breaking longitudinal field h 
     number_of_samples=1
     sample_string="Sz"
     sample_index=0
@@ -64,15 +60,21 @@ let
     ψ = randomMPS(s, states; linkdims=2)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
 
-    # APPLY THE INITIAL PERTURBATION AND TIME EVOLVE TWO WAVEFUNCTIONS
+    # Apply the initial perturbation to the wavefunctionls
     reference = 50
-    perturb_op = op("Sz", s[reference])
-    ψ_bra = deepcopy(ψ)
+    perturbation_operation = OpSum()
+    perturbation_operation += "Sz", reference
+    perturbationMPO = MPO(perturbation_operation, s)
     ψ_ket = deepcopy(ψ)
-    ψ_ket = apply(perturb_op, ψ_ket; cutoff)
+    ψ_ket = noprime!(perturbationMPO * ψ_ket)
     @show inner(ψ_ket', ψ_ket)
     normalize!(ψ_ket)
     @show inner(ψ_ket', ψ_ket)
+
+
+    # perturb_op = op("Sz", s[reference])
+    # ψ_ket = apply(perturbationMPO, ψ_ket; cutoff)
+    ψ_bra = deepcopy(ψ)
 
 
     ## OUTPUT THE INFORMATION OF WHETHER TEBD IS USED IN THE BEGINNING
@@ -82,8 +84,7 @@ let
         println("############################################################################")
     end
 
-    
-    ## PHYSICAL OBSERVABLES ALLOCATION
+    ## Allocate memory for physical observables and samples
     @timeit time_machine "Allocation" begin
         Sx = Vector{ComplexF64}(undef, N_total)
         Sy = Vector{ComplexF64}(undef, N_total)
@@ -106,7 +107,6 @@ let
         end
     end
 
-    Random.seed!(123)
     ## CONSTRUCT GATES USED IN A BRICK-WALL PATTERN TEBD 
     if TEBD_time > 1E-8
         @timeit time_machine "Initialize TEBD gates" begin
@@ -121,7 +121,7 @@ let
     ## MEASURE OBSERVABLES IN TEBD @t=0
     if TEBD_time > 1E-8
         Sx_TEBD[1, :] = expect(ψ, "Sx"; sites=1:N_total)
-        # Sy_TEBD[1, :] = expect(ψ, "Sy"; sites=1:N_total)
+        Sy_TEBD[1, :] = expect(ψ, "iSy"; sites=1:N_total)
         Sz_TEBD[1, :] = expect(ψ, "Sz"; sites=1:N_total)
         SvN_TEBD[1, :] = entanglement_entropy(ψ, N_total)
         Bond_TEBD[1, :] = obtain_bond_dimension(ψ, N_total)
@@ -150,16 +150,16 @@ let
             @timeit time_machine "TEBD measurements" begin
                 index = Int(tmp_time/tau) + 2
                 Sx_TEBD[index, :] = expect(ψ, "Sx"; sites=1:N_total)
-                # Sy_TEBD[index, :] = expect(ψ, "Sy"; sites=1:N_total)
+                Sy_TEBD[index, :] = expect(ψ, "iSy"; sites=1:N_total)
                 Sz_TEBD[index, :] = expect(ψ, "Sz"; sites=1:N_total)
                 SvN_TEBD[index, :] = entanglement_entropy(ψ, N_total)
                 Bond_TEBD[index, :] = obtain_bond_dimension(ψ, N_total)
-                @show Bond_TEBD[index, :]
+                # @show Bond_TEBD[index, :]
             end
         end
     end
 
-
+    Random.seed!(123)
     # Time evolve and sample the wvaefunction using holoQUADS
     for measure_index = 1:number_of_samples
         println("")
@@ -225,12 +225,12 @@ let
             ] = obtain_bond_dimension(ψ_copy, N_total)
 
             # Measure the time-depdent correlation function Cxx for the first two sites
-            for site_ind in eachindex(collect(1:2))
-                # @show site_ind
-                tmp_ψ = deepcopy(ψ_ket)
-                time_operator = op("Sz", s[site_ind])
-                tmp_ψ = apply(time_operator, tmp_ψ; cutoff)
-                Cxx_time[site_ind] = inner(ψ_bra, tmp_ψ)
+            for site_ind in collect(1 : 2)
+                # Use MPS and MPO to compute the time-depdent correlation function
+                tmp_op = OpSum()
+                tmp_op += "Sz", site_ind
+                tmpMPO = MPO(tmp_op, s)
+                Cxx_time[site_ind] = inner(ψ_bra', tmpMPO, ψ_ket)
             end
 
             # Take measurements of a two-site unit cell
@@ -325,13 +325,13 @@ let
                         (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
 
-                    # Measure the time-depdent correlation function Cxx for the first two sites
-                    for site_ind in eachindex(collect(2*tensor_pointer-1:2*tensor_pointer))
-                        # @show site_ind
-                        tmp_ψ = deepcopy(ψ_ket)
-                        time_operator = op("Sz", s[site_ind])
-                        tmp_ψ = apply(time_operator, tmp_ψ; cutoff)
-                        Cxx_time[site_ind] = inner(ψ_bra, tmp_ψ)
+                    # Measure the time-depdent correlation function Cxx for selected two-site unit cell
+                    for site_ind in collect(2*tensor_pointer-1:2*tensor_pointer)
+                        # Use MPS and MPO to compute the time-depdent correlation function
+                        tmp_op = OpSum()
+                        tmp_op += "Sz", site_ind
+                        tmpMPO = MPO(tmp_op, s)
+                        Cxx_time[site_ind] = inner(ψ_bra', tmpMPO, ψ_ket)
                     end
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
@@ -358,8 +358,8 @@ let
                         measure_index,
                         (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
-                    @show Bond[measure_index, (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1)]
-                    @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
+                    # @show Bond[measure_index, (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1)]
+                    # @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
                 end
                 
                 # Previous sample and reset protocol
@@ -429,14 +429,35 @@ let
                     obtain_bond_dimension(ψ_copy, N_total)
 
                 
-                # Measure the time-depdent correlation function Cxx for the first two sites
-                for site_ind in eachindex(collect(left_ptr:right_ptr))
+                # Measure the time-depdent correlation function Cxx for selected two-site unit cell
+                for site_ind in collect(2*tensor_pointer-1:2*tensor_pointer)
+                    # Use MPS and MPO to compute the time-depdent correlation function
+                    tmp_op = OpSum()
+                    tmp_op += "Sz", site_ind
+                    tmpMPO = MPO(tmp_op, s)
+                    Cxx_time[site_ind] = inner(ψ_bra', tmpMPO, ψ_ket)
+
+                    @show site_ind
+                    @show Cxx_time[site_ind]
+                    @show inner(ψ_bra, ψ_ket)
+
+                    # time_operator = op("Sz", s[site_ind]) 
+                    # tmp_ψ = deepcopy(ψ_ket)
+                    # newTmp = time_operator * tmp_ψ[site_ind]
+                    # noprime!(newTmp)
+                    # tmp_ψ[site_ind] = newTmp
+                    # Cxx_time[site_ind] = inner(ψ_bra', tmp_ψ)
+
+
+                    # time_operator = op("Sz", s[site_ind]) 
+                    # tmp_ψ = deepcopy(ψ_ket)
+                    # tmp_ψ = apply(time_operator, tmp_ψ; cutoff)
+                    # Cxx_time[site_ind] = inner(ψ_bra', tmp_ψ)
                     # @show site_ind
-                    tmp_ψ = deepcopy(ψ_ket)
-                    time_operator = op("Sz", s[site_ind])
-                    tmp_ψ = apply(time_operator, tmp_ψ; cutoff)
-                    Cxx_time[site_ind] = inner(ψ_bra, tmp_ψ)
+                    # @show typeof(time_operator)
+                    # @show Cxx_time[site_ind]
                 end
+
                 
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
@@ -469,11 +490,14 @@ let
         @show Bond_TEBD[1, :]
     end
     replace!(samples_bitstring, 1 => 0.5, 2 => -0.5)
-    @show samples_bitstring
-    @show time_machine
+    # @show samples_bitstring
+    # @show time_machine
+    @show Sz₀
+    @show real(Cxx_time)
     
     # Store data in hdf5 file
     h5open("../Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample$(sample_index).h5", "w") do file
+    # h5open("../data/TEBD_holoQUADS_SDKI_Time_N$(N_total)_T$(total_time).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         write(file, "Sy", Sy)
@@ -482,7 +506,7 @@ let
         write(file, "Chi", Bond)
         write(file, "Samples", samples)
         write(file, "Samples Bitstrings", samples_bitstring)
-        write(file, "Cxx", Cxx_Time)
+        write(file, "Cxx", Cxx_time)
         if TEBD_time > 1E-8
             write(file, "TEBD Sx", Sx_TEBD)
             write(file, "TEBD Sy", Sy_TEBD)

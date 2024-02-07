@@ -1,4 +1,6 @@
 #!/bin/bash
+mkdir Data/
+python3 Generate_disBatch_Input_File.py
 
 for index in $(seq 1  1  500)
 do
@@ -18,4 +20,4 @@ do
 done
 
 # Job submission on rusty
-sbatch -n 500 -c 2 -t 7-0:0:0 -p ccq --constraint=rome disBatch T5
+sbatch -n 500 -c 1 -t 7-0:0:0 -p ccq --constraint=rome disBatch T5

@@ -29,8 +29,8 @@ let
     N=100
     cutoff=1E-8
     Δτ=1
-    ttotal=5
-    h=0.2                                              # an integrability-breaking longitudinal field h 
+    ttotal=6
+    h=0.2                     # an integrability-breaking longitudinal field h 
     time_dependent=true
     # bond_dimension_upper_bound=10
 
@@ -48,12 +48,15 @@ let
     # Initialize the wavefunction using a Neel state
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     # ψ = MPS(s, states)
-    ψ = randomMPS(s, linkdims = 16)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    Random.seed!(666)
+    ψ = randomMPS(s, states; linkdims = 2)
     ψ_copy = deepcopy(ψ)
     ψ_overlap = Complex{Float64}[]
 
     timeSlices = Int(ttotal / Δτ) + 1
     println("Total number of time slices that need to be saved is : $(timeSlices)")
+
     
     # Allocate memory for physical observables
     @timeit time_machine "Allocate memory" begin
@@ -70,8 +73,6 @@ let
         # Time-dependent spin correlation funciton
         if time_dependent
             Cxx_time = Array{ComplexF64}(undef, timeSlices, N)
-            # Cyy_time = Array{ComplexF64}(undef, timeSlices, N)
-            # Czz_time = Array{ComplexF64}(undef, timeSlices, N)
         end
 
         # Entanglement etc. for the whole chain
@@ -79,6 +80,7 @@ let
         Bond = Array{Float64}(undef, timeSlices, N - 1)
     end
     
+
     # Measure local observables, bond dimension and von Neumann entanglement entropy of the intiial wave function
     @timeit time_machine "Measure the initial wavefunction" begin
         Sx[1, :] = expect(ψ_copy, "Sx"; sites = 1 : N)
@@ -103,7 +105,8 @@ let
         reference_operator = op("Sz", s[reference_position])
         ψ_right = apply(reference_operator, ψ_copy; cutoff)
         normalize!(ψ_right)
-        println("After applying the local spin operator, normalize the wavefunction leads to :")
+        
+        println("Apply the local operator and normalize the wavefunction:")
         @show inner(ψ_right', ψ_right)
     end
     
@@ -162,21 +165,27 @@ let
 
         
         if time_dependent
-            for site_ind in eachindex(collect(1:N))
+            for site_ind in collect(1 : N)
+                # Use MPS and MPO to compute the expectation value of the local operator
+                tmp_op = OpSum()
+                tmp_op += "Sz", site_ind
+                tmpMPO = MPO(tmp_op, s)
+                Cxx_time[index, site_ind] = inner(ψ_copy, tmpMPO, ψ_right)
+
+                # Compute the inner product of two wavefunctions
+                # tmp_ψ = deepcopy(ψ_right)
+                # time_operator = op("Sz", s[site_ind])
+                # tmp_ψ = apply(time_operator, tmp_ψ; cutoff)
+                # Cxx_time[index, site_ind] = inner(ψ_copy, tmp_ψ)
+
+                # Print out the expectation value of the local operator
                 # @show site_ind
-                tmp_ψ = deepcopy(ψ_right)
-                time_operator = op("Sz", s[site_ind])
-                tmp_ψ = apply(time_operator, tmp_ψ; cutoff)
-                Cxx_time[index, site_ind] = inner(ψ_copy, tmp_ψ)
+                # @show real(Cxx_time[index, site_ind])
+                # @show real(inner(ψ_copy, tmp_ψ))
             end
         end
 
-        # @show Bond[index, :]
-        # @show SvN[index, :]
-        # @show Sz[index, :]
-        
         index += 1
-        
         # Store output data in a HDF5 file
         h5open("data/kicked_ising/TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_random_ref$(reference_position).h5", "w") do file
             write(file, "Sx", Sx)
@@ -188,13 +197,13 @@ let
             write(file, "Czz", Czz)
             write(file, "SvN", SvN)
             write(file, "chi", Bond)
-            write(file, "Sx0", Sx[1, :])
-            write(file, "Sy0", Sy[1, :])
-            write(file, "Sz0", Sz[1, :])
         end
     end
-   
-    # Show information (time, memorty, etc.) about the time evolution
-    @show time_machine
+    # Print out the initial and selected final states
+    @show real(Sz[1, :])
+    @show real(Cxx_time[6, :])
+    # @show Cxx_time[1, :]
+    # @show time_machine
+
     return
 end  
