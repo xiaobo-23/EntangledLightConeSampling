@@ -1,6 +1,6 @@
-## 05/02/2023
-## Implement the holoQUADS circuit for the SDKI model
-## Skip the resetting part and avoid using a long-range two-site gate
+# """
+#     Implement the entangled light cone sampling (ELCS) algorithm to simulate the dynamics of the kicked Ising model
+# """
 
 using ITensors
 using ITensors.HDF5
@@ -10,10 +10,18 @@ using Base: product
 using Random
 using TimerOutputs
 
-include("../Sample.jl")
-include("../Entanglement.jl")
-include("../ObtainBond.jl")
-include("../holoQUADS_Time_Evolution_Gates.jl")
+
+include("Sample.jl")
+include("Entanglement.jl")
+include("ObtainBond.jl")
+include("holoQUADS_Time_Evolution_Gates.jl")
+
+
+# include("../Sample.jl")
+# include("../Entanglement.jl")
+# include("../ObtainBond.jl")
+# include("../holoQUADS_Time_Evolution_Gates.jl")
+
 
 using MKL
 using LinearAlgebra
@@ -113,7 +121,7 @@ let
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
             samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer]=
-                sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
+                revised_sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
             normalize!(ψ_copy)
 
             SvN[
@@ -185,7 +193,7 @@ let
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                         expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
+                        revised_sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
                     normalize!(ψ_copy)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -254,7 +262,7 @@ let
                 samples[measure_index, left_ptr:right_ptr] =
                     expect(ψ_copy, measure_string; sites = left_ptr:right_ptr)
                 samples_bitstring[measure_index, left_ptr:right_ptr] = 
-                    sample(ψ_copy, left_ptr, measure_string)
+                    revised_sample(ψ_copy, left_ptr, measure_string)
                 normalize!(ψ_copy)
 
                 # Compute von Neumann entanglement entropy after taking measurements

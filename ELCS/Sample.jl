@@ -1,10 +1,13 @@
-## 05/11/2023
-## Set up the sample and reset procedure
+# """
+# This file contains the function to sample the two-site MPS 
+# The reset procedure can be turned on or off
+# """
+
 using ITensors 
 include("Projection.jl")
 
 # Sample a two-site MPS to compute Sx, Sy or Sz
-function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
+function revised_sample(m :: MPS, j :: Int, observable_type :: AbstractString)
     mpsLength = length(m)
 
     # Move the orthogonality center of the MPS to site j
@@ -25,7 +28,7 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
         projn_dn = Sx_projn_minus
     elseif observable_type == "Sy"
         tmp_projn = Sy_projn
-        projn_up = Sy_projn_plus
+        projn_up = Sy_projn_plusx
         projn_dn = Sy_projn_minus
     elseif observable_type == "Sz"
         tmp_projn = Sz_projn

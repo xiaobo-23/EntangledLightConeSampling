@@ -11,21 +11,24 @@ using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)
 
-include("../Sample.jl")
-include("../Entanglement.jl")
-include("../ObtainBond.jl")
-include("../holoQUADS_Time_Evolution_Gates.jl")
-include("../TEBD_Time_Evolution_Gates.jl")
 
-# include("Sample.jl")
-# include("Entanglement.jl")
-# include("ObtainBond.jl")
-# include("holoQUADS_Time_Evolution_Gates.jl")
-# include("TEBD_Time_Evolution_Gates.jl")
+# include("../Sample.jl")
+# include("../Entanglement.jl")
+# include("../ObtainBond.jl")
+# include("../holoQUADS_Time_Evolution_Gates.jl")
+# include("../TEBD_Time_Evolution_Gates.jl")
+
+
+include("Sample.jl")
+include("Entanglement.jl")
+include("ObtainBond.jl")
+include("holoQUADS_Time_Evolution_Gates.jl")
+include("TEBD_Time_Evolution_Gates.jl")
 
 
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
+
 
 let
     total_time=5.0
@@ -49,33 +52,35 @@ let
     # @show typeof(s) 
 
     
-    # INITIALIZE WAVEFUNCTION 
-    states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
+    # Initialize the wavefunction using a product states
+    # states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     # ψ = MPS(s, states)
     # Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
     
 
-    # INITIALIZE A RANDOM MPS
+    # Initialize the wavefunction using a random MPS
     Random.seed!(666)
+    states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     ψ = randomMPS(s, states; linkdims=2)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
 
+    
     # Apply the initial perturbation to the wavefunctionls
     reference = 50
     perturbation_operation = OpSum()
     perturbation_operation += "Sz", reference
     perturbationMPO = MPO(perturbation_operation, s)
     ψ_ket = deepcopy(ψ)
-    ψ_ket = noprime!(perturbationMPO * ψ_ket)
+    ψ_ket = apply(perturbationMPO, ψ_ket; cutoff)
+    
     @show inner(ψ_ket', ψ_ket)
     normalize!(ψ_ket)
     @show inner(ψ_ket', ψ_ket)
 
-
+    # ψ_ket = noprime!(perturbationMPO * ψ_ket)
     # perturb_op = op("Sz", s[reference])
     # ψ_ket = apply(perturbationMPO, ψ_ket; cutoff)
-    ψ_bra = deepcopy(ψ)
-
+   
 
     ## OUTPUT THE INFORMATION OF WHETHER TEBD IS USED IN THE BEGINNING
     if TEBD_time < 1E-8
@@ -161,8 +166,8 @@ let
 
     Random.seed!(123)
     # Time evolve and sample the wvaefunction using holoQUADS
-    for measure_index = 1:number_of_samples
-        println("")
+    for measure_index = 1 : number_of_samples
+        println("") 
         println("")
         println("############################################################################")
         println("#########   PERFORMING MEASUREMENTS LOOP #$measure_index                    ")
@@ -188,9 +193,6 @@ let
 
                 ψ_ket = apply(tmp_kick_gate, ψ_ket; cutoff)
                 normalize!(ψ_ket)
-
-                ψ_bra = apply(tmp_kick_gate, ψ_bra; cutoff)
-                normalize!(ψ_bra)
             end
 
             # APPLY TWO-SITE GATES
@@ -200,9 +202,6 @@ let
 
             ψ_ket = apply(tmp_two_site_gates, ψ_ket; cutoff)
             normalize!(ψ_ket)
-
-            ψ_bra = apply(tmp_two_site_gates, ψ_bra; cutoff)
-            normalize!(ψ_bra)
         end
 
         # Measure and timing the first two sites after applying the left light cone
@@ -230,22 +229,18 @@ let
                 tmp_op = OpSum()
                 tmp_op += "Sz", site_ind
                 tmpMPO = MPO(tmp_op, s)
-                Cxx_time[site_ind] = inner(ψ_bra', tmpMPO, ψ_ket)
+                Cxx_time[site_ind] = inner(ψ_copy', tmpMPO, ψ_ket)
             end
 
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
             samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                revised_sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
             normalize!(ψ_copy)
 
-            samples_bra[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                sample(ψ_bra, 2 * tensor_pointer - 1, sample_string)
-            normalize!(ψ_bra)
-
             samples_ket[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                sample(ψ_ket, 2 * tensor_pointer - 1, sample_string)
+                revised_sample(ψ_ket, 2 * tensor_pointer - 1, sample_string)
             normalize!(ψ_ket)
 
             SvN[
@@ -284,9 +279,6 @@ let
                         ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                         normalize!(ψ_copy)
 
-                        ψ_bra = apply(tmp_kick_gate, ψ_bra; cutoff)
-                        normalize!(ψ_bra)
-
                         ψ_ket = apply(tmp_kick_gate, ψ_ket; cutoff)
                         normalize!(ψ_ket)
                     end
@@ -297,9 +289,6 @@ let
                         diagonal_right_edge(gate_seeds[ind₃], N_total, h, tau, s)
                     ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
                     normalize!(ψ_copy)
-
-                    ψ_bra = apply(tmp_two_site_gate, ψ_bra; cutoff)
-                    normalize!(ψ_bra)
 
                     ψ_ket = apply(tmp_two_site_gate, ψ_ket; cutoff)
                     normalize!(ψ_ket)
@@ -331,22 +320,18 @@ let
                         tmp_op = OpSum()
                         tmp_op += "Sz", site_ind
                         tmpMPO = MPO(tmp_op, s)
-                        Cxx_time[site_ind] = inner(ψ_bra', tmpMPO, ψ_ket)
+                        Cxx_time[site_ind] = inner(ψ_copy', tmpMPO, ψ_ket)
                     end
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                         expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
                     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                        revised_sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
                     normalize!(ψ_copy)
 
-                    samples_bra[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        sample(ψ_bra, 2 * tensor_pointer - 1, sample_string)
-                    normalize!(ψ_bra)
-
                     samples_ket[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        sample(ψ_ket, 2 * tensor_pointer - 1, sample_string)
+                        revised_sample(ψ_ket, 2 * tensor_pointer - 1, sample_string)
                     normalize!(ψ_ket)
 
                     # Compute von Neumann entanglement entropy after taking measurements
@@ -393,9 +378,6 @@ let
                     ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
 
-                    ψ_bra = apply(tmp_kick_gates, ψ_bra; cutoff)
-                    normalize!(ψ_bra)
-
                     ψ_ket = apply(tmp_kick_gates, ψ_ket; cutoff)
                     normalize!(ψ_ket)
                 end
@@ -405,9 +387,6 @@ let
                         diagonal_right_edge(ending_index, N_total, h, tau, s)
                     ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
                     normalize!(ψ_copy)
-
-                    ψ_bra = apply(tmp_two_site_gate, ψ_bra; cutoff)
-                    normalize!(ψ_bra)
 
                     ψ_ket = apply(tmp_two_site_gate, ψ_ket; cutoff)
                     normalize!(ψ_ket)
@@ -435,11 +414,11 @@ let
                     tmp_op = OpSum()
                     tmp_op += "Sz", site_ind
                     tmpMPO = MPO(tmp_op, s)
-                    Cxx_time[site_ind] = inner(ψ_bra', tmpMPO, ψ_ket)
+                    Cxx_time[site_ind] = inner(ψ_copy', tmpMPO, ψ_ket)
 
-                    @show site_ind
-                    @show Cxx_time[site_ind]
-                    @show inner(ψ_bra, ψ_ket)
+                    # @show site_ind
+                    # @show Cxx_time[site_ind]
+                    # @show inner(ψ_copy', ψ_ket)
 
                     # time_operator = op("Sz", s[site_ind]) 
                     # tmp_ψ = deepcopy(ψ_ket)
@@ -463,17 +442,11 @@ let
                 samples[measure_index, left_ptr:right_ptr] =
                     expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
                 samples_bitstring[measure_index, left_ptr:right_ptr] = 
-                    sample(ψ_copy, left_ptr, sample_string)
+                    revised_sample(ψ_copy, left_ptr, sample_string)
                 normalize!(ψ_copy)
 
-
-                samples_bra[measure_index, left_ptr:right_ptr] = 
-                    sample(ψ_bra, left_ptr, sample_string)
-                normalize!(ψ_bra)
-
-
                 samples_ket[measure_index, left_ptr:right_ptr] = 
-                    sample(ψ_ket, left_ptr, sample_string)
+                    revised_sample(ψ_ket, left_ptr, sample_string)
                 normalize!(ψ_ket)
 
                 # Compute von Neumann entanglement entropy after taking measurements
