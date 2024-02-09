@@ -2,7 +2,7 @@
 mkdir Data/
 python3 Generate_disBatch_Input_File.py
 
-for index in $(seq 1  1  500)
+for index in $(seq 1  1  2000)
 do
     mkdir Sample$index 
     cp holoQUADS_TEBD_SDKI.jl  Sample$index/holoQUADS_TEBD_SDKI.jl
@@ -20,4 +20,7 @@ do
 done
 
 # Job submission on rusty
-sbatch -n 500 -c 1 -t 7-0:0:0 -p ccq --constraint=rome disBatch T5
+sbatch -n 1000 -c 1 -t 7-0:0:0 -p ccq --constraint=rome disBatch T6_v1
+
+# Job submission on rusty
+sbatch -n 1000 -c 1 -t 7-0:0:0 -p ccq --constraint=rome disBatch T6_v2

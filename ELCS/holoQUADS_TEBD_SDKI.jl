@@ -12,18 +12,18 @@ using LinearAlgebra
 BLAS.set_num_threads(8)
 
 
-# include("../Sample.jl")
-# include("../Entanglement.jl")
-# include("../ObtainBond.jl")
-# include("../holoQUADS_Time_Evolution_Gates.jl")
-# include("../TEBD_Time_Evolution_Gates.jl")
+include("../Sample.jl")
+include("../Entanglement.jl")
+include("../ObtainBond.jl")
+include("../holoQUADS_Time_Evolution_Gates.jl")
+include("../TEBD_Time_Evolution_Gates.jl")
 
 
-include("Sample.jl")
-include("Entanglement.jl")
-include("ObtainBond.jl")
-include("holoQUADS_Time_Evolution_Gates.jl")
-include("TEBD_Time_Evolution_Gates.jl")
+# include("Sample.jl")
+# include("Entanglement.jl")
+# include("ObtainBond.jl")
+# include("holoQUADS_Time_Evolution_Gates.jl")
+# include("TEBD_Time_Evolution_Gates.jl")
 
 
 const time_machine = TimerOutput()
@@ -31,7 +31,7 @@ ITensors.disable_warn_order()
 
 
 let
-    total_time=5.0
+    total_time=6.0
     TEBD_time=0.0 
     holoQUADS_time = Int(total_time - TEBD_time)
     circuit_time = 2 * Int(holoQUADS_time)
@@ -59,7 +59,7 @@ let
     
 
     # Initialize the wavefunction using a random MPS
-    Random.seed!(666)
+    Random.seed!(999)
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     ψ = randomMPS(s, states; linkdims=2)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
@@ -235,13 +235,35 @@ let
             # Take measurements of a two-site unit cell
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-            samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                revised_sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+            projection = revised_sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+            site_to_project = [2 * tensor_pointer - 1, 2 * tensor_pointer]
+            samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = projection
             normalize!(ψ_copy)
 
-            samples_ket[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                revised_sample(ψ_ket, 2 * tensor_pointer - 1, sample_string)
+           
+            for tmpIndex in eachindex(projection)
+                @show tmpIndex
+                if projection[tmpIndex] == 1
+                    tmpMatrix = [
+                        1  0
+                        0  0
+                    ]
+                elseif projection[tmpIndex] == 2
+                    tmpMatrix = [
+                        0  0
+                        0  1
+                    ]
+                end
+                tmp = ITensor(tmpMatrix, s[site_to_project[tmpIndex]]', s[site_to_project[tmpIndex]])
+                # tmp = state(s[projection_site[tmp_ind]], tmp_projection[tmp_ind])
+                ψ_ket[site_to_project[tmpIndex]] *= tmp
+                noprime!(ψ_ket[site_to_project[tmpIndex]])
+            end
+            # @show siteinds(ψ_ket)
             normalize!(ψ_ket)
+            @show site_to_project 
+            @show projection
+            @show expect(ψ_ket, "Sz"; sites = 1 : 2)
 
             SvN[
                 measure_index,
@@ -326,13 +348,40 @@ let
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                         expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        revised_sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                    projection = revised_sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                    site_to_project = [2 * tensor_pointer - 1, 2 * tensor_pointer]
+                    @show site_to_project
+                    @show projection
+                    samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = projection
                     normalize!(ψ_copy)
 
-                    samples_ket[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        revised_sample(ψ_ket, 2 * tensor_pointer - 1, sample_string)
+                    for tmpIndex in eachindex(projection)
+                        @show tmpIndex
+                        if projection[tmpIndex] == 1
+                            tmpMatrix = [
+                                1  0
+                                0  0
+                            ]
+                        elseif projection[tmpIndex] == 2
+                            tmpMatrix = [
+                                0  0
+                                0  1
+                            ]
+                        end
+                        tmp = ITensor(tmpMatrix, s[site_to_project[tmpIndex]]', s[site_to_project[tmpIndex]])
+                        # tmp = state(s[projection_site[tmp_ind]], tmp_projection[tmp_ind])
+                        ψ_ket[site_to_project[tmpIndex]] *= tmp
+                        noprime!(ψ_ket[site_to_project[tmpIndex]])
+                    end
+                    # @show siteinds(ψ_ket)
                     normalize!(ψ_ket)
+                    @show site_to_project 
+                    @show projection
+                    @show expect(ψ_ket, "Sz"; sites = 2 * tensor_pointer - 1 : 2 * tensor_pointer)
+
+                    # samples_ket[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                    #     revised_sample(ψ_ket, 2 * tensor_pointer - 1, sample_string)
+                    # normalize!(ψ_ket)
 
                     # Compute von Neumann entanglement entropy after taking measurements
                     SvN[
@@ -441,13 +490,40 @@ let
                 # Taking measurements of one two-site unit cell in the right light cone
                 samples[measure_index, left_ptr:right_ptr] =
                     expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
-                samples_bitstring[measure_index, left_ptr:right_ptr] = 
-                    revised_sample(ψ_copy, left_ptr, sample_string)
+                projection = revised_sample(ψ_copy, left_ptr, sample_string)
+                site_to_project = [left_ptr, right_ptr]
+                # @show site_to_project
+                # @show projection
+                samples_bitstring[measure_index, left_ptr:right_ptr] = projection
                 normalize!(ψ_copy)
 
-                samples_ket[measure_index, left_ptr:right_ptr] = 
-                    revised_sample(ψ_ket, left_ptr, sample_string)
+                for tmpIndex in eachindex(projection)
+                    @show tmpIndex
+                    if projection[tmpIndex] == 1
+                        tmpMatrix = [
+                            1  0
+                            0  0
+                        ]
+                    elseif projection[tmpIndex] == 2
+                        tmpMatrix = [
+                            0  0
+                            0  1
+                        ]
+                    end
+                    tmp = ITensor(tmpMatrix, s[site_to_project[tmpIndex]]', s[site_to_project[tmpIndex]])
+                    # tmp = state(s[projection_site[tmp_ind]], tmp_projection[tmp_ind])
+                    ψ_ket[site_to_project[tmpIndex]] *= tmp
+                    noprime!(ψ_ket[site_to_project[tmpIndex]])
+                end
+                # @show siteinds(ψ_ket)
                 normalize!(ψ_ket)
+                @show site_to_project 
+                @show projection
+                @show expect(ψ_ket, "Sz"; sites = left_ptr : right_ptr)
+
+                # samples_ket[measure_index, left_ptr:right_ptr] = 
+                #     revised_sample(ψ_ket, left_ptr, sample_string)
+                # normalize!(ψ_ket)
 
                 # Compute von Neumann entanglement entropy after taking measurements
                 SvN[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
@@ -464,13 +540,12 @@ let
     end
     replace!(samples_bitstring, 1 => 0.5, 2 => -0.5)
     # @show samples_bitstring
-    # @show time_machine
     @show Sz₀
     @show real(Cxx_time)
+    @show time_machine
     
     # Store data in hdf5 file
     h5open("../Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample$(sample_index).h5", "w") do file
-    # h5open("../data/TEBD_holoQUADS_SDKI_Time_N$(N_total)_T$(total_time).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         write(file, "Sy", Sy)

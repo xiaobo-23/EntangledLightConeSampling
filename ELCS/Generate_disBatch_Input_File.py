@@ -18,11 +18,21 @@ def main():
     # lower_bound=(sample_seed-1)*500+5001
     # upper_bound=sample_seed*500+5001
     lower_bound = 1
-    upper_bound = 501
+    upper_bound = 1001
     sample_list = np.arange(lower_bound, upper_bound, 1)
     # location = os.path.dirname(os.path.realpath(__file__))
 
-    submit_file = open("T5", "a")
+    submit_file = open("T6_v1", "a")
+    for tmp in sample_list:
+        generate_input_file(tmp, submit_file)
+    submit_file.close()  
+
+    lower_bound = 1001
+    upper_bound = 2001
+    sample_list = np.arange(lower_bound, upper_bound, 1)
+    # location = os.path.dirname(os.path.realpath(__file__))
+
+    submit_file = open("T6_v2", "a")
     for tmp in sample_list:
         generate_input_file(tmp, submit_file)
     submit_file.close()    
