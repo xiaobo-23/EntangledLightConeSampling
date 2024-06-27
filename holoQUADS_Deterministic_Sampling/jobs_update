@@ -1,0 +1,51 @@
+#!/bin/bash
+
+for time in $(seq 21  1  30)
+do 
+    mkdir T$time
+    cp holoQUADS_TEBD_SDKI.jl  T$time/holoQUADS_TEBD_SDKI.jl
+    cp Entanglement.jl T$time/Entanglement.jl
+    cp TEBD_Time_Evolution_Gates.jl T$time/TEBD_Time_Evolution_Gates.jl
+    cp holoQUADS_Time_Evolution_Gates.jl T$time/holoQUADS_Time_Evolution_Gates.jl
+    cp ObtainBond.jl T$time/ObtainBond.jl
+    cp Projection.jl T$time/Projection.jl
+    cp Sample.jl T$time/Sample.jl
+
+    cp Generate_disBatch_Input_File.py T$time/Generate_disBatch_Input_File.py
+    cd T$time
+        mkdir Data
+
+        # Linux version
+        sed -i "s/total_time=0.0/total_time=$time/g" holoQUADS_TEBD_SDKI.jl 
+        sed -i "s/T0/T$time/g" Generate_disBatch_Input_File.py 
+
+        # # MacOS version
+        # sed -i "" "s/total_time=0.0/total_time=$time/g" holoQUADS_TEBD_SDKI.jl 
+        # sed -i "" "s/T0/T$time/g" Generate_disBatch_Input_File.py    
+
+        python3 Generate_disBatch_Input_File.py
+         
+        for index in $(seq 1  1  500)
+        do
+            mkdir Sample$index 
+            cp holoQUADS_TEBD_SDKI.jl  Sample$index/holoQUADS_TEBD_SDKI.jl
+            cd Sample$index
+            
+            random_number=$((RANDOM % 100000))
+            # Linux version
+            sed -i "s/sample_index=0/sample_index=$index/g" holoQUADS_TEBD_SDKI.jl 
+            sed -i "s/Random.seed!(123)/Random.seed!($random_number)/g" holoQUADS_TEBD_SDKI.jl
+
+            # # MacOS version
+            # sed -i "" "s/sample_index=0/sample_index=$index/g" holoQUADS_TEBD_SDKI.jl   
+            # sed -i "" "s/Random.seed!(123)/Random.seed!($random_number)/g" holoQUADS_TEBD_SDKI.jl
+            cd ..
+        done
+
+        # # Job submission on rusty
+        # sbatch -n 500 -c 4 -t 7-0:0:0 -p ccq --constraint=rome disBatch T$time
+
+        # Job submission on popeye
+        sbatch -n 500 -c 4 -t 7-0:0:0 -p ccq --constraint=cascadelake disBatch T$time 
+    cd ..   
+done
