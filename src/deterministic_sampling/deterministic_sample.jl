@@ -7,8 +7,8 @@ using Statistics
 using HDF5
 using TimerOutputs
 
-include("Sample.jl")
-include("Projection.jl")
+# include("Sample.jl")
+# include("Projection.jl")
 
 
 
@@ -59,8 +59,9 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
 
         while n <= d
             projn = ITensor(tmpS)
-            projn[tmpS => 1] = tmp_projn[n][1]
-            projn[tmpS => 2] = tmp_projn[n][2]
+            projn[tmpS => n] = 1.0
+            # projn[tmpS => 1] = tmp_projn[n][1]
+            # projn[tmpS => 2] = tmp_projn[n][2]
         
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
@@ -90,6 +91,58 @@ function sample(m :: MPS, j :: Int, observable_type :: AbstractString)
 end
 
 
+# 08/16/2024
+# Sample a single-site MPS in a deterministic way
+function deterministic_sampling_initialization(m :: MPS, j :: Int, observable_type :: AbstractString) 
+    # Move the orthogonality center of the MPS to site j
+    orthogonalize!(m, j)
+    if orthocenter(m) != j
+        error("sample: MPS m must have orthocenter(m) == j")
+    end
+    
+    # Check the normalization of the MPS
+    if abs(1.0 - norm(m[j])) > 1E-8
+        error("sample: MPS is not normalized, norm=$(norm(m[j]))")
+    end
+
+    # Set the projection operator
+    if observable_type == "Sx"
+        tmp_projn = Sx_projn
+    elseif observable_type == "Sy"
+        tmp_projn = Sy_projn
+    elseif observable_type == "Sz"
+        tmp_projn = Sz_projn
+    else
+        error("sample: the type of measurement doesn't exist")
+    end
+
+    # Sample the target observables
+    result_vector = []
+    A = m[j]
+    tmpS = siteind(m, j)
+    d = dim(tmpS)
+
+    for index in 1 : d
+        pn = 0.0
+        An = ITensor()
+        projn = ITensor(tmpS)
+        projn[tmpS => index] = 1.0; 
+        # projn[tmpS => 1] = tmp_projn[index][1]
+        # projn[tmpS => 2] = tmp_projn[index][2]
+
+        @show A, projn
+        An = A * dag(projn); # @show typeof(An)
+        pn = real(scalar(dag(An) * An))
+
+
+        sample_info = [[index], pn, An]
+        push!(result_vector, sample_info)
+    end
+    @show length(result_vector)
+    return result_vector
+end
+
+
 
 let 
     # Initialize the random MPS
@@ -102,7 +155,7 @@ let
     Sz = expect(ψ₀, "Sz"; sites = 1 : N)
 
     # Generate the samples using Born rule
-    Nₛ = 40000          # Number of samples
+    Nₛ = 20             # Number of samples
     bitstring = Array{Float64}(undef, Nₛ, N)
     for i = 1 : Nₛ
         ψ_copy = deepcopy(ψ₀)
@@ -116,8 +169,27 @@ let
     bitstring[bitstring .== 1] .= 0.5
     bitstring[bitstring .== 2] .= -0.5
 
+    
     # @show bitstring
     sample_expectation = mean(bitstring, dims = 1)
     sample_std = std(bitstring, corrected = true, dims = 1) / sqrt(Nₛ)
-    @show Sz, sample_expectation, sample_std
+    # @show Sz[1 : 2], sample_expectation[1 : 2], sample_std[1 : 2]
+
+
+    # Sample the wave function in a deterministic way
+    dsample = []
+    ψ_copy = deepcopy(ψ₀)
+    dsample = deterministic_sampling_initialization(ψ_copy, 1, "Sz")
+    @show 0.5 * (dsample[1][2] - dsample[2][2]), Sz[1]
+    @show typeof(dsample[1][1]), dsample[1][1]
+    @show typeof(dsample[2][1]), dsample[2][1]
+
+
+    # # Save the results to a file
+    # h5open("Sample_Random_MPS.h5", "w") do file
+    #     write(file, "Sz", Sz)
+    #     write(file, "Sample ave.", sample_expectation)
+    #     write(file, "Sample err.", sample_std)
+    # end
+
 end
