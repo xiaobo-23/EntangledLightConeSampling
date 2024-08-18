@@ -93,7 +93,7 @@ end
 
 # 08/16/2024
 # Sample a single-site MPS in a deterministic way
-function deterministic_sampling_initialization(m :: MPS, j :: Int, observable_type :: AbstractString) 
+function deterministic_sampling_single_site_MPS(m :: MPS, j :: Int, observable_type :: AbstractString) 
     # Move the orthogonality center of the MPS to site j
     orthogonalize!(m, j)
     if orthocenter(m) != j
@@ -130,7 +130,7 @@ function deterministic_sampling_initialization(m :: MPS, j :: Int, observable_ty
         # projn[tmpS => 1] = tmp_projn[index][1]
         # projn[tmpS => 2] = tmp_projn[index][2]
 
-        @show A, projn
+        @show typeof(A), typeof(projn), A, projn
         An = A * dag(projn); # @show typeof(An)
         pn = real(scalar(dag(An) * An))
 
@@ -142,6 +142,56 @@ function deterministic_sampling_initialization(m :: MPS, j :: Int, observable_ty
     return result_vector
 end
 
+# 08/16/2024
+# Sample a single-site MPS in a deterministic way
+function deterministic_sampling_single_site_Tensor(m :: ITensor, observable_type :: AbstractString) 
+    # # Move the orthogonality center of the MPS to site j
+    # orthogonalize!(m, j)
+    # if orthocenter(m) != j
+    #     error("sample: MPS m must have orthocenter(m) == j")
+    # end
+    
+    # # Check the normalization of the MPS
+    # if abs(1.0 - norm(m)) > 1E-8
+    #     error("sample: MPS is not normalized, norm=$(norm(m))")
+    # end
+
+    # Set the projection operator
+    if observable_type == "Sx"
+        tmp_projn = Sx_projn
+    elseif observable_type == "Sy"
+        tmp_projn = Sy_projn
+    elseif observable_type == "Sz"
+        tmp_projn = Sz_projn
+    else
+        error("sample: the type of measurement doesn't exist")
+    end
+
+    # Sample the target observables
+    result_vector = []
+    A = m
+    tmpS = siteind(m)
+    d = dim(tmpS)
+
+    for index in 1 : d
+        pn = 0.0
+        An = ITensor()
+        projn = ITensor(tmpS)
+        projn[tmpS => index] = 1.0; 
+        # projn[tmpS => 1] = tmp_projn[index][1]
+        # projn[tmpS => 2] = tmp_projn[index][2]
+
+        @show A, projn
+        An = A * dag(projn); # @show typeof(An)
+        pn = real(scalar(dag(An) * An))
+
+
+        sample_info = [[index], pn, An]
+        push!(result_vector, sample_info)
+    end
+    @show length(result_vector)
+    return result_vector
+end
 
 
 let 
@@ -179,10 +229,39 @@ let
     # Sample the wave function in a deterministic way
     dsample = []
     ψ_copy = deepcopy(ψ₀)
-    dsample = deterministic_sampling_initialization(ψ_copy, 1, "Sz")
+    dsample = deterministic_sampling_single_site_MPS(ψ_copy, 1, "Sz")
     @show 0.5 * (dsample[1][2] - dsample[2][2]), Sz[1]
-    @show typeof(dsample[1][1]), dsample[1][1]
-    @show typeof(dsample[2][1]), dsample[2][1]
+    @show typeof(dsample[1][3]), dsample[1][3]
+    @show typeof(dsample[2][3]), dsample[2][3]
+    
+    println(" ")
+    println(" ")
+    println(" ")
+    iterations = length(dsample)
+    # for index in 1 : iterations
+    #     # @show typeof(dsample)
+    #     # @show index, dsample[index][1], dsample[index][2]
+    #     tmp = popfirst!(dsample)
+    #     @show tmp
+
+    #     ψ_tmp = deepcopy(ψ_copy)
+    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
+    #     ψ_tmp[2] = tmp[3] * ψ_tmp[2]    
+    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
+    #     ψ_update = ψ_tmp[2 : N]; @show typeof(ψ_update), typeof(ψ_tmp)
+    #     tmp_sample = deterministic_sampling_single_site(ψ_update, 1, "Sz")
+    #     push!(desample, tmp_sample)
+    # end
+   
+    @show typeof(ψ_copy[2]), ψ_copy[2]
+    ψ_copy[2] = dsample[1][3] * ψ_copy[2]
+    @show typeof(ψ_copy[2]), ψ_copy[2]
+    ψ_update = ψ_copy[2 : N]
+    @show typeof(ψ_update), ψ_update[1]
+    # normalize!(ψ_copy)
+    # tmp = deterministic_sampling_single_site(ψ_copy[2], "Sz")
+    # @show tmp
+
 
 
     # # Save the results to a file
