@@ -100,10 +100,10 @@ function deterministic_sampling_single_site_MPS(m :: MPS, j :: Int, observable_t
         error("sample: MPS m must have orthocenter(m) == j")
     end
     
-    # Check the normalization of the MPS
-    if abs(1.0 - norm(m[j])) > 1E-8
-        error("sample: MPS is not normalized, norm=$(norm(m[j]))")
-    end
+    # # Check the normalization of the MPS
+    # if abs(1.0 - norm(m[j])) > 1E-8
+    #     error("sample: MPS is not normalized, norm=$(norm(m[j]))")
+    # end
 
     # Set the projection operator
     if observable_type == "Sx"
@@ -238,26 +238,43 @@ let
     println(" ")
     println(" ")
     iterations = length(dsample)
-    # for index in 1 : iterations
-    #     # @show typeof(dsample)
-    #     # @show index, dsample[index][1], dsample[index][2]
-    #     tmp = popfirst!(dsample)
-    #     @show tmp
+    Sz₂ = 0
+    Prob = 0
+    for index in 1 : iterations
+        # @show typeof(dsample)
+        # @show index, dsample[index][1], dsample[index][2]
+        tmp = popfirst!(dsample)
+        @show tmp
 
-    #     ψ_tmp = deepcopy(ψ_copy)
-    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
-    #     ψ_tmp[2] = tmp[3] * ψ_tmp[2]    
-    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
-    #     ψ_update = ψ_tmp[2 : N]; @show typeof(ψ_update), typeof(ψ_tmp)
-    #     tmp_sample = deterministic_sampling_single_site(ψ_update, 1, "Sz")
-    #     push!(desample, tmp_sample)
-    # end
+        ψ_tmp = deepcopy(ψ_copy)
+        @show typeof(ψ_tmp[2]), ψ_tmp[2]
+        ψ_tmp[2] = tmp[3] * ψ_tmp[2]    
+        # # normalize!(ψ_tmp)
+        @show typeof(ψ_tmp[2]), ψ_tmp[2]
+        ψ_update = MPS(ψ_tmp[2 : N])
+        # normalize!(ψ_update)
+        # @show size(ψ_update)
+        # # ψ_update = ψ_tmp[2 : N]; @show typeof(ψ_update), typeof(ψ_tmp)
+        tmp_sample = deterministic_sampling_single_site_MPS(ψ_update, 1, "Sz")
+        @show tmp_sample
+        # @show ψ_update[2]
+        # push!(dsample, tmp_sample)
+        Sz₂ += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
+        Prob += tmp_sample[1][2] + tmp_sample[2][2]
+        println(" ")
+        println(" ")
+        println(" ")
+    end
+
+    @show Sz₂, Sz[2], Prob
+
+    # @show dsample[1]
    
-    @show typeof(ψ_copy[2]), ψ_copy[2]
-    ψ_copy[2] = dsample[1][3] * ψ_copy[2]
-    @show typeof(ψ_copy[2]), ψ_copy[2]
-    ψ_update = ψ_copy[2 : N]
-    @show typeof(ψ_update), ψ_update[1]
+    # @show typeof(ψ_copy[2]), ψ_copy[2]
+    # ψ_copy[2] = dsample[1][3] * ψ_copy[2]
+    # @show typeof(ψ_copy[2]), ψ_copy[2]
+    # ψ_update = ψ_copy[2 : N]
+    # @show typeof(ψ_update), ψ_update[1]
     # normalize!(ψ_copy)
     # tmp = deterministic_sampling_single_site(ψ_copy[2], "Sz")
     # @show tmp
