@@ -8,7 +8,7 @@ using HDF5
 using TimerOutputs
 
 # include("Sample.jl")
-# include("Projection.jl")
+include("Projection.jl")
 
 
 
@@ -95,10 +95,10 @@ end
 # Sample a single-site MPS in a deterministic way
 function deterministic_sampling_single_site_MPS(m :: MPS, j :: Int, observable_type :: AbstractString) 
     # Move the orthogonality center of the MPS to site j
-    orthogonalize!(m, j)
-    if orthocenter(m) != j
-        error("sample: MPS m must have orthocenter(m) == j")
-    end
+    # orthogonalize!(m, j)
+    # if orthocenter(m) != j
+    #     error("sample: MPS m must have orthocenter(m) == j")
+    # end
     
     # # Check the normalization of the MPS
     # if abs(1.0 - norm(m[j])) > 1E-8
@@ -130,7 +130,7 @@ function deterministic_sampling_single_site_MPS(m :: MPS, j :: Int, observable_t
         # projn[tmpS => 1] = tmp_projn[index][1]
         # projn[tmpS => 2] = tmp_projn[index][2]
 
-        @show typeof(A), typeof(projn), A, projn
+        # @show typeof(A), typeof(projn), A, projn
         An = A * dag(projn); # @show typeof(An)
         pn = real(scalar(dag(An) * An))
 
@@ -142,65 +142,65 @@ function deterministic_sampling_single_site_MPS(m :: MPS, j :: Int, observable_t
     return result_vector
 end
 
-# 08/16/2024
-# Sample a single-site MPS in a deterministic way
-function deterministic_sampling_single_site_Tensor(m :: ITensor, observable_type :: AbstractString) 
-    # # Move the orthogonality center of the MPS to site j
-    # orthogonalize!(m, j)
-    # if orthocenter(m) != j
-    #     error("sample: MPS m must have orthocenter(m) == j")
-    # end
+# # 08/16/2024
+# # Sample a single-site MPS in a deterministic way
+# function deterministic_sampling_single_site_Tensor(m :: ITensor, observable_type :: AbstractString) 
+#     # # Move the orthogonality center of the MPS to site j
+#     # orthogonalize!(m, j)
+#     # if orthocenter(m) != j
+#     #     error("sample: MPS m must have orthocenter(m) == j")
+#     # end
     
-    # # Check the normalization of the MPS
-    # if abs(1.0 - norm(m)) > 1E-8
-    #     error("sample: MPS is not normalized, norm=$(norm(m))")
-    # end
+#     # # Check the normalization of the MPS
+#     # if abs(1.0 - norm(m)) > 1E-8
+#     #     error("sample: MPS is not normalized, norm=$(norm(m))")
+#     # end
 
-    # Set the projection operator
-    if observable_type == "Sx"
-        tmp_projn = Sx_projn
-    elseif observable_type == "Sy"
-        tmp_projn = Sy_projn
-    elseif observable_type == "Sz"
-        tmp_projn = Sz_projn
-    else
-        error("sample: the type of measurement doesn't exist")
-    end
+#     # Set the projection operator
+#     if observable_type == "Sx"
+#         tmp_projn = Sx_projn
+#     elseif observable_type == "Sy"
+#         tmp_projn = Sy_projn
+#     elseif observable_type == "Sz"
+#         tmp_projn = Sz_projn
+#     else
+#         error("sample: the type of measurement doesn't exist")
+#     end
 
-    # Sample the target observables
-    result_vector = []
-    A = m
-    tmpS = siteind(m)
-    d = dim(tmpS)
+#     # Sample the target observables
+#     result_vector = []
+#     A = m
+#     tmpS = siteind(m)
+#     d = dim(tmpS)
 
-    for index in 1 : d
-        pn = 0.0
-        An = ITensor()
-        projn = ITensor(tmpS)
-        projn[tmpS => index] = 1.0; 
-        # projn[tmpS => 1] = tmp_projn[index][1]
-        # projn[tmpS => 2] = tmp_projn[index][2]
+#     for index in 1 : d
+#         pn = 0.0
+#         An = ITensor()
+#         projn = ITensor(tmpS)
+#         projn[tmpS => index] = 1.0; 
+#         # projn[tmpS => 1] = tmp_projn[index][1]
+#         # projn[tmpS => 2] = tmp_projn[index][2]
 
-        @show A, projn
-        An = A * dag(projn); # @show typeof(An)
-        pn = real(scalar(dag(An) * An))
+#         @show A, projn
+#         An = A * dag(projn); # @show typeof(An)
+#         pn = real(scalar(dag(An) * An))
 
 
-        sample_info = [[index], pn, An]
-        push!(result_vector, sample_info)
-    end
-    @show length(result_vector)
-    return result_vector
-end
+#         sample_info = [[index], pn, An]
+#         push!(result_vector, sample_info)
+#     end
+#     @show length(result_vector)
+#     return result_vector
+# end
 
 
 let 
     # Initialize the random MPS
-    N = 10                          # Number of physical sites
+    N = 10                  # Number of physical sites
     sites = siteinds("S=1/2", N; conserve_qns = false) 
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     Random.seed!(1000)
-    ψ₀ = randomMPS(sites, state, linkdims = 10)
+    ψ₀ = randomMPS(sites, state, linkdims = 4)
     normalize!(ψ₀)
     Sz = expect(ψ₀, "Sz"; sites = 1 : N)
 
@@ -237,36 +237,76 @@ let
     println(" ")
     println(" ")
     println(" ")
-    iterations = length(dsample)
-    Sz₂ = 0
-    Prob = 0
-    for index in 1 : iterations
-        # @show typeof(dsample)
-        # @show index, dsample[index][1], dsample[index][2]
-        tmp = popfirst!(dsample)
-        @show tmp
+    Sz_deterministic = Array{Float64}(undef, N - 1)
+    Prob = Array{Float64}(undef, N - 1)
+    
+    for index in 2 : N
+        iteration = length(dsample)
+        for _ in 1 : iteration
+            # @show typeof(dsample)
+            # @show index, dsample[index][1], dsample[index][2]
+            tmp = popfirst!(dsample)
+            # @show tmp
 
-        ψ_tmp = deepcopy(ψ_copy)
-        @show typeof(ψ_tmp[2]), ψ_tmp[2]
-        ψ_tmp[2] = tmp[3] * ψ_tmp[2]    
-        # # normalize!(ψ_tmp)
-        @show typeof(ψ_tmp[2]), ψ_tmp[2]
-        ψ_update = MPS(ψ_tmp[2 : N])
-        # normalize!(ψ_update)
-        # @show size(ψ_update)
-        # # ψ_update = ψ_tmp[2 : N]; @show typeof(ψ_update), typeof(ψ_tmp)
-        tmp_sample = deterministic_sampling_single_site_MPS(ψ_update, 1, "Sz")
-        @show tmp_sample
-        # @show ψ_update[2]
-        # push!(dsample, tmp_sample)
-        Sz₂ += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
-        Prob += tmp_sample[1][2] + tmp_sample[2][2]
+            ψ_tmp = deepcopy(ψ_copy)
+            # @show typeof(ψ_tmp[index]), ψ_tmp[index]
+            ψ_tmp[index] = tmp[3] * ψ_tmp[index]    
+            # # normalize!(ψ_tmp)
+            # @show typeof(ψ_tmp[index]), ψ_tmp[index]
+            ψ_update = MPS(ψ_tmp[index : N])
+            # normalize!(ψ_update)
+            # @show size(ψ_update)
+            tmp_sample = deterministic_sampling_single_site_MPS(ψ_update, 1, "Sz")
+            @show length(ψ_update), length(tmp_sample)
+            push!(dsample, tmp_sample[1])
+            push!(dsample, tmp_sample[2])   
+
+            Sz_deterministic[index - 1] += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
+            Prob[index - 1] += tmp_sample[1][2] + tmp_sample[2][2]
+            println(" ")
+            println(" ")
+            println(" ")
+        end
+        println(" ")
+        println(" ")
+        println(" ")
+        @show length(dsample)
         println(" ")
         println(" ")
         println(" ")
     end
+    
+    @show Sz_deterministic, Sz[2 : N], Prob 
+    # iterations = length(dsample)
+    # Sz₂ = 0
+    # Prob = 0
+    # for index in 1 : iterations
+    #     # @show typeof(dsample)
+    #     # @show index, dsample[index][1], dsample[index][2]
+    #     tmp = popfirst!(dsample)
+    #     @show tmp
 
-    @show Sz₂, Sz[2], Prob
+    #     ψ_tmp = deepcopy(ψ_copy)
+    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
+    #     ψ_tmp[2] = tmp[3] * ψ_tmp[2]    
+    #     # # normalize!(ψ_tmp)
+    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
+    #     ψ_update = MPS(ψ_tmp[2 : N])
+    #     # normalize!(ψ_update)
+    #     # @show size(ψ_update)
+    #     # # ψ_update = ψ_tmp[2 : N]; @show typeof(ψ_update), typeof(ψ_tmp)
+    #     tmp_sample = deterministic_sampling_single_site_MPS(ψ_update, 1, "Sz")
+    #     @show tmp_sample
+    #     # @show ψ_update[2]
+    #     # push!(dsample, tmp_sample)
+    #     Sz₂ += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
+    #     Prob += tmp_sample[1][2] + tmp_sample[2][2]
+    #     println(" ")
+    #     println(" ")
+    #     println(" ")
+    # end
+
+    # @show Sz₂, Sz[2], Prob
 
     # @show dsample[1]
    
