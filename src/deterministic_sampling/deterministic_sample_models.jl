@@ -1,5 +1,5 @@
-# 08/15/2024
-# Implement deterministic sampling for a random MPS
+# 10/21/2024
+# Implement deterministic sampling for the ground-state of model Hamiltonians
 
 using ITensors, ITensorMPS
 using Random
@@ -197,16 +197,31 @@ let
     N = 10                  # Number of physical sites
     sites = siteinds("S=1/2", N; conserve_qns = false) 
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    Random.seed!(123456)
-    ψ₀ = randomMPS(sites, state, linkdims = 4)
-    normalize!(ψ₀)
-    Sz = expect(ψ₀, "Sz"; sites = 1 : N)
+
+    # Set up the Heisenberg Hamiltonian
+    os = OpSum()
+    for j=1:N-1
+        os += "Sz",j,"Sz",j+1
+        os += 1/2,"S+",j,"S-",j+1
+        os += 1/2,"S-",j,"S+",j+1
+    end
+    H = MPO(os, sites)
+    ψ₀ = randomMPS(sites, state, linkdims = 10)
+
+
+    # Set up the parameters for the DMRG simulation
+    cutoff = [1E-10]
+    nsweeps = 10
+    maxdim = [10,20,100,100,200]
+    
+    energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
+    Sz = expect(ψ, "Sz"; sites = 1 : N)
 
     # Generate the samples using Born rule
     Nₛ = 2000             # Number of samples
     bitstring = Array{Float64}(undef, Nₛ, N)
     for i = 1 : Nₛ
-        ψ_copy = deepcopy(ψ₀)
+        ψ_copy = deepcopy(ψ)
         println("Generate bitstring #$(i)")
         println("")
         println("")
@@ -231,15 +246,13 @@ let
     println(" ")
     println(" ")
     println(" ")
-    
-    sample_cutoff = 1200
     Sz_deterministic = Array{Float64}(undef, N)
     Prob = Array{Float64}(undef, N)
 
     
     # Initialize the sampling procedure by sampling the first site
     dsample = []
-    ψ_copy = deepcopy(ψ₀)
+    ψ_copy = deepcopy(ψ)
     dsample = deterministic_sampling_single_site_MPS(ψ_copy, 1, "Sz")
     Sz_deterministic[1] = 0.5 * (dsample[1][2] - dsample[2][2])
     Prob[1] = dsample[1][2] + dsample[2][2]
@@ -249,132 +262,46 @@ let
     @show typeof(dsample[2][3]), dsample[2][3]
 
     
-    # for index in 2 : N
-    #     iteration = length(dsample)
-    #     for _ in 1 : iteration
-    #         # @show typeof(dsample)
-    #         # @show index, dsample[index][1], dsample[index][2]
-    #         tmp = popfirst!(dsample)
-    #         # @show tmp
-
-    #         ψ_tmp = deepcopy(ψ_copy)
-    #         # @show typeof(ψ_tmp[index]), ψ_tmp[index]
-    #         ψ_tmp[index] = tmp[3] * ψ_tmp[index]    
-    #         # # normalize!(ψ_tmp)
-    #         # @show typeof(ψ_tmp[index]), ψ_tmp[index]
-    #         ψ_update = MPS(ψ_tmp[index : N])
-    #         # normalize!(ψ_update)
-    #         # @show size(ψ_update)
-    #         tmp_sample = deterministic_sampling_single_site_MPS(ψ_update, 1, "Sz")
-    #         # @show length(ψ_update), length(tmp_sample)
-    #         push!(dsample, tmp_sample[1])
-    #         push!(dsample, tmp_sample[2])   
-
-    #         Sz_deterministic[index] += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
-    #         Prob[index] += tmp_sample[1][2] + tmp_sample[2][2]
-    #         # println(" ")
-    #         # println(" ")
-    #         # println(" ")
-    #     end
-    #     # println(" ")
-    #     println(" ")
-    #     println(" ")
-    #     @show length(dsample)
-    #     println(" ")
-    #     println(" ")
-    #     # println(" ")
-    # end
-    # @show Sz, Sz_deterministic, Prob
-
-
     for index in 2 : N
         iteration = length(dsample)
-        @show iteration
-
         for _ in 1 : iteration
+            # @show typeof(dsample)
+            # @show index, dsample[index][1], dsample[index][2]
             tmp = popfirst!(dsample)
-            @show tmp[2]
-            string1 = tmp[1]
-            string2 = tmp[1]
+            # @show tmp
 
             ψ_tmp = deepcopy(ψ_copy)
+            # @show typeof(ψ_tmp[index]), ψ_tmp[index]
             ψ_tmp[index] = tmp[3] * ψ_tmp[index]    
+            # # normalize!(ψ_tmp)
+            # @show typeof(ψ_tmp[index]), ψ_tmp[index]
             ψ_update = MPS(ψ_tmp[index : N])
+            # normalize!(ψ_update)
+            # @show size(ψ_update)
             tmp_sample = deterministic_sampling_single_site_MPS(ψ_update, 1, "Sz")
-            
-        
-            push!(string1, tmp_sample[1][1][1])
-            push!(string2, tmp_sample[2][1][1])
-            tmp_sample[1][1] = string1
-            tmp_sample[2][1] = string2
-            # @show length(bitstring1)
-            # @show tmp_sample[1][1], tmp_sample[2][1]
-
-            
-            # push!(tmp_holder, tmp_sample[1])
-            # push!(tmp_holder, tmp_sample[2])
+            # @show length(ψ_update), length(tmp_sample)
             push!(dsample, tmp_sample[1])
-            push!(dsample, tmp_sample[2])  
-            Sz_deterministic[index] += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
-            Prob[index] += tmp_sample[1][2] + tmp_sample[2][2] 
-            # @show typeof(tmp_sample[1][1])
-        end
+            push!(dsample, tmp_sample[2])   
 
-       
+            Sz_deterministic[index] += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
+            Prob[index] += tmp_sample[1][2] + tmp_sample[2][2]
+            # println(" ")
+            # println(" ")
+            # println(" ")
+        end
+        # println(" ")
         println(" ")
         println(" ")
         @show length(dsample)
         println(" ")
         println(" ")
+        # println(" ")
     end
     @show Sz, Sz_deterministic, Prob
 
 
-    # iterations = length(dsample)
-    # Sz₂ = 0
-    # Prob = 0
-    # for index in 1 : iterations
-    #     # @show typeof(dsample)
-    #     # @show index, dsample[index][1], dsample[index][2]
-    #     tmp = popfirst!(dsample)
-    #     @show tmp
-
-    #     ψ_tmp = deepcopy(ψ_copy)
-    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
-    #     ψ_tmp[2] = tmp[3] * ψ_tmp[2]    
-    #     # # normalize!(ψ_tmp)
-    #     @show typeof(ψ_tmp[2]), ψ_tmp[2]
-    #     ψ_update = MPS(ψ_tmp[2 : N])
-    #     # normalize!(ψ_update)
-    #     # @show size(ψ_update)
-    #     # # ψ_update = ψ_tmp[2 : N]; @show typeof(ψ_update), typeof(ψ_tmp)
-    #     tmp_sample = deterministic_sampling_single_site_MPS(ψ_update, 1, "Sz")
-    #     @show tmp_sample
-    #     # @show ψ_update[2]
-    #     # push!(dsample, tmp_sample)
-    #     Sz₂ += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
-    #     Prob += tmp_sample[1][2] + tmp_sample[2][2]
-    #     println(" ")
-    #     println(" ")
-    #     println(" ")
-    # end
-
-    # @show Sz₂, Sz[2], Prob
-
-    # @show dsample[1]
-   
-    # @show typeof(ψ_copy[2]), ψ_copy[2]
-    # ψ_copy[2] = dsample[1][3] * ψ_copy[2]
-    # @show typeof(ψ_copy[2]), ψ_copy[2]
-    # ψ_update = ψ_copy[2 : N]
-    # @show typeof(ψ_update), ψ_update[1]
-    # normalize!(ψ_copy)
-    # tmp = deterministic_sampling_single_site(ψ_copy[2], "Sz")
-    # @show tmp
-
-
     # Save the results to a file
-    h5open("Sample_Random2_MPS.h5", "w") do file
+    h5open("Sample_Models_MPS.h5", "w") do file
         write(file, "Sz", Sz)
         write(file, "Sample ave.", sample_expectation)
         write(file, "Sample err.", sample_std)
