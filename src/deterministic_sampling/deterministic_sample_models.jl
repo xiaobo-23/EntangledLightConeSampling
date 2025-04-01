@@ -116,23 +116,28 @@ function single_site_dsample(m :: MPS, j :: Int, observable :: AbstractString)
         An = ITensor()
         projn = ITensor(tmpS)
         projn[tmpS => index] = 1.0
-
-        # @show typeof(A), typeof(projn), typeof(An)
-        # @show A, projn
         An = A * dag(projn);
         pn = real(scalar(dag(An) * An))
 
-        sample_info = [[index], pn, An]
+        # println("")
+        # println("")
+        # @show typeof(A), typeof(An), typeof(projn) 
+        # @show A, projn
+        # println("")
+        # println("")
+
+        sample_info = [string(index), pn, An]
         push!(result_vector, sample_info)
     end
-    @show length(result_vector)
+    # @show length(result_vector)
+    # @show result_vector
     return result_vector
 end
 
 
 let 
     # Initialize the random MPS
-    N = 16                 # Number of physical sites
+    N = 10                  # Number of physical sites
     sites = siteinds("S=1/2", N; conserve_qns = false) 
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
 
@@ -187,13 +192,15 @@ let
     Prob = Array{Float64}(undef, N)
     
     # Sample the first site
-    dsample = []
+    # dsample = []
     ψ_copy = deepcopy(ψ)
     dsample = single_site_dsample(ψ_copy, 1, "Sz")
     Sz_deterministic[1] = 0.5 * (dsample[1][2] - dsample[2][2])
     Prob[1] = dsample[1][2] + dsample[2][2]
+    bitstring = [dsample[1][1], dsample[2][1]]
     @show Sz_deterministic[1], Sz[1]
     @show dsample[1][2] + dsample[2][2]
+    @show bitstring
 
     state_probability = Vector{Float64}()
     for index in 2 : N
@@ -202,7 +209,7 @@ let
             # @show typeof(dsample)
             # @show index, dsample[index][1], dsample[index][2]
             tmp = popfirst!(dsample)
-            # @show tmp
+            tmp_string = popfirst!(bitstring)
 
             ψ_tmp = deepcopy(ψ_copy)
             # @show typeof(ψ_tmp[index]), ψ_tmp[index]
@@ -211,11 +218,21 @@ let
             # @show typeof(ψ_tmp[index]), ψ_tmp[index]
             ψ_update = MPS(ψ_tmp[index : N])
             # normalize!(ψ_update)
-            # @show size(ψ_update)
+            
             tmp_sample = single_site_dsample(ψ_update, 1, "Sz")
             # @show length(ψ_update), length(tmp_sample)
+            
             push!(dsample, tmp_sample[1])
             push!(dsample, tmp_sample[2])   
+
+            # @show tmp_string, tmp_string * tmp_sample[1][1], tmp_string * tmp_sample[2][1]
+            push!(bitstring, tmp_string * tmp_sample[1][1])
+            push!(bitstring, tmp_string * tmp_sample[2][1])
+            
+
+            if length(dsample) != length(bitstring)
+                error("deterministic sample: the length of projection vectors and bitstrings are not equal.")
+            end
 
             # @show index, tmp_sample[1][2], tmp_sample[2][2]
             Sz_deterministic[index] += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
@@ -237,15 +254,18 @@ let
     # @show Sz_deterministic
     @show Prob
     @show state_probability
+    @show bitstring
+    state_distribution = zip(bitstring, state_probability)
 
-    # Save results to a file
-    h5open("data/Heisenberg_N$(N).h5", "w") do file
-        write(file, "Sz", Sz)
-        write(file, "Sample ave.", sample_expectation)
-        write(file, "Sample err.", sample_std)
-        write(file, "Deterministic Sample Sz", Sz_deterministic)
-        write(file, "Deterministic Sample Probability", Prob)
-        write(file, "State Probability", state_probability)
-    end
+    # # Save results to a file
+    # h5open("data/Heisenberg_N$(N).h5", "w") do file
+    #     write(file, "Sz", Sz)
+    #     write(file, "Sample ave.", sample_expectation)
+    #     write(file, "Sample err.", sample_std)
+    #     write(file, "Deterministic Sample Sz", Sz_deterministic)
+    #     write(file, "Deterministic Sample Probability", Prob)
+    #     write(file, "State Probability", state_probability)
+    #     write(file, "State Distribution", state_distribution)
+    # end
 
 end
