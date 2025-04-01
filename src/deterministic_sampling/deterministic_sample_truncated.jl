@@ -137,7 +137,7 @@ end
 
 let 
     # Initialize the random MPS
-    N = 8                # Number of physical sites
+    N = 20                  # Number of physical sites
     sites = siteinds("S=1/2", N; conserve_qns = false) 
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
 
@@ -161,7 +161,7 @@ let
     # @show Sz
 
     # Generate the samples using Born rule
-    Nₛ = 10000           # Number of samples
+    Nₛ = 1000           # Number of samples
     bitstring = Array{Float64}(undef, Nₛ, N)
     for i = 1 : Nₛ
         ψ_copy = deepcopy(ψ)
@@ -190,7 +190,8 @@ let
     # Sample the ground-state of the Heisenberg model using deterministic sampling
     Sz_deterministic = Array{Float64}(undef, N)
     Prob = Array{Float64}(undef, N)
-    
+    N_deterministic = 20000     # Number of deterministic samples
+
     # Sample the first site
     # dsample = []
     ψ_copy = deepcopy(ψ)
@@ -209,7 +210,7 @@ let
             # @show typeof(dsample)
             # @show index, dsample[index][1], dsample[index][2]
             tmp = popfirst!(dsample)
-            tmp_string = popfirst!(deterministic_bitstring)
+            # tmp_string = popfirst!(deterministic_bitstring)
 
             ψ_tmp = deepcopy(ψ_copy)
             # @show typeof(ψ_tmp[index]), ψ_tmp[index]
@@ -225,14 +226,14 @@ let
             push!(dsample, tmp_sample[1])
             push!(dsample, tmp_sample[2])   
 
-            # @show tmp_string, tmp_string * tmp_sample[1][1], tmp_string * tmp_sample[2][1]
-            push!(deterministic_bitstring, tmp_string * tmp_sample[1][1])
-            push!(deterministic_bitstring, tmp_string * tmp_sample[2][1])
+            # # @show tmp_string, tmp_string * tmp_sample[1][1], tmp_string * tmp_sample[2][1]
+            # push!(deterministic_bitstring, tmp_string * tmp_sample[1][1])
+            # push!(deterministic_bitstring, tmp_string * tmp_sample[2][1])
             
 
-            if length(dsample) != length(deterministic_bitstring)
-                error("deterministic sample: the length of projection vectors and bitstrings are not equal.")
-            end
+            # if length(dsample) != length(deterministic_bitstring)
+            #     error("deterministic sample: the length of projection vectors and bitstrings are not equal.")
+            # end
 
             # @show index, tmp_sample[1][2], tmp_sample[2][2]
             Sz_deterministic[index] += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
@@ -248,17 +249,25 @@ let
         # @show length(dsample)
         # println(" ")
         # println(" ")
+
+        # Truncated the number of deterministic samples to keep if the number of samples is larger than some threshold
+        if length(dsample) > N_deterministic
+            sorted_dsample = sort(dsample, by = x -> x[2], rev = true)
+            dsample = sorted_dsample[1 : N_deterministic]
+            @show length(dsample)
+            @show dsample[1][2], dsample[2][2], dsample[3][2], dsample[4][2], dsample[5][2], dsample[6][2]
+        end
     end
     
     # @show Sz 
     # @show Sz_deterministic
     @show Prob
-    @show state_probability
-    @show bitstring
+    # @show state_probability
+    # @show bitstring
     state_distribution = zip(deterministic_bitstring, state_probability)
 
     # Save results to a file
-    h5open("data/Heisenberg_N$(N).h5", "w") do file
+    h5open("data/Heisenberg_N$(N)_State$(N_deterministic).h5", "w") do file
         write(file, "Sz", Sz)
         write(file, "Sample ave.", sample_expectation)
         write(file, "Sample err.", sample_std)
