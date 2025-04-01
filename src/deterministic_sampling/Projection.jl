@@ -13,8 +13,8 @@ Sx_projn_plus = 1/2 * [
 ]
 
 Sx_projn_minus = 1/2 * [
-    1   -1
-    -1   1
+     1   -1
+    -1    1
 ]
 
 
