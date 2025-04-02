@@ -11,7 +11,7 @@ using HDF5
 let 
     
     # Initialize the random MPS
-    N = 20                  # Number of physical sites
+    N = 100                 # Number of physical sites
     sites = siteinds("S=1/2", N; conserve_qns = false) 
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
 
@@ -49,12 +49,12 @@ let
     @show Czz
 
     @show typeof(ψ)
-    # # Save results to a file
-    # h5open("data/Transverse_Ising_N$(N)_h$(h)_Wavefunction.h5", "w") do file
-    #     write(file, "Psi", ψ)
-    #     write(file, "Sx", Sx)
-    #     write(file, "Sz", Sz)
-    #     write(file, "Czz", Czz)
-    # end
+    # Save results to a file
+    h5open("data/Transverse_Ising_N$(N)_h$(h)_Wavefunction.h5", "w") do file
+        write(file, "Psi", ψ)
+        write(file, "Sx", Sx)
+        write(file, "Sz", Sz)
+        write(file, "Czz", Czz)
+    end
 
 end
