@@ -59,9 +59,9 @@ function sample(m :: MPS, j :: Int, observable :: AbstractString)
 
         while n <= d
             projn = ITensor(tmpS)
-            projn[tmpS => n] = 1.0
-            # projn[tmpS => 1] = tmp_projn[n][1]
-            # projn[tmpS => 2] = tmp_projn[n][2]
+            # projn[tmpS => n] = 1.0
+            projn[tmpS => 1] = tmp_projn[n][1]
+            projn[tmpS => 2] = tmp_projn[n][2]
         
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
@@ -115,7 +115,10 @@ function single_site_dsample(m :: MPS, j :: Int, observable :: AbstractString)
         pn = 0.0
         An = ITensor()
         projn = ITensor(tmpS)
-        projn[tmpS => index] = 1.0
+        # projn[tmpS => index] = 1.0
+        projn[tmpS => 1] = tmp_projn[index][1]
+        projn[tmpS => 2] = tmp_projn[index][2]
+
         An = A * dag(projn);
         pn = real(scalar(dag(An) * An))
 
@@ -137,32 +140,57 @@ end
 
 let 
     # Initialize the random MPS
-    N = 20                  # Number of physical sites
-    sites = siteinds("S=1/2", N; conserve_qns = false) 
-    state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+    N = 10                   # Number of physical sites
+    h = 1.2                  # Transverse field
+    # sites = siteinds("S=1/2", N; conserve_qns = false) 
+    # state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
 
-    # Set up the Heisenberg model Hamiltonian on a one-dimensional chain
-    os = OpSum()
-    for j = 1 : N  - 1
-        os += "Sz",j,"Sz",j+1
-        os += 1/2,"S+",j,"S-",j+1
-        os += 1/2,"S-",j,"S+",j+1
-    end
-    H = MPO(os, sites)
-    ψ₀ = randomMPS(sites, state, linkdims = 2)
+    # # Set up the Heisenberg model Hamiltonian on a one-dimensional chain
+    # os = OpSum()
+    # for j = 1 : N  - 1
+    #     os += "Sz",j,"Sz",j+1
+    #     os += 1/2,"S+",j,"S-",j+1
+    #     os += 1/2,"S-",j,"S+",j+1
+    # end
+    # H = MPO(os, sites)
+    # ψ₀ = randomMPS(sites, state, linkdims = 2)
 
-    # Set up the parameters for the DMRG simulation
-    cutoff = [1E-10]
-    nsweeps = 10
-    maxdim = [10,20,100,100,200]
+    # # Set up the Ising model with longitudinal fields on a one-dimensional chain
+    # h = 1.1
+    # os = OpSum()
+    # for j = 1 : N - 1
+    #     os += "Sz", j, "Sz", j + 1
+    #     os += h, "Sx", j
+    # end
+    # os += h, "Sx", N 
+    # H = MPO(os, sites)
+    # ψ₀ = randomMPS(sites, state, linkdims = 2)
+
+    # # Set up the parameters for the DMRG simulation
+    # cutoff = [1E-10]
+    # nsweeps = 10
+    # maxdim = [10,20,100,100,200]
+    # energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
     
-    energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
+    println(" ")
+    println("*************************************************************************************")
+    println("Read in the wavefunction from the file and start the sampling process.")
+    println("*************************************************************************************")
+    println(" ")
+    file = h5open("data/Transverse_Ising_N10_h1.2_Wavefunction.h5", "r")
+    ψ = read(file, "Psi", MPS)
     Sz = expect(ψ, "Sz"; sites = 1 : N)
-    # @show Sz
+    Sx = expect(ψ, "Sx"; sites = 1 : N)
+    Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
+    @show Sx
+    @show Czz
 
-    # Generate the samples using Born rule
-    Nₛ = 1000           # Number of samples
-    bitstring = Array{Float64}(undef, Nₛ, N)
+    #***********************************************************************************
+    # Generate samples in the Sz basis based on the Born rule
+    #***********************************************************************************
+    Nₛ = 2000              # Number of samples
+    bitstring_Sz  = Array{Float64}(undef, Nₛ, N)
+    bitstring_Czz = Array{Float64}(undef, Nₛ, N * N)
     for i = 1 : Nₛ
         ψ_copy = deepcopy(ψ)
         println("Generate bitstring #$(i)")
@@ -171,35 +199,67 @@ let
         for j = 1 : 2 : N
             tmp = sample(ψ_copy, j, "Sz")
             normalize!(ψ_copy)
-            bitstring[i, j: j + 1] = tmp
+            bitstring_Sz[i, j: j + 1] = tmp
         end
     end
-    bitstring[bitstring .== 1] .= 0.5
-    bitstring[bitstring .== 2] .= -0.5
-
-    
-    # Compute the expectation value and standard deviation of the samples
+    bitstring_Sz[bitstring_Sz .== 1] .= 0.5
+    bitstring_Sz[bitstring_Sz .== 2] .= -0.5
     # @show bitstring
-    sample_expectation = mean(bitstring, dims = 1)
-    sample_std = std(bitstring, corrected = true, dims = 1) / sqrt(Nₛ)
-    # @show Sz 
+    
+    # Compute the expectation value and standard deviation of the samples 
+    sample_ave_Sz = mean(bitstring_Sz, dims = 1)
+    sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
     # @show sample_expectation 
-    # @show sample_std 
+    # @show sample_std
+
+    for index in 1 : Nₛ
+        for i = 1 : N 
+            for j = 1 : N
+                bitstring_Czz[index, (i - 1) * N + j] = bitstring_Sz[index, i] * bitstring_Sz[index, j]
+            end
+        end
+    end
+    sample_ave_Czz = mean(bitstring_Czz, dims = 1)
+    sample_std_Czz = std(bitstring_Czz, corrected = true, dims = 1) / sqrt(Nₛ)
+    
+    #***********************************************************************************
+    # Generate samplesin the Sx basis based on the Born rule.
+    #***********************************************************************************
+
+    bitstring_Sx = Array{Float64}(undef, Nₛ, N)
+    for i = 1 : Nₛ
+        ψ_copy = deepcopy(ψ)
+        println("Generate bitstring #$(i)")
+        println("")
+        println("")
+        for j = 1 : 2 : N
+            tmp = sample(ψ_copy, j, "Sx")
+            normalize!(ψ_copy)
+            bitstring_Sx[i, j: j + 1] = tmp
+        end
+    end
+    bitstring_Sx[bitstring_Sx .== 1] .= 0.5
+    bitstring_Sx[bitstring_Sx .== 2] .= -0.5
+    # @show bitstring_Sx
+    
+    # Compute the expectation value and standard deviation of the samples 
+    sample_ave_Sx = mean(bitstring_Sx, dims = 1)
+    sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
 
 
     # Sample the ground-state of the Heisenberg model using deterministic sampling
     Sz_deterministic = Array{Float64}(undef, N)
     Prob = Array{Float64}(undef, N)
-    N_deterministic = 20000     # Number of deterministic samples
+    N_deterministic = 1024      # Number of deterministic samples
 
     # Sample the first site
     # dsample = []
     ψ_copy = deepcopy(ψ)
-    dsample = single_site_dsample(ψ_copy, 1, "Sz")
+    dsample = single_site_dsample(ψ_copy, 1, "Sx")
     Sz_deterministic[1] = 0.5 * (dsample[1][2] - dsample[2][2])
     Prob[1] = dsample[1][2] + dsample[2][2]
     deterministic_bitstring = [dsample[1][1], dsample[2][1]]
-    @show Sz_deterministic[1], Sz[1]
+    @show Sz_deterministic[1], Sz[1], Sx[1]
     @show dsample[1][2] + dsample[2][2]
     @show deterministic_bitstring
 
@@ -220,7 +280,7 @@ let
             ψ_update = MPS(ψ_tmp[index : N])
             # normalize!(ψ_update)
             
-            tmp_sample = single_site_dsample(ψ_update, 1, "Sz")
+            tmp_sample = single_site_dsample(ψ_update, 1, "Sx")
             # @show length(ψ_update), length(tmp_sample)
             
             push!(dsample, tmp_sample[1])
@@ -243,6 +303,7 @@ let
                 push!(state_probability, tmp_sample[2][2])
             end
         end
+        Sz_deterministic[index] = Sz_deterministic[index] / Prob[index]
 
         # println(" ")
         # println(" ")
@@ -259,21 +320,28 @@ let
         end
     end
     
-    # @show Sz 
-    # @show Sz_deterministic
-    @show Prob
-    # @show state_probability
-    # @show bitstring
-    state_distribution = zip(deterministic_bitstring, state_probability)
+    # # @show Sz 
+    # # @show Sz_deterministic
+    # @show Prob
+    # # @show state_probability
+    # # @show bitstring
+    # state_distribution = zip(deterministic_bitstring, state_probability)
 
     # Save results to a file
-    h5open("data/Heisenberg_N$(N)_State$(N_deterministic).h5", "w") do file
+    h5open("data/Transverse_Ising_N$(N)_h$(h)_Sample$(N_deterministic).h5", "w") do file
+        write(file, "Sx", Sx)
         write(file, "Sz", Sz)
-        write(file, "Sample ave.", sample_expectation)
-        write(file, "Sample err.", sample_std)
-        write(file, "Deterministic Sample Sz", Sz_deterministic)
+        write(file, "Czz", Czz)
+        write(file, "Sz ave.", sample_ave_Sz)
+        write(file, "Sz err.", sample_std_Sz)
+        write(file, "Sx ave.", sample_ave_Sx)
+        write(file, "Sx err.", sample_std_Sx)
+        write(file, "Czz ave.", sample_ave_Czz)
+        write(file, "Czz err.", sample_std_Czz)
+        write(file, "Deterministic Sample Sx", Sz_deterministic)
         write(file, "Deterministic Sample Probability", Prob)
         write(file, "State Probability", state_probability)
         # write(file, "State Distribution", state_distribution)
     end
+
 end
