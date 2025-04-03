@@ -1,12 +1,11 @@
 # 10/21/2024
 # Implement deterministic sampling for the ground-state of model Hamiltonians
-
 using ITensors
 using ITensorMPS
 using Random
 using Statistics
 using HDF5
-using TimerOutput
+# using TimerOutput
 
 # include("Sample.jl")
 include("Projection.jl")
@@ -180,7 +179,7 @@ end
 # end
 
 
-let 
+let
     # Initialize the random MPS
     N = 10                   # Number of physical sites
     h = 1.2                  # Transverse field
@@ -197,8 +196,8 @@ let
     Sz = expect(ψ, "Sz"; sites = 1 : N)
     Sx = expect(ψ, "Sx"; sites = 1 : N)
     Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
-    @show Sx
-    @show Czz
+    # @show Sx
+    # @show Czz
 
     # #***********************************************************************************
     # # Generate samples in the Sz basis based on the Born rule
@@ -279,9 +278,9 @@ let
     Sz_deterministic[1] = 0.5 * (dsample[1][2] - dsample[2][2])
     Prob[1] = dsample[1][2] + dsample[2][2]
     deterministic_bitstring = [dsample[1][1], dsample[2][1]]
-    @show Sz_deterministic[1], Sz[1], Sx[1]
-    @show dsample[1][2] + dsample[2][2]
-    @show deterministic_bitstring
+    # @show Sz_deterministic[1], Sz[1], Sx[1]
+    # @show dsample[1][2] + dsample[2][2]
+    # @show deterministic_bitstring
 
     state_probability = Vector{Float64}()
     for index in 2 : N
@@ -319,51 +318,86 @@ let
 
         # println(" ")
         # println(" ")
-        # @show length(dsample)
+        # @show Sz_deterministic[index], Prob[index]
+        # # @show length(dsample)
+        # # @show Prob[index]
         # println(" ")
         # println(" ")
 
-        # Truncated the number of deterministic samples to keep if the number of samples is larger than some threshold
-        if length(dsample) > N_deterministic
-            sorted_dsample = sort(dsample, by = x -> x[2], rev = true)
-            dsample = sorted_dsample[1 : N_deterministic]
-            @show length(dsample)
-            # @show dsample[1][2], dsample[2][2], dsample[3][2], dsample[4][2], dsample[5][2], dsample[6][2]
-        end
+        # # Truncated the number of deterministic samples to keep if the number of samples is larger than some threshold
+        # if length(dsample) > N_deterministic
+        #     sorted_dsample = sort(dsample, by = x -> x[2], rev = true)
+        #     dsample = sorted_dsample[1 : N_deterministic]
+        #     @show length(dsample)
+        #     # @show dsample[1][2], dsample[2][2], dsample[3][2], dsample[4][2], dsample[5][2], dsample[6][2]
+        # end
     end
+    @show Sz_deterministic
 
-    # # Compute the expectation value and standard deviation of two-point functions based on samples generated in deterministic sampling 
-    # @show length(dsample)
-    # if length(dsample) != N_deterministic
-    #     error("The number of deterministic samples is not equal to upper bound set up in the beginning of the code.")
+    # # # Compute the expectation value and standard deviation of two-point functions based on samples generated in deterministic sampling 
+    # # # @show length(dsample)
+    # # # if length(dsample) != N_deterministic
+    # # #     error("The number of deterministic samples is not equal to upper bound set up in the beginning of the code.")
+    # # # end
+    
+
+    # sample_length = length(dsample)
+    # dstate = Array{Float64}(undef, sample_length, N + 1)
+    # sample_copy = deepcopy(dsample)
+    # for index in 1 : sample_length
+    #     # Store the orobability of the sample in the first column
+    #     dstate[index, 1] = sample_copy[index][2]
+        
+    #     # Convert the bitstring and store it starting from the second column
+    #     tmp_array = float([digit - '0' for digit in sample_copy[index][1]])
+    #     tmp_array[tmp_array .== 1] .= 0.5
+    #     tmp_array[tmp_array .== 2] .= -0.5
+    #     dstate[index, 2 : N + 1] = tmp_array
     # end
     
-    dstate = Array{Float64}(undef, length(dsample), N + 1)
-    for (index, tmp_sample) in enumerate(dsample)
-        # Store the orobability of the sample in the first column
-        dstate[index, 1] = tmp_sample[2]
+    # for (index, nsample) in enumerate(sample_copy)
+    #     # Store the orobability of the sample in the first column
+    #     dstate[index, 1] = nsample[2]
 
-        # Convert the bitstring and store it starting from the second column
-        tmp_array = float( [digit - '0' for digit in tmp_sample[1]])
-        tmp_array[tmp_array .== 1] .= 0.5
-        tmp_array[tmp_array .== 2] .= -0.5
-        dstate[index, 2 : N + 1] = tmp_array
+    #     # Convert the bitstring and store it starting from the second column
+    #     tmp_array = float([digit - '0' for digit in nsample[1]])
+    #     tmp_array[tmp_array .== 1] .= 0.5
+    #     tmp_array[tmp_array .== 2] .= -0.5
+    #     dstate[index, 2 : N + 1] = tmp_array
+    # end
+    # dstate_copy = deepcopy(dstate)
+    # for index in 1 : length(dsample)
+    #     dstate_copy[index, 2 : N + 1] *= dstate_copy[index, 1]
+    # end
+    # dSz_ave = sum(dstate_copy[:, 2 : N + 1], dims = 1) / Prob[N]
+    # @show dSz_ave
+    # @show Sz_deterministic
 
-        # @show dstate[index, :]
-    end
 
-    dcorrelation = Array{Float64}(undef, length(dsample), N * N)
-    for index in 1 : length(dsample)
-        for i = 2 : N + 1 
-            for j = 2 : N + 1
-                # @show  dstate[index, 1] * dstate[index, i] * dstate[index, j]
-                dcorrelation[index, (i - 2) * N + j - 1] = (dstate[index, 1] * dstate[index, i] * dstate[index, j]) / Prob[N]
-            end
-        end
-    end
+    # # final_prob = sum(dstate[:, 1])
+    # # println(" ")
+    # # println(" ")
+    # # println("The sum of the probabilities of the deterministic samples is $(final_prob).")
+    # # # if abs(1.0 - final_prob) > 1E-8
+    # # #     error("The sum of the probabilities of the deterministic samples is not equal to 1.")
+    # # # end
+    # # println(" ")
+    # # println(" ")
 
-    dcorrelation_ave = mean(dcorrelation, dims = 1)
-    dcorrelation_std = std(dcorrelation, corrected = true, dims = 1) / sqrt(N_deterministic)
+    # dcorrelation = Array{Float64}(undef, length(dsample), N * N)
+    # dstate_copy = deepcopy(dstate)
+    # for index in 1 : length(dsample)
+    #     for i = 2 : N + 1 
+    #         for j = 2 : N + 1
+    #             # @show  dstate[index, i] * dstate[index, j]
+    #             dcorrelation[index, (i - 2) * N + j - 1] = dstate_copy[index, i] * dstate_copy[index, j]
+    #         end
+    #     end
+    #     dcorrelation[index, 2 : N + 1] *= dstate_copy[index, 1]
+    # end
+
+    # dcorrelation_ave = sum(dcorrelation, dims = 1) / Prob[N]
+    # @show dcorrelation_ave[11 : 20] / 1024
 
     # @show Prob
     # # @show state_probability
@@ -379,10 +413,10 @@ let
         # write(file, "Sx err.", sample_std_Sx)
         # write(file, "Czz ave.", sample_ave_Czz)
         # write(file, "Czz err.", sample_std_Czz)
-        write(file, "Deterministic Sample Sx", Sz_deterministic)
-        write(file, "Deterministic Sample Probability", Prob)
-        write(file, "State Probability", state_probability)
-        write(file, "Deterministic Correlation ave.", dcorrelation_ave)
-        write(file, "Deterministic Correlation err.", dcorrelation_std)
+        # write(file, "Deterministic Sample Sx", Sz_deterministic)
+        # write(file, "Deterministic Sample Probability", Prob)
+        # write(file, "State Probability", state_probability)
+        # write(file, "Deterministic Sx ave.", dSz_ave)
+        # write(file, "Deterministic Correlation ave.", dcorrelation_ave)
     end
 end
