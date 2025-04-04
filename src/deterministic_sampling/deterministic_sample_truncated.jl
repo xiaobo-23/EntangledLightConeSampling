@@ -181,8 +181,9 @@ end
 
 let
     # Initialize the random MPS
-    N = 10                   # Number of physical sites
+    N = 100                   # Number of physical sites
     h = 1.2                  # Transverse field
+    prob_epsilon = 0.0002    # Probability threshold for truncating the number of samples
     # sites = siteinds("S=1/2", N; conserve_qns = false) 
     # state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     
@@ -191,7 +192,7 @@ let
     println("Read in the wavefunction from the file and start the sampling process.")
     println("*************************************************************************************")
     println(" ")
-    file = h5open("data/Transverse_Ising_N10_h1.2_Wavefunction.h5", "r")
+    file = h5open("data/Transverse_Ising_N100_h1.2_Wavefunction.h5", "r")
     ψ = read(file, "Psi", MPS)
     Sz = expect(ψ, "Sz"; sites = 1 : N)
     Sx = expect(ψ, "Sx"; sites = 1 : N)
@@ -269,7 +270,7 @@ let
     #************************************************************************************
     Sz_deterministic = Array{Float64}(undef, N)
     Prob = Array{Float64}(undef, N)
-    N_deterministic = 8                                 # Number of deterministic samples
+    N_deterministic = 512                                # Number of deterministic samples
 
     # Sample the first site
     # dsample = []
@@ -283,6 +284,8 @@ let
     # @show deterministic_bitstring
 
     state_probability = Vector{Float64}()
+    probability_density = Array{Float64}(undef, N, N_deterministic)
+
     for index in 2 : N
         iteration = length(dsample)
         for _ in 1 : iteration
@@ -305,7 +308,6 @@ let
             push!(dsample, tmp_sample[1])
             push!(dsample, tmp_sample[2])   
 
-
             # @show index, tmp_sample[1][2], tmp_sample[2][2]
             Sz_deterministic[index] += 0.5 * (tmp_sample[1][2] - tmp_sample[2][2])
             Prob[index] += tmp_sample[1][2] + tmp_sample[2][2]
@@ -324,15 +326,72 @@ let
         # println(" ")
         # println(" ")
 
-        # # Truncated the number of deterministic samples to keep if the number of samples is larger than some threshold
+        # Truncated the number of deterministic samples to keep if the number of samples is larger than some threshold
+        if length(dsample) > N_deterministic
+            sorted_dsample = sort(dsample, by = x -> x[2], rev = true)
+            dsample = sorted_dsample[1 : N_deterministic]
+            @show length(dsample)
+            # @show dsample[1][2], dsample[2][2], dsample[3][2], dsample[4][2], dsample[5][2], dsample[6][2]
+        end
+
+        # @show dsample[1][2], dsample[2][2], dsample[3][2]
+        tmp_prob_density = Array{Float64}(undef, length(dsample))
+        for index in 1 : length(dsample)
+            @show dsample[index][2] 
+            tmp_prob_density[index] = dsample[index][2]
+        end
+        probability_density[index, 1 : length(tmp_prob_density)] = tmp_prob_density
+        # push!(probability_density, tmp_prob_density)
+        @show probability_density[index, 1 : end]
+
+
+        # # Truncated the number of deterministic samples based on the upper bound or the probability threshold
         # if length(dsample) > N_deterministic
-        #     sorted_dsample = sort(dsample, by = x -> x[2], rev = true)
-        #     dsample = sorted_dsample[1 : N_deterministic]
+        #     sorted_dsample = sort(dsample, by = x -> x[2], rev = false)
+        #     @show length(sorted_dsample)
+        #     # @show sorted_dsample[1][2], sorted_dsample[2][2], sorted_dsample[3][2]
+            
+        #     # Compute the cumulative probability of the sorted samples from the smallest to the largest
+        #     index_label = 0
+        #     tmp_prob_sum = 0.0
+        #     for index in 1 : length(dsample)
+        #         tmp_prob_sum += sorted_dsample[index][2]
+        #         @show tmp_prob_sum
+        #         if tmp_prob_sum >= prob_epsilon
+        #             index_label = index
+        #             break
+        #         end
+        #     end
+        #     cutoff_index = length(sorted_dsample) - index_label + 1
+        #     @show index_label, cutoff_index
+        #     # @show length(sorted_dsample[index_label : end])
+            
+
+        #     sorted_dsample_update = sort(dsample, by = x -> x[2], rev = true) 
+        #     if cutoff_index >= N_deterministic
+        #         dsample = sorted_dsample_update[1 : N_deterministic]
+        #     else
+        #         dsample = sorted_dsample_update[1 : cutoff_index]
+        #     end
         #     @show length(dsample)
+
+        #     # @show index_label, length(dsample) - N_deterministic + 1 
+        #     # if length(dsample) - index_label + 1 > N_deterministic
+        #     #     dsample = sorted_dsample[length(dsample) - N_deterministic + 1 : end]
+        #     #     println("True.")
+        #     # else
+        #     #     dsample = sorted_dsample[index_label : length(dsample)]
+        #     #     @show length(dsample)
+        #     #     # @show sorted_dsample[index_label : length(dsample)]
+        #     #     println("Flase.")
+        #     # end    
         #     # @show dsample[1][2], dsample[2][2], dsample[3][2], dsample[4][2], dsample[5][2], dsample[6][2]
         # end
     end
     @show Sz_deterministic
+    # @show typeof(probability_density)
+    # @show size(probability_density)
+    # @show probability_density[2, 1 : end]
 
     # # # Compute the expectation value and standard deviation of two-point functions based on samples generated in deterministic sampling 
     # # # @show length(dsample)
@@ -413,10 +472,12 @@ let
         # write(file, "Sx err.", sample_std_Sx)
         # write(file, "Czz ave.", sample_ave_Czz)
         # write(file, "Czz err.", sample_std_Czz)
-        # write(file, "Deterministic Sample Sx", Sz_deterministic)
-        # write(file, "Deterministic Sample Probability", Prob)
-        # write(file, "State Probability", state_probability)
+        write(file, "Deterministic Sample Sx", Sz_deterministic)
+        write(file, "Deterministic Sample Probability", Prob)
+        write(file, "State Probability", state_probability)
+        write(file, "Probability Per Step", probability_density)
         # write(file, "Deterministic Sx ave.", dSz_ave)
         # write(file, "Deterministic Correlation ave.", dcorrelation_ave)
     end
+    return
 end
