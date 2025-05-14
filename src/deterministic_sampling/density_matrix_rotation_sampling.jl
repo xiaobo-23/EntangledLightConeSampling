@@ -135,86 +135,69 @@ end
 let
     # Initialize the random MPS
     N = 8                    # Number of physical sites
-    h = 0.2                  # Transverse field
+    h = 1.2                  # Transverse field
     # prob_epsilon = 0.0002    # Probability threshold for truncating the number of samples
-    # sites = siteinds("S=1/2", N; conserve_qns = false) 
-    # state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     
-    println(" ")
-    println("*************************************************************************************")
-    println("Read in the wavefunction from the file and start the sampling process.")
-    println("*************************************************************************************")
-    println(" ")
+    # # Read in the wavefunction from the file and start the sampling process
+    # println(" ")
+    # println("*************************************************************************************")
+    # println("Read in the wavefunction from the file and start the sampling process.")
+    # println("*************************************************************************************")
+    # println(" ")
     
-    file = h5open("data/SDKI_TEBD_N20_h0.2_t5.0.h5", "r")
-    ψ = read(file, "Psi", MPS)
-    Sz = expect(ψ, "Sz"; sites = 1 : N)
-    Sx = expect(ψ, "Sx"; sites = 1 : N)
-    Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
+    # file = h5open("data/SDKI_TEBD_N20_h0.2_t5.0.h5", "r")
+    # ψ = read(file, "Psi", MPS)
+    # Sz = expect(ψ, "Sz"; sites = 1 : N)
+    # Sx = expect(ψ, "Sx"; sites = 1 : N)
+    # Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
     
-    # @show Sx
-    # @show Sz
+    # # @show Sx
+    # # @show Sz
+
+    # Compute the ground-state wavefunction using DMRG
+    sites = siteinds("S=1/2", N; conserve_qns = false) 
+    state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
+
+    os = OpSum()
+    for j = 1 : N - 1
+        os += "Sz", j, "Sz", j + 1
+        os += h, "Sx", j
+    end
+    os += h, "Sx", N 
+    H = MPO(os, sites)
+    ψ₀ = randomMPS(sites, state, linkdims = 2)
+
+    cutoff = [1E-10]
+    nsweeps = 10
+    maxdim = [10,20,100,100,200]
+    energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
+
     
-    # Compute the reduced density matrix
+    # Compute the one-body reduced density matrix (1RDM)
     orthogonalize!(ψ, 1)
     psidag = dag(ψ)
     prime!(psidag[1])
     
-    target_index = commonind(ψ[1], ψ[2])
-    prime!(ψ, target_index)
-    # @show target_index
-    # @show ψ[1]
-
+    bond_index = commonind(ψ[1], ψ[2])
+    prime!(ψ[1], bond_index)
+    
     rho = psidag[1] * ψ[1]
     @show rho
-    for i = 1 : length(ψ)
+    for i = 2 : length(ψ)
         rho *= ψ[i]
         rho *= psidag[i]
     end
     @show rho
+    @show typeof(rho), size(rho)
 
-    # tmp_rho = ψ[3 : end] * psidag[3 : end]
-    # @show tmp_rho
+    # @show inds(rho)[1], inds(rho)[2]
+    # matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
+    # @show matrix
 
-    # #***********************************************************************************
-    # # Generate samples in the Sz basis based on the Born rule
-    # #***********************************************************************************
-    # Nₛ = 5000              # Number of samples
-    # bitstring_Sz  = Array{Float64}(undef, Nₛ, N)
-    # bitstring_Czz = Array{Float64}(undef, Nₛ, N * N)
-    # for i = 1 : Nₛ
-    #     ψ_copy = deepcopy(ψ)
-    #     println("Generate bitstring #$(i)")
-    #     println("")
-    #     println("")
-    #     for j = 1 : 2 : N
-    #         tmp = sample(ψ_copy, j, "Sz")
-    #         normalize!(ψ_copy)
-    #         bitstring_Sz[i, j: j + 1] = tmp
-    #     end
-    # end
-    # bitstring_Sz[bitstring_Sz .== 1] .= 0.5
-    # bitstring_Sz[bitstring_Sz .== 2] .= -0.5
-    # # @show bitstring
-    
-    # # Compute the expectation value and standard deviation of one-point functions based on the samples
-    # sample_ave_Sz = mean(bitstring_Sz, dims = 1)
-    # sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
-    # # @show sample_expectation 
-    # # @show sample_std
+    U, S, V = svd(rho, inds(rho)[1], inds(rho)[2])
+    @show U, S, V 
+    @show norm(rho - U * S * V) <= 10 * eps() * norm(rho)
 
-
-    # # Compute the expectation value and standard deviation of two-point functions based on the samples
-    # for index in 1 : Nₛ
-    #     for i = 1 : N 
-    #         for j = 1 : N
-    #             bitstring_Czz[index, (i - 1) * N + j] = bitstring_Sz[index, i] * bitstring_Sz[index, j]
-    #         end
-    #     end
-    # end
-    # sample_ave_Czz = mean(bitstring_Czz, dims = 1)
-    # sample_std_Czz = std(bitstring_Czz, corrected = true, dims = 1) / sqrt(Nₛ)
-    
 
     # #***********************************************************************************
     # # Generate samplesin the Sx basis based on the Born rule.
