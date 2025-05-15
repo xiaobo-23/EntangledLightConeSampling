@@ -1,9 +1,10 @@
-# 10/21/2024
-# Implement deterministic sampling for the ground-state of model Hamiltonians
+# 5/15/2025
+# Implement the idea of density matrix rotation sampling
 using ITensors
 using ITensorMPS
 using Random
 using Statistics
+using LinearAlgebra
 using HDF5
 # using TimerOutput
 
@@ -89,49 +90,6 @@ function sample(m :: MPS, j :: Int, observable :: AbstractString)
     return result
 end
 
-
-
-# 04/02/2025
-# Sample a MPS deterministically  
-function single_site_dsample(m :: MPS, j :: Int, observable :: AbstractString, state_string :: AbstractString) 
-    # Set up the projection operator
-    if observable == "Sx"
-        tmp_projn = Sx_projn
-    elseif observable == "Sy"
-        tmp_projn = Sy_projn
-    elseif observable == "Sz"
-        tmp_projn = Sz_projn
-    else
-        error("sample: the type of measurement doesn't exist")
-    end
-
-    # Sample the target observables
-    result_vector = []
-    A = m[j]
-    tmpS = siteind(m, j)
-    d = dim(tmpS)
-
-    for index in 1 : d
-        pn = 0.0
-        An = ITensor()
-        projn = ITensor(tmpS)
-        # projn[tmpS => index] = 1.0
-        projn[tmpS => 1] = tmp_projn[index][1]
-        projn[tmpS => 2] = tmp_projn[index][2]
-
-        An = A * dag(projn);
-        pn = real(scalar(dag(An) * An))
-
-        output_string = state_string * string(index)
-        sample_info = [output_string, pn, An]
-        push!(result_vector, sample_info)
-    end
-    # @show length(result_vector)
-    # @show result_vector
-    return result_vector
-end
-
-
 let
     # Initialize the random MPS
     N = 8                    # Number of physical sites
@@ -175,34 +133,42 @@ let
     
     # Compute the one-body reduced density matrix (1RDM)
     orthogonalize!(ψ, 1)
+    if orthocenter(ψ) != 1
+        error("sample: MPS must have orthocenter(psi) == 1")
+    end
+
     psidag = dag(ψ)
     prime!(psidag[1])
     
     bond_index = commonind(ψ[1], ψ[2])
     prime!(ψ[1], bond_index)
     
-    rho = psidag[1] * ψ[1]
-    @show rho
-    for i = 2 : length(ψ)
-        rho *= ψ[i]
-        rho *= psidag[i]
-    end
+    rho = ψ[1] * psidag[1]
     @show rho
     @show typeof(rho), size(rho)
 
-    # @show inds(rho)[1], inds(rho)[2]
-    # matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
-    # @show matrix
+    # for i = 2 : length(ψ)
+    #     rho *= ψ[i]
+    #     rho *= psidag[i]
+    #     @show rho
+    # end
 
-    U, S, V = svd(rho, inds(rho)[1], inds(rho)[2])
-    @show U, S, V 
-    @show norm(rho - U * S * V) <= 10 * eps() * norm(rho)
+    @show inds(rho)[1], inds(rho)[2]
+    matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
+    @show matrix
+
+    vals, vecs = eigen(matrix)
+    @show vals, vecs
+
+
+    # U, S, V = svd(rho, inds(rho)[1], inds(rho)[2])
+    # @show U, S, V 
+    # @show norm(rho - U * S * V) <= 10 * eps() * norm(rho)
 
 
     # #***********************************************************************************
     # # Generate samplesin the Sx basis based on the Born rule.
     # #***********************************************************************************
-
     # bitstring_Sx = Array{Float64}(undef, Nₛ, N)
     # for i = 1 : Nₛ
     #     ψ_copy = deepcopy(ψ)
