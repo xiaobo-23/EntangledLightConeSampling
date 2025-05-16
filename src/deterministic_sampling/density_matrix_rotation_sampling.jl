@@ -63,6 +63,7 @@ function sample(m :: MPS, j :: Int, observable :: AbstractString)
             projn[tmpS => 1] = tmp_projn[n][1]
             projn[tmpS => 2] = tmp_projn[n][2]
         
+            # @show typeof(projn), typeof(An), typeof(A)
             An = A * dag(projn)
             pn = real(scalar(dag(An) * An))
             pdisc += pn
@@ -92,9 +93,10 @@ end
 
 let
     # Initialize the random MPS
-    N = 8                    # Number of physical sites
-    h = 1.2                  # Transverse field
-    # prob_epsilon = 0.0002    # Probability threshold for truncating the number of samples
+    N = 8                                   # Number of physical sites
+    h = 1.2                                 # Strength of the transverse field
+    # prob_epsilon = 0.0002                   # Probability threshold for truncating the number of samples
+    # Nₛ = 100                                # Number of bitstrings to be generated according to the Born rule
     
     # # Read in the wavefunction from the file and start the sampling process
     # println(" ")
@@ -130,50 +132,13 @@ let
     maxdim = [10,20,100,100,200]
     energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
 
-    
-    # Compute the one-body reduced density matrix (1RDM)
-    orthogonalize!(ψ, 1)
-    if orthocenter(ψ) != 1
-        error("sample: MPS must have orthocenter(psi) == 1")
-    end
-
-    psidag = dag(ψ)
-    prime!(psidag[1])
-    
-    bond_index = commonind(ψ[1], ψ[2])
-    prime!(ψ[1], bond_index)
-    
-    rho = ψ[1] * psidag[1]
-    @show rho
-    @show typeof(rho), size(rho)
-
-    # for i = 2 : length(ψ)
-    #     rho *= ψ[i]
-    #     rho *= psidag[i]
-    #     @show rho
-    # end
-
-    @show inds(rho)[1], inds(rho)[2]
-    matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
-    @show matrix
-
-    vals, vecs = eigen(matrix)
-    @show vals, vecs
-
-
-    # U, S, V = svd(rho, inds(rho)[1], inds(rho)[2])
-    # @show U, S, V 
-    # @show norm(rho - U * S * V) <= 10 * eps() * norm(rho)
-
-
     # #***********************************************************************************
-    # # Generate samplesin the Sx basis based on the Born rule.
+    # # Generate bistrings in the Sx basis according to the Born rule
     # #***********************************************************************************
     # bitstring_Sx = Array{Float64}(undef, Nₛ, N)
     # for i = 1 : Nₛ
     #     ψ_copy = deepcopy(ψ)
     #     println("Generate bitstring #$(i)")
-    #     println("")
     #     println("")
     #     for j = 1 : 2 : N
     #         tmp = sample(ψ_copy, j, "Sx")
@@ -183,11 +148,59 @@ let
     # end
     # bitstring_Sx[bitstring_Sx .== 1] .= 0.5
     # bitstring_Sx[bitstring_Sx .== 2] .= -0.5
-    # # @show bitstring_Sx
-    
+    # @show bitstring_Sx
+
     # # Compute the expectation value and standard deviation of one-point functions based on the samples 
     # sample_ave_Sx = mean(bitstring_Sx, dims = 1)
     # sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
+
+    #************************************************************************************
+    # Sample the wavefunction using the density matrix rotation approach
+    #************************************************************************************
+    
+    # Put the orthogonaality center of the MPS at site 1
+    orthogonalize!(ψ, 1)
+    if orthocenter(ψ) != 1
+        error("sample: MPS must have orthocenter(psi) == 1")
+    end
+
+    # Compute the 1-body reduced density Matrix
+    psidag = dag(ψ)
+    prime!(psidag[1])
+
+    bond_index = commonind(ψ[1], ψ[2])
+    prime!(ψ[1], bond_index)
+    
+    rho = ψ[1] * psidag[1]
+    @show rho
+    @show typeof(rho), size(rho)
+
+
+    # Diagonalize the density matrix and obtain the eigenvalues and eigenvectors    
+    # @show inds(rho)[1], inds(rho)[2]
+    matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
+    vals, vecs = eigen(matrix)
+    @show matrix
+    @show vals, vecs
+
+    # Perform a singular value decomposition (SVD) of the density matrix
+    # U, S, V = svd(rho, inds(rho)[1], inds(rho)[2])
+    # @show U, S, V 
+    # @show norm(rho - U * S * V) <= 10 * eps() * norm(rho)
+
+    noprime!(ψ[1])
+    tmp_site = siteind(ψ, 1) 
+    @show tmp_site
+    
+    projection = ITensor(tmp_site)
+    for i = 1 : 2
+        projection[tmp_site => i] = vecs[1, i]
+    end
+    @show projection
+
+    ψn = ITensor()
+    ψn = ψ[1] * dag(projection)
+    @show ψn
 
 
     # #************************************************************************************ 
