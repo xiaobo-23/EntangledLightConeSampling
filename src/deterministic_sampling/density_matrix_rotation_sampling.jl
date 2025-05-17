@@ -94,9 +94,12 @@ end
 let
     # Initialize the random MPS
     N = 8                                   # Number of physical sites
-    h = 1.2                                 # Strength of the transverse field
-    # prob_epsilon = 0.0002                   # Probability threshold for truncating the number of samples
+    h = 2.0                                 # Strength of the transverse field
+    Nₛ_density = 100                        # Number of states to be generated in the density matrix rotation sampling 
     # Nₛ = 100                                # Number of bitstrings to be generated according to the Born rule
+    # prob_epsilon = 0.0002                  # Probability threshold for truncating the number of samples
+   
+    
     
     # # Read in the wavefunction from the file and start the sampling process
     # println(" ")
@@ -110,9 +113,7 @@ let
     # Sz = expect(ψ, "Sz"; sites = 1 : N)
     # Sx = expect(ψ, "Sx"; sites = 1 : N)
     # Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
-    
-    # # @show Sx
-    # # @show Sz
+
 
     # Compute the ground-state wavefunction using DMRG
     sites = siteinds("S=1/2", N; conserve_qns = false) 
@@ -131,7 +132,9 @@ let
     nsweeps = 10
     maxdim = [10,20,100,100,200]
     energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
-
+    Sx = expect(ψ, "Sx"; sites = 1 : N)
+    @show Sx
+    
     # #***********************************************************************************
     # # Generate bistrings in the Sx basis according to the Born rule
     # #***********************************************************************************
@@ -221,30 +224,39 @@ let
     end
     println("")
     println("")
+
     
-    # ψ_copy = deepcopy(ψ)
-    # @show ψ_copy
-    # ψ_copy[2] *= ψn
-    # @show ψ_copy
-    # # orthogonalize!(ψ_copy, 2)
-    # # if orthocenter(ψ_copy) != 2
-    # #     error("sample: MPS must have orthocenter(psi) == 2")
-    # # end 
-    # # @show ψ_copy
+    for idx1 in 2 : 2
+        upper_bound = min(length(projected_states), Nₛ_density)
+        for idx2 in 1 : upper_bound
+            # @show idx1, idx2
+            # @show projected_states[idx1]["state"]
+            # @show projected_states[idx2]["state"]
+            # @show projected_states[idx1]["eigenvalue"], projected_states[idx2]["eigenvalue"]
+            # @show projected_states[idx1]["eigenvector"], projected_states[idx2]["eigenvector"]
 
-    # # Compute the 1-body reduced density Matrix
-    # psidag_copy = dag(ψ_copy)
-    # prime!(psidag_copy[2])
-    # @show psidag_copy
+            ψ_copy = deepcopy(ψ)
+            # @show ψ_copy
 
-    # bond_index = commonind(ψ_copy[2], ψ_copy[3])
-    # prime!(ψ_copy[2], bond_index)
-    # @show ψ_copy 
+            tmp = popfirst!(projected_states)
+            ψ_copy[idx1] *= tmp["state"]
+            # @show ψ_copy
+
+            # Compute the 1-body reduced density Matrix
+            psidag_copy = dag(ψ_copy)
+            prime!(psidag_copy[idx1])
+            @show psidag_copy
+
+            bond_index = commonind(ψ_copy[idx1], ψ_copy[idx1 + 1])
+            prime!(ψ_copy[idx1], bond_index)
+            @show ψ_copy 
+            
+            rho = ψ_copy[idx1] * psidag_copy[idx1]
+            @show rho    
+
+        end
+    end
     
-    # rho = ψ_copy[2] * psidag_copy[2]
-    # @show rho
-
-
     # #************************************************************************************ 
     # # Sample the ground-state wavefunction using deterministic sampling
     # #************************************************************************************
