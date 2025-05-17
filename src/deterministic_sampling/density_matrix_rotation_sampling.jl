@@ -175,7 +175,6 @@ let
     @show rho
     @show typeof(rho), size(rho)
 
-
     # Diagonalize the density matrix and obtain the eigenvalues and eigenvectors    
     # @show inds(rho)[1], inds(rho)[2]
     matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
@@ -188,19 +187,62 @@ let
     # @show U, S, V 
     # @show norm(rho - U * S * V) <= 10 * eps() * norm(rho)
 
-    noprime!(ψ[1])
-    tmp_site = siteind(ψ, 1) 
-    @show tmp_site
-    
-    projection = ITensor(tmp_site)
-    for i = 1 : 2
-        projection[tmp_site => i] = vecs[1, i]
-    end
-    @show projection
+    # Initialize a container to store the projected states
+    projected_states = Vector{Dict{String, Any}}()
 
-    ψn = ITensor()
-    ψn = ψ[1] * dag(projection)
-    @show ψn
+    # Remove prime indices from the first tensor of the MPS
+    noprime!(ψ[1])
+    tmp_site = siteind(ψ, 1)
+
+    # Iterate over eigenvectors to compute the projected states
+    for i in 1:2
+        # Construct the projection tensor for the current eigenvector
+        projection = ITensor(tmp_site)
+        for j in 1:2
+            projection[tmp_site => j] = vecs[i, j]
+        end
+
+        # Compute the projected state
+        ψn = ψ[1] * dag(projection)
+
+        # Store the eigenvalue, eigenvector, and projected state in a dictionary
+        push!(projected_states, Dict(
+            "eigenvalue" => vals[i],
+            "eigenvector" => projection,
+            "state" => ψn
+        ))
+    end
+
+    # Display the projected states for verification
+    println("")
+    println("")
+    for (index, state) in enumerate(projected_states)
+        println("State $index: ", state)
+    end
+    println("")
+    println("")
+    
+    # ψ_copy = deepcopy(ψ)
+    # @show ψ_copy
+    # ψ_copy[2] *= ψn
+    # @show ψ_copy
+    # # orthogonalize!(ψ_copy, 2)
+    # # if orthocenter(ψ_copy) != 2
+    # #     error("sample: MPS must have orthocenter(psi) == 2")
+    # # end 
+    # # @show ψ_copy
+
+    # # Compute the 1-body reduced density Matrix
+    # psidag_copy = dag(ψ_copy)
+    # prime!(psidag_copy[2])
+    # @show psidag_copy
+
+    # bond_index = commonind(ψ_copy[2], ψ_copy[3])
+    # prime!(ψ_copy[2], bond_index)
+    # @show ψ_copy 
+    
+    # rho = ψ_copy[2] * psidag_copy[2]
+    # @show rho
 
 
     # #************************************************************************************ 
@@ -421,4 +463,5 @@ let
     # #     # write(file, "Deterministic Correlation ave.", dcorrelation_ave)
     # # end
     return
+    
 end
