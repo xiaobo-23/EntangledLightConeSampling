@@ -99,11 +99,11 @@ end
 
 let
     # Initialize the system and set up parameters
-    N = 8                                    # Number of physical sites
+    N = 20                                   # Number of physical sites
     h = 10.0                                 # Strength of the transverse field
-    Nₛ_density = 10000                       # Number of states to be generated in the density matrix rotation sampling 
-    # Nₛ = 100                                # Number of bitstrings to be generated according to the Born rule
-    # prob_epsilon = 0.0002                  # Probability threshold for truncating the number of samples
+    Nₛ_density = 2^10                        # Number of states to be generated in the density matrix rotation sampling 
+    Nₛ = 1000                                # Number of bitstrings to be generated according to the Born rule
+    # prob_epsilon = 0.0002                    # Probability threshold for truncating the number of samples
    
     projected_states = Vector{Dict{String, Any}}()
     density_Sx = zeros(Float64, N)
@@ -152,32 +152,45 @@ let
     # maxdim = [10,20,100,100,200]
     # energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
     
-
     Sx = expect(ψ, "Sx"; sites = 1 : N)
     Sz = expect(ψ, "Sz"; sites = 1 : N)
     @show Sx, Sz
     
-    # #***********************************************************************************
-    # # Generate bistrings in the Sx basis according to the Born rule
-    # #***********************************************************************************
-    # bitstring_Sx = Array{Float64}(undef, Nₛ, N)
-    # for i = 1 : Nₛ
-    #     ψ_copy = deepcopy(ψ)
-    #     println("Generate bitstring #$(i)")
-    #     println("")
-    #     for j = 1 : 2 : N
-    #         tmp = sample(ψ_copy, j, "Sx")
-    #         normalize!(ψ_copy)
-    #         bitstring_Sx[i, j: j + 1] = tmp
-    #     end
-    # end
-    # bitstring_Sx[bitstring_Sx .== 1] .= 0.5
-    # bitstring_Sx[bitstring_Sx .== 2] .= -0.5
-    # @show bitstring_Sx
+    #***********************************************************************************
+    # Generate bistrings in the Sx basis according to the Born rule
+    #***********************************************************************************
+    bitstring_Sx = zeros(Float64, Nₛ, N)
+    bitstring_Sz = zeros(Float64, Nₛ, N)
 
-    # # Compute the expectation value and standard deviation of one-point functions based on the samples 
-    # sample_ave_Sx = mean(bitstring_Sx, dims = 1)
-    # sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
+    for i = 1 : Nₛ
+        ψ_copy = deepcopy(ψ)
+        println("Generate bitstring #$(i)")
+        println("")
+        for j = 1 : 2 : N
+            tmp = sample(ψ_copy, j, "Sx")
+            normalize!(ψ_copy)
+            bitstring_Sx[i, j: j + 1] = tmp
+        end
+
+        ψ_copy = deepcopy(ψ)
+        println("Generate bitstring #$(i)")
+        println("")
+        for j = 1 : 2 : N
+            tmp = sample(ψ_copy, j, "Sz")
+            normalize!(ψ_copy)
+            bitstring_Sz[i, j: j + 1] = tmp
+        end
+    end
+    bitstring_Sx .= ifelse.(bitstring_Sx .== 1, 0.5, -0.5)
+    bitstring_Sz .= ifelse.(bitstring_Sz .== 1, 0.5, -0.5)
+    @show bitstring_Sx, bitstring_Sz
+
+    # Compute the expectation value and standard deviation of one-point functions based on the samples 
+    sample_ave_Sx = mean(bitstring_Sx, dims = 1)
+    sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
+    sample_ave_Sz = mean(bitstring_Sz, dims = 1)
+    sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
+    @show sample_ave_Sx, sample_ave_Sz
 
     #************************************************************************************
     # Sample the wavefunction using the density matrix rotation approach
@@ -330,6 +343,10 @@ let
 
         # Sort the projected states based on the eigenvalues and compute local observables based on the projected states
         projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+        if length(projected_states) > Nₛ_density
+            projected_states = projected_states[1 : Nₛ_density]
+        end
+
         # density_Sz[idx1] = sum(
         #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
         #     for state in projected_states
@@ -365,13 +382,16 @@ let
     # Save results into a HDF5 file
     #*********************************************************************************************************
     
-    # h5open("data/DMRS_SDKI_N$(N)_h$(h)_Sample$(N_deterministic).h5", "w") do file
-    #     write(file, "Sx", Sx)
-    #     write(file, "Sz", Sz)
-    #     write(file, "Density Sample Sz", density_Sz)
-    #     write(file, "Probability", Prob)
-    #     write(file, "Probability Density", Prob_density)
-    # end
+    h5open("data/DMRS_random_N$(N)_h$(h)_Sample$(Nₛ_density).h5", "w") do file
+        write(file, "Sx", Sx)
+        write(file, "Sz", Sz)
+        write(file, "Bitstring Sx", bitstring_Sx)
+        write(file, "Bitstring Sz", bitstring_Sz)
+        write(file, "Density Sx", density_Sx)
+        write(file, "Density Sz", density_Sz)
+        write(file, "Probability", Prob)
+        # write(file, "Probability Density", Prob_density)
+    end
 
     return
 end
