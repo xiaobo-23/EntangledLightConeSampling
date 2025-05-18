@@ -217,24 +217,26 @@ let
     end
 
     # Display the projected states for verification
+    total_probability = 0.0
     println("")
     println("")
     for (index, state) in enumerate(projected_states)
         println("State $index: ", state)
+        total_probability += state["eigenvalue"]
     end
     println("")
     println("")
-
+    @show total_probability
     
-    for idx1 in 2 : 2
+    for idx1 in 2 : 3
+        println(" ")
+        println(" ")
+        @show length(projected_states)
+        println(" ")
+        println(" ")
+
         upper_bound = min(length(projected_states), Nₛ_density)
         for idx2 in 1 : upper_bound
-            # @show idx1, idx2
-            # @show projected_states[idx1]["state"]
-            # @show projected_states[idx2]["state"]
-            # @show projected_states[idx1]["eigenvalue"], projected_states[idx2]["eigenvalue"]
-            # @show projected_states[idx1]["eigenvector"], projected_states[idx2]["eigenvector"]
-
             ψ_copy = deepcopy(ψ)
             # @show ψ_copy
 
@@ -245,18 +247,56 @@ let
             # Compute the 1-body reduced density Matrix
             psidag_copy = dag(ψ_copy)
             prime!(psidag_copy[idx1])
-            @show psidag_copy
+            # @show psidag_copy
 
             bond_index = commonind(ψ_copy[idx1], ψ_copy[idx1 + 1])
             prime!(ψ_copy[idx1], bond_index)
-            @show ψ_copy 
+            # @show ψ_copy 
             
             rho = ψ_copy[idx1] * psidag_copy[idx1]
-            @show rho    
+            @show rho   
+            
+            matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
+            vals, vecs = eigen(matrix)
+            # @show matrix
+            # @show vals, vecs
 
+            # Remove prime indices from the first tensor of the MPS
+            noprime!(ψ_copy[idx1])
+            tmp_site = siteind(ψ, idx1)
+            @show tmp_site
+
+            # Iterate over eigenvectors to compute the projected states
+            for i in 1:2
+                # Construct the projection tensor for the current eigenvector
+                projection = ITensor(tmp_site)
+                for j in 1:2
+                    projection[tmp_site => j] = vecs[i, j]
+                end
+
+                # Compute the projected state
+                ψn_copy = ψ_copy[idx1] * dag(projection)
+                # @show vals[i], tmp["eigenvalue"]
+
+                # Store the eigenvalue, eigenvector, and projected state in a dictionary
+                push!(projected_states, Dict(
+                    "eigenvalue" => vals[i],
+                    "eigenvector" => projection,
+                    "state" => ψn_copy
+                ))
+            end
         end
     end
-    
+
+    total_probability = 0.0
+    for (index, state) in enumerate(projected_states)
+        println("")
+        println("Eigenvalue $index: ", state["eigenvalue"])
+        total_probability += state["eigenvalue"]
+        println("")
+    end
+    @show total_probability
+
     # #************************************************************************************ 
     # # Sample the ground-state wavefunction using deterministic sampling
     # #************************************************************************************
