@@ -91,6 +91,12 @@ function sample(m :: MPS, j :: Int, observable :: AbstractString)
     return result
 end
 
+
+function compute_probability(input_vector::Vector{<:Dict{String, Any}}, keyword::AbstractString)::Float64
+    return sum(state[keyword] for state in input_vector)
+end
+
+
 let
     # Initialize the random MPS
     N = 8                                   # Number of physical sites
@@ -216,19 +222,14 @@ let
         ))
     end
 
-    # Display the projected states for verification
-    total_probability = 0.0
+    # Check the total probability of the projected states
     println("")
     println("")
-    for (index, state) in enumerate(projected_states)
-        println("State $index: ", state)
-        total_probability += state["eigenvalue"]
-    end
+    @show compute_probability(projected_states, "eigenvalue")
     println("")
     println("")
-    @show total_probability
     
-    for idx1 in 2 : 3
+    for idx1 in 2 : N
         println(" ")
         println(" ")
         @show length(projected_states)
@@ -248,23 +249,27 @@ let
             psidag_copy = dag(ψ_copy)
             prime!(psidag_copy[idx1])
             # @show psidag_copy
-
-            bond_index = commonind(ψ_copy[idx1], ψ_copy[idx1 + 1])
-            prime!(ψ_copy[idx1], bond_index)
-            # @show ψ_copy 
+            
+            if idx1 < N
+                bond_index = commonind(ψ_copy[idx1], ψ_copy[idx1 + 1])
+                prime!(ψ_copy[idx1], bond_index)
+            end
+            # @show ψ_copy
             
             rho = ψ_copy[idx1] * psidag_copy[idx1]
-            @show rho   
+            # @show rho   
             
+            # Diagonalize the density matrix and obtain the eigenvalues and eigenvectors
             matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
             vals, vecs = eigen(matrix)
             # @show matrix
             # @show vals, vecs
 
+            
             # Remove prime indices from the first tensor of the MPS
             noprime!(ψ_copy[idx1])
             tmp_site = siteind(ψ, idx1)
-            @show tmp_site
+            # @show tmp_site
 
             # Iterate over eigenvectors to compute the projected states
             for i in 1:2
@@ -288,14 +293,9 @@ let
         end
     end
 
-    total_probability = 0.0
-    for (index, state) in enumerate(projected_states)
-        println("")
-        println("Eigenvalue $index: ", state["eigenvalue"])
-        total_probability += state["eigenvalue"]
-        println("")
-    end
-    @show total_probability
+    # Check the total probability of the projected states
+    @show compute_probability(projected_states, "eigenvalue")
+
 
     # #************************************************************************************ 
     # # Sample the ground-state wavefunction using deterministic sampling
