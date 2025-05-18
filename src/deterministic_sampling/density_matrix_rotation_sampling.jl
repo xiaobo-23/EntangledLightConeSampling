@@ -105,13 +105,18 @@ let
     # Nₛ = 100                                # Number of bitstrings to be generated according to the Born rule
     # prob_epsilon = 0.0002                  # Probability threshold for truncating the number of samples
    
-    # Initialize a container to store the projected states 
     projected_states = Vector{Dict{String, Any}}()
+    density_Sx = zeros(Float64, N)
     density_Sz = zeros(Float64, N)
     Prob = zeros(Float64, N)
     Prob_density = Vector{Vector{Float64}}()
     
     
+    # Set up the local observables in the Sz basis  
+    Sz_matrix = 1/2 * [1 0; 0 -1]
+    Sx_matrix = 1/2 * [0 1; 1 0]
+
+
     # # Read in the wavefunction from the file and start the sampling process
     # println(" ")
     # println("*************************************************************************************")
@@ -196,13 +201,17 @@ let
     @show rho
     @show typeof(rho), size(rho)
 
-    # Diagonalize the density matrix and obtain the eigenvalues and eigenvectors    
+    # Diagonalize the reduced density matrix and obtain the eigenvalues and eigenvectors    
     # @show inds(rho)[1], inds(rho)[2]
     matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
     vals, vecs = eigen(matrix)
     @show matrix
     @show vals, vecs
 
+    density_Sx[1] = tr(matrix * Sx_matrix)
+    density_Sz[1] = tr(matrix * Sz_matrix)
+    # @show density_Sz[1], Sz[1]
+    
     # Perform a singular value decomposition (SVD) of the density matrix
     # U, S, V = svd(rho, inds(rho)[1], inds(rho)[2])
     # @show U, S, V 
@@ -230,7 +239,7 @@ let
             "state" => ψn
         ))
     end
-    projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+    # projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
 
     Prob[1] = sum(
         state["eigenvalue"] for state in projected_states
@@ -238,20 +247,21 @@ let
     @show Prob[1]
     push!(Prob_density, [state["eigenvalue"] for state in projected_states])
 
-    rotation_matrix = [projected_states[1]["eigenvector"][1] projected_states[2]["eigenvector"][1];
-                       projected_states[1]["eigenvector"][2] projected_states[2]["eigenvector"][2]]
-    eigenvalues = [projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]]
-    @show projected_states[1]["eigenvector"][1]^2 + projected_states[1]["eigenvector"][2]^2 
-    @show rotation_matrix, eigenvalues
-    rotated_eigenvalues = rotation_matrix * eigenvalues
-    @show rotation_matrix * inv(rotation_matrix) 
-    @show rotated_eigenvalues[1], rotated_eigenvalues[2]
-    @show 0.5 * (rotated_eigenvalues[1] + rotated_eigenvalues[2])
-    density_Sz[1] = sum(
-        state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
-        for (index, state) in enumerate(projected_states)
-    )
-    @show density_Sz[1]
+    # rotation_matrix = [projected_states[1]["eigenvector"][1] projected_states[2]["eigenvector"][1];
+    #                    projected_states[1]["eigenvector"][2] projected_states[2]["eigenvector"][2]]
+    # eigenvalues = [projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]]
+    # @show projected_states[1]["eigenvector"][1]^2 + projected_states[1]["eigenvector"][2]^2 
+    # @show eigenvalues[1]+ eigenvalues[2], eigenvalues[1] - eigenvalues[2]
+    # rotated_eigenvalues = rotation_matrix * eigenvalues
+    # @show rotated_eigenvalues[1], rotated_eigenvalues[2], rotated_eigenvalues[1]^2 + rotated_eigenvalues[2]^2
+    # @show 0.5 * (rotated_eigenvalues[1]^2 - rotated_eigenvalues[2]^2)
+    # rotated_matrix = [projected_states[1]["eigenvalue"] 0; 0 projected_states[2]["eigenvalue"]]
+    # density_Sz[1] = tr(rotated_matrix * Sz_matrix)
+    # density_Sz[1] = sum(
+    #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
+    #     for (index, state) in enumerate(projected_states)
+    # )
+    # @show density_Sz[1]
 
 
     for idx1 in 2 : N
@@ -289,7 +299,8 @@ let
             vals, vecs = eigen(matrix)
             # @show matrix
             # @show vals, vecs
-
+            density_Sx[idx1] += tr(matrix * Sx_matrix)
+            density_Sz[idx1] += tr(matrix * Sz_matrix)
             
             # Remove prime indices from the first tensor of the MPS
             noprime!(ψ_copy[idx1])
@@ -319,10 +330,10 @@ let
 
         # Sort the projected states based on the eigenvalues and compute local observables based on the projected states
         projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
-        density_Sz[idx1] = sum(
-            state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
-            for state in projected_states
-        )
+        # density_Sz[idx1] = sum(
+        #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
+        #     for state in projected_states
+        # )
         Prob[idx1] = sum(
             state["eigenvalue"] for state in projected_states
         )
@@ -333,8 +344,10 @@ let
 
     # Check the total probability of the projected states
     @show compute_probability(projected_states, "eigenvalue")
+    @show density_Sx
+    @show Sx
     @show density_Sz
-    @show Sz 
+    @show Sz
     @show Prob 
     # @show Prob_density
 
