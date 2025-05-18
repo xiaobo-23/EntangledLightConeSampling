@@ -99,9 +99,9 @@ end
 
 let
     # Initialize the random MPS
-    N = 8                                   # Number of physical sites
-    h = 2.0                                 # Strength of the transverse field
-    Nₛ_density = 100                        # Number of states to be generated in the density matrix rotation sampling 
+    N = 8                                    # Number of physical sites
+    h = 10.0                                 # Strength of the transverse field
+    Nₛ_density = 10000                       # Number of states to be generated in the density matrix rotation sampling 
     # Nₛ = 100                                # Number of bitstrings to be generated according to the Born rule
     # prob_epsilon = 0.0002                  # Probability threshold for truncating the number of samples
    
@@ -128,9 +128,11 @@ let
     os = OpSum()
     for j = 1 : N - 1
         os += "Sz", j, "Sz", j + 1
-        os += h, "Sx", j
+        os += h, "Sz", j
+        # os += h, "Sx", j
     end
-    os += h, "Sx", N 
+    os += h, "Sz", N
+    # os += h, "Sx", N 
     H = MPO(os, sites)
     ψ₀ = randomMPS(sites, state, linkdims = 2)
 
@@ -138,8 +140,8 @@ let
     nsweeps = 10
     maxdim = [10,20,100,100,200]
     energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
-    Sx = expect(ψ, "Sx"; sites = 1 : N)
-    @show Sx
+    Sz = expect(ψ, "Sz"; sites = 1 : N)
+    @show Sz
     
     # #***********************************************************************************
     # # Generate bistrings in the Sx basis according to the Born rule
@@ -198,6 +200,7 @@ let
 
     # Initialize a container to store the projected states
     projected_states = Vector{Dict{String, Any}}()
+    density_sampling_Sz = Array{Float64}(undef, N)
 
     # Remove prime indices from the first tensor of the MPS
     noprime!(ψ[1])
@@ -221,6 +224,7 @@ let
             "state" => ψn
         ))
     end
+    projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
 
     # Check the total probability of the projected states
     println("")
@@ -228,13 +232,19 @@ let
     @show compute_probability(projected_states, "eigenvalue")
     println("")
     println("")
-    
+
+    density_sampling_Sz[1] = sum(
+        state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
+        for state in projected_states
+    )
+    @show density_sampling_Sz[1]
+
     for idx1 in 2 : N
-        println(" ")
-        println(" ")
-        @show length(projected_states)
-        println(" ")
-        println(" ")
+        # println(" ")
+        # println(" ")
+        # @show length(projected_states)
+        # println(" ")
+        # println(" ")
 
         upper_bound = min(length(projected_states), Nₛ_density)
         for idx2 in 1 : upper_bound
@@ -291,11 +301,28 @@ let
                 ))
             end
         end
+
+        # Sort the projected states based on the eigenvalues and compute local observables based on the projected states
+        projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+        density_sampling_Sz[idx1] = sum(
+            state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
+            for state in projected_states
+        )
     end
 
     # Check the total probability of the projected states
     @show compute_probability(projected_states, "eigenvalue")
+    @show density_sampling_Sz
 
+    # sorted_projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+    # for i in 1 : 5
+    #     println(" ")
+    #     println(" ")
+    #     @show sorted_projected_states[i]["eigenvalue"]
+    #     @show sorted_projected_states[i]["eigenvector"]
+    #     println(" ")
+    #     println(" ")
+    # end
 
     # #************************************************************************************ 
     # # Sample the ground-state wavefunction using deterministic sampling
