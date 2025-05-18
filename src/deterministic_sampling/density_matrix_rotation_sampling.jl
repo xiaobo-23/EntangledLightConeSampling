@@ -183,6 +183,7 @@ let
     if orthocenter(ψ) != 1
         error("sample: MPS must have orthocenter(psi) == 1")
     end
+    @show expect(ψ, "Sz"; sites = 1 : 1)
 
     # Compute the 1-body reduced density Matrix
     psidag = dag(ψ)
@@ -229,7 +230,7 @@ let
             "state" => ψn
         ))
     end
-    # projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+    projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
 
     Prob[1] = sum(
         state["eigenvalue"] for state in projected_states
@@ -240,12 +241,14 @@ let
     rotation_matrix = [projected_states[1]["eigenvector"][1] projected_states[2]["eigenvector"][1];
                        projected_states[1]["eigenvector"][2] projected_states[2]["eigenvector"][2]]
     eigenvalues = [projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]]
+    @show projected_states[1]["eigenvector"][1]^2 + projected_states[1]["eigenvector"][2]^2 
     @show rotation_matrix, eigenvalues
     rotated_eigenvalues = rotation_matrix * eigenvalues
+    @show rotation_matrix * inv(rotation_matrix) 
     @show rotated_eigenvalues[1], rotated_eigenvalues[2]
-    @show 0.5 * (rotated_eigenvalues[1] - rotated_eigenvalues[2])
+    @show 0.5 * (rotated_eigenvalues[1] + rotated_eigenvalues[2])
     density_Sz[1] = sum(
-        state["eigenvalue"] * (-1)^index * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
+        state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
         for (index, state) in enumerate(projected_states)
     )
     @show density_Sz[1]
