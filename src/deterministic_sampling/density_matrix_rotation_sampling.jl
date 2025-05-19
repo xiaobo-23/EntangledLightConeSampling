@@ -101,9 +101,9 @@ let
     # Initialize the system and set up parameters
     N = 20                                   # Number of physical sites
     h = 10.0                                 # Strength of the transverse field
-    Nₛ_density = 2^10                        # Number of states to be generated in the density matrix rotation sampling 
-    Nₛ = 1000                                # Number of bitstrings to be generated according to the Born rule
-    # prob_epsilon = 0.0002                    # Probability threshold for truncating the number of samples
+    Nₛ_density = 100                         # Number of states to be generated in the density matrix rotation sampling 
+    Nₛ = 100                                 # Number of bitstrings to be generated according to the Born rule
+    # prob_epsilon = 0.0002                  # Probability threshold for truncating the number of samples
    
     projected_states = Vector{Dict{String, Any}}()
     density_Sx = zeros(Float64, N)
@@ -134,7 +134,7 @@ let
     # Compute the ground-state wavefunction using DMRG
     sites = siteinds("S=1/2", N; conserve_qns = false) 
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = random_mps(sites, state; linkdims = 3)
+    ψ = random_mps(sites, state; linkdims = 8)
 
     # os = OpSum()
     # for j = 1 : N - 1
@@ -314,7 +314,8 @@ let
             # @show vals, vecs
             density_Sx[idx1] += tr(matrix * Sx_matrix)
             density_Sz[idx1] += tr(matrix * Sz_matrix)
-            
+            Prob[idx1] += vals[1] + vals[2]
+
             # Remove prime indices from the first tensor of the MPS
             noprime!(ψ_copy[idx1])
             tmp_site = siteind(ψ, idx1)
@@ -341,20 +342,25 @@ let
             end
         end
 
+        density_Sx[idx1] = density_Sx[idx1] / Prob[idx1]
+        density_Sz[idx1] = density_Sz[idx1] / Prob[idx1]
+        @show Prob[idx1]
+        
         # Sort the projected states based on the eigenvalues and compute local observables based on the projected states
         projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
         if length(projected_states) > Nₛ_density
             projected_states = projected_states[1 : Nₛ_density]
         end
-
+        @show projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]
+        
         # density_Sz[idx1] = sum(
         #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
         #     for state in projected_states
         # )
-        Prob[idx1] = sum(
-            state["eigenvalue"] for state in projected_states
-        )
-        @show Prob[idx1]
+        # Prob[idx1] = sum(
+        #     state["eigenvalue"] for state in projected_states
+        # )
+        # @show Prob[idx1]
         push!(Prob_density, [state["eigenvalue"] for state in projected_states])
     end
 
