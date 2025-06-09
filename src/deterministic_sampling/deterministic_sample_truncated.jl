@@ -181,9 +181,9 @@ end
 
 let
     # Initialize the random MPS
-    N = 100                   # Number of physical sites
-    h = 1.2                  # Transverse field
-    prob_epsilon = 0.0002    # Probability threshold for truncating the number of samples
+    N = 20                   # Number of physical sites
+    h = 0.2                  # Transverse field
+    # prob_epsilon = 0.0002    # Probability threshold for truncating the number of samples
     # sites = siteinds("S=1/2", N; conserve_qns = false) 
     # state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     
@@ -192,7 +192,7 @@ let
     println("Read in the wavefunction from the file and start the sampling process.")
     println("*************************************************************************************")
     println(" ")
-    file = h5open("data/Transverse_Ising_N100_h1.2_Wavefunction.h5", "r")
+    file = h5open("data/SDKI_TEBD_N20_h0.2_t5.0.h5", "r")
     ψ = read(file, "Psi", MPS)
     Sz = expect(ψ, "Sz"; sites = 1 : N)
     Sx = expect(ψ, "Sx"; sites = 1 : N)
@@ -270,22 +270,26 @@ let
     #************************************************************************************
     Sz_deterministic = Array{Float64}(undef, N)
     Prob = Array{Float64}(undef, N)
-    N_deterministic = 512                                # Number of deterministic samples
+    N_deterministic = 1024                              # Number of deterministic samples
 
     # Sample the first site
     # dsample = []
     ψ_copy = deepcopy(ψ)
-    dsample = single_site_dsample(ψ_copy, 1, "Sx", "")
+    dsample = single_site_dsample(ψ_copy, 1, "Sz", "")
     Sz_deterministic[1] = 0.5 * (dsample[1][2] - dsample[2][2])
     Prob[1] = dsample[1][2] + dsample[2][2]
     deterministic_bitstring = [dsample[1][1], dsample[2][1]]
-    # @show Sz_deterministic[1], Sz[1], Sx[1]
-    # @show dsample[1][2] + dsample[2][2]
+    @show Sz_deterministic[1], Sz[1], Sx[1]
+    @show dsample[1][2] + dsample[2][2]
     # @show deterministic_bitstring
 
-    state_probability = Vector{Float64}()
-    probability_density = Array{Float64}(undef, N, N_deterministic)
+    # Initialize the probability distribution to zeros for better numerical stability
+    # state_probability = Vector{Float64}()
+    # probability_density = Array{Float64}(undef, N, N_deterministic)
+    state_probability = zeros(Float64, 2 * N_deterministic)
+    probability_density = zeros(Float64, N, N_deterministic)
 
+    
     for index in 2 : N
         iteration = length(dsample)
         for _ in 1 : iteration
@@ -296,13 +300,14 @@ let
 
             ψ_tmp = deepcopy(ψ_copy)
             # @show typeof(ψ_tmp[index]), ψ_tmp[index]
-            ψ_tmp[index] = tmp[3] * ψ_tmp[index]    
+            ψ_tmp[index] = tmp[3] * ψ_tmp[index]   
+            @show typeof(ψ_tmp[index]), typeof(tmp[3])
             # # normalize!(ψ_tmp)
             # @show typeof(ψ_tmp[index]), ψ_tmp[index]
             ψ_update = MPS(ψ_tmp[index : N])
             # normalize!(ψ_update)
             
-            tmp_sample = single_site_dsample(ψ_update, 1, "Sx", tmp[1])
+            tmp_sample = single_site_dsample(ψ_update, 1, "Sz", tmp[1])
             # @show length(ψ_update), length(tmp_sample)
             
             push!(dsample, tmp_sample[1])
@@ -330,19 +335,18 @@ let
         if length(dsample) > N_deterministic
             sorted_dsample = sort(dsample, by = x -> x[2], rev = true)
             dsample = sorted_dsample[1 : N_deterministic]
-            @show length(dsample)
+            # @show length(dsample)
             # @show dsample[1][2], dsample[2][2], dsample[3][2], dsample[4][2], dsample[5][2], dsample[6][2]
         end
 
         # @show dsample[1][2], dsample[2][2], dsample[3][2]
         tmp_prob_density = Array{Float64}(undef, length(dsample))
         for index in 1 : length(dsample)
-            @show dsample[index][2] 
+            # @show dsample[index][2] 
             tmp_prob_density[index] = dsample[index][2]
         end
         probability_density[index, 1 : length(tmp_prob_density)] = tmp_prob_density
-        # push!(probability_density, tmp_prob_density)
-        @show probability_density[index, 1 : end]
+        # @show probability_density[index, 1 : end]
 
 
         # # Truncated the number of deterministic samples based on the upper bound or the probability threshold
@@ -462,7 +466,7 @@ let
     # # @show state_probability
 
     # Save results to a file
-    h5open("data/Transverse_Ising_N$(N)_h$(h)_Sample$(N_deterministic).h5", "w") do file
+    h5open("data/SDKI_N$(N)_h$(h)_Sample$(N_deterministic).h5", "w") do file
         write(file, "Sx", Sx)
         write(file, "Sz", Sz)
         write(file, "Czz", Czz)

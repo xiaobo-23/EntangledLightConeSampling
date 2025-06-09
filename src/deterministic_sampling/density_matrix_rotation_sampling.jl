@@ -1,5 +1,6 @@
 # 5/15/2025
 # Implement the idea of density matrix rotation sampling
+
 using ITensors
 using ITensorMPS
 using Random
@@ -7,7 +8,6 @@ using Statistics
 using LinearAlgebra
 using HDF5
 # using TimerOutput
-
 # include("Sample.jl")
 include("Projection.jl")
 
@@ -99,11 +99,11 @@ end
 
 let
     # Initialize the system and set up parameters
-    N = 20                                   # Number of physical sites
-    h = 10.0                                 # Strength of the transverse field
-    Nₛ_density = 100                         # Number of states to be generated in the density matrix rotation sampling 
-    Nₛ = 100                                 # Number of bitstrings to be generated according to the Born rule
-    # prob_epsilon = 0.0002                  # Probability threshold for truncating the number of samples
+    N = 8                                     # Number of physical sites
+    h = 10.0                                  # Strength of the transverse field
+    Nₛ_density = 1000                         # Number of states to be generated in the density matrix rotation sampling 
+    Nₛ = 1000                                 # Number of bitstrings to be generated according to the Born rule
+    # prob_epsilon = 0.0002                   # Probability threshold for truncating the number of samples
    
     projected_states = Vector{Dict{String, Any}}()
     density_Sx = zeros(Float64, N)
@@ -113,10 +113,11 @@ let
     
     
     # Set up the local observables in the Sz basis  
-    Sz_matrix = 1/2 * [1 0; 0 -1]
-    Sx_matrix = 1/2 * [0 1; 1 0]
+    Sx_matrix = 0.5 * [0 1; 1 0]
+    Sy_matrix = 0.5 * [0.0 -1.0im; 1.0im 0.0]
+    Sz_matrix = 0.5 * Diagonal([1, -1])
 
-
+    
     # # Read in the wavefunction from the file and start the sampling process
     # println(" ")
     # println("*************************************************************************************")
@@ -131,11 +132,19 @@ let
     # Czz = correlation_matrix(ψ, "Sz", "Sz"; sites = 1 : N)
 
 
-    # Compute the ground-state wavefunction using DMRG
+    # Set up the initial wavefunction as a product state or a random MPS
     sites = siteinds("S=1/2", N; conserve_qns = false) 
+    # Initialize the state of the system as a Neel state
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    ψ = random_mps(sites, state; linkdims = 8)
+    # Initialize the state of the system in the + state
+    state = fill("+", N)
+    @show state
+    ψ = MPS(sites, state)
 
+    # Alternatively, initialize the state of the system as a random MPS
+    # ψ = random_mps(sites, state; linkdims = 8)
+    
+    # Set up the Hamiltonian as a MPO 
     # os = OpSum()
     # for j = 1 : N - 1
     #     os += "Sz", j, "Sz", j + 1
@@ -242,8 +251,9 @@ let
             projection[tmp_site => j] = vecs[i, j]
         end
 
-        # Compute the projected state
+        # Compute and normalize the projected state 
         ψn = ψ[1] * dag(projection)
+        # ψn *= 1 / sqrt(vals[i])                 
 
         # Store the eigenvalue, eigenvector, and projected state in a dictionary
         push!(projected_states, Dict(
@@ -315,6 +325,7 @@ let
             density_Sx[idx1] += tr(matrix * Sx_matrix)
             density_Sz[idx1] += tr(matrix * Sz_matrix)
             Prob[idx1] += vals[1] + vals[2]
+            @show vals[1], vals[2]
 
             # Remove prime indices from the first tensor of the MPS
             noprime!(ψ_copy[idx1])
@@ -323,6 +334,10 @@ let
 
             # Iterate over eigenvectors to compute the projected states
             for i in 1:2
+                if vals[i] < 0
+                    continue
+                end
+
                 # Construct the projection tensor for the current eigenvector
                 projection = ITensor(tmp_site)
                 for j in 1:2
@@ -331,6 +346,7 @@ let
 
                 # Compute the projected state
                 ψn_copy = ψ_copy[idx1] * dag(projection)
+                # ψn_copy *= 1 / sqrt(vals[i])
                 # @show vals[i], tmp["eigenvalue"]
 
                 # Store the eigenvalue, eigenvector, and projected state in a dictionary
@@ -344,7 +360,7 @@ let
 
         density_Sx[idx1] = density_Sx[idx1] / Prob[idx1]
         density_Sz[idx1] = density_Sz[idx1] / Prob[idx1]
-        @show Prob[idx1]
+        @show idx1, Prob[idx1]
         
         # Sort the projected states based on the eigenvalues and compute local observables based on the projected states
         projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
@@ -388,7 +404,7 @@ let
     # Save results into a HDF5 file
     #*********************************************************************************************************
     
-    h5open("data/DMRS_random_N$(N)_h$(h)_Sample$(Nₛ_density).h5", "w") do file
+    h5open("data/DMRS_XPlus_N$(N)_Sample$(Nₛ_density).h5", "w") do file
         write(file, "Sx", Sx)
         write(file, "Sz", Sz)
         write(file, "Bitstring Sx", bitstring_Sx)
