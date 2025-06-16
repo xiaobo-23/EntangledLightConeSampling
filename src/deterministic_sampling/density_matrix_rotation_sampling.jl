@@ -6,7 +6,7 @@ using ITensorMPS
 using Random
 using Statistics
 using LinearAlgebra
-using HDF5
+# using HDF5
 # using TimerOutput
 # include("Sample.jl")
 include("Projection.jl")
@@ -99,10 +99,10 @@ end
 
 let
     # Initialize the system and set up parameters
-    N = 8                                     # Number of physical sites
-    h = 10.0                                  # Strength of the transverse field
-    Nₛ_density = 1000                         # Number of states to be generated in the density matrix rotation sampling 
-    Nₛ = 1000                                 # Number of bitstrings to be generated according to the Born rule
+    N = 64                                    # Number of physical sites
+    h = 1.2                                   # Strength of the transverse field
+    Nₛ_density = 500                           # Number of states to be generated in the density matrix rotation sampling 
+    Nₛ = 100                                   # Number of bitstrings to be generated according to the Born rule
     # prob_epsilon = 0.0002                   # Probability threshold for truncating the number of samples
    
     projected_states = Vector{Dict{String, Any}}()
@@ -134,36 +134,35 @@ let
 
     # Set up the initial wavefunction as a product state or a random MPS
     sites = siteinds("S=1/2", N; conserve_qns = false) 
-    # Initialize the state of the system as a Neel state
+    # # Initialize the state of the system as a Neel state
     state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     # Initialize the state of the system in the + state
-    state = fill("+", N)
-    @show state
-    ψ = MPS(sites, state)
+    # state = fill("+", N)
+    # @show state
+    # ψ = MPS(sites, state)
 
     # Alternatively, initialize the state of the system as a random MPS
     # ψ = random_mps(sites, state; linkdims = 8)
     
     # Set up the Hamiltonian as a MPO 
-    # os = OpSum()
-    # for j = 1 : N - 1
-    #     os += "Sz", j, "Sz", j + 1
-    #     os += h, "Sz", j
-    #     # os += h, "Sx", j
-    # end
-    # os += h, "Sz", N
-    # # os += h, "Sx", N 
-    # H = MPO(os, sites)
-    # ψ₀ = randomMPS(sites, state, linkdims = 2)
+    os = OpSum()
+    for j = 1 : N - 1
+        os += "Sz", j, "Sz", j + 1
+        os += h, "Sx", j
+    end
+    os += h, "Sx", N
+    H = MPO(os, sites)
+    ψ₀ = randomMPS(sites, state, linkdims = 2)
 
-    # cutoff = [1E-10]
-    # nsweeps = 10
-    # maxdim = [10,20,100,100,200]
-    # energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
+    cutoff = [1E-10]
+    nsweeps = 10
+    maxdim = [10,20,100,100,200]
+    energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
     
     Sx = expect(ψ, "Sx"; sites = 1 : N)
     Sz = expect(ψ, "Sz"; sites = 1 : N)
     @show Sx, Sz
+    @show linkdims(ψ)
     
     #***********************************************************************************
     # Generate bistrings in the Sx basis according to the Born rule
@@ -367,7 +366,7 @@ let
         if length(projected_states) > Nₛ_density
             projected_states = projected_states[1 : Nₛ_density]
         end
-        @show projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]
+        # @show projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]
         
         # density_Sz[idx1] = sum(
         #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
@@ -400,11 +399,11 @@ let
     #     println(" ")
     # end
 
+
     #*********************************************************************************************************
     # Save results into a HDF5 file
     #*********************************************************************************************************
-    
-    h5open("data/DMRS_XPlus_N$(N)_Sample$(Nₛ_density).h5", "w") do file
+    h5open("data/Transverse_Ising_N$(N)_h$(h)_Sample$(Nₛ_density).h5", "w") do file
         write(file, "Sx", Sx)
         write(file, "Sz", Sz)
         write(file, "Bitstring Sx", bitstring_Sx)
