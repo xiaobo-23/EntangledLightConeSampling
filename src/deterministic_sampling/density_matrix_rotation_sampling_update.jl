@@ -101,8 +101,8 @@ let
     # Initialize the system and set up parameters
     N = 128                
     J = 1                  
-    h = 0.2                                  
-    Nₛ_density = 6                             # Number of states sampled from density matrix 
+    h = 0.45                                  
+    Nₛ_density = 8                             # Number of states sampled from density matrix 
     Nₛ = 100                                   # Number of bitstrings sampled according to the Born rule                  
    
     projected_states = Vector{Dict{String, Any}}()
@@ -144,7 +144,9 @@ let
     # Alternatively, initialize the state of the system as a random MPS
     # ψ = random_mps(sites, state; linkdims = 8)
     
-    # Set up the Hamiltonian as a MPO 
+    # ************************************************************************************
+    # Set up the transverse field Ising Hamiltonian
+    # ************************************************************************************
     os = OpSum()
     for j = 1 : N - 1
         os += J, "Sz", j, "Sz", j + 1
@@ -153,9 +155,29 @@ let
     os += -h, "Sx", N
     H = MPO(os, sites)
     ψ₀ = randomMPS(sites, state, linkdims = 2)
+    # ************************************************************************************
+    # ************************************************************************************
 
+
+    # #************************************************************************************
+    # # Set up the XXZ Heisenberg Hamiltonian
+    # #************************************************************************************
+    # Δ = 2 * J
+    # os = OpSum()
+    # for j = 1 : N - 1
+    #     os += 0.5J, "S+", j, "S-", j + 1
+    #     os += 0.5J, "S-", j, "S+", j + 1
+    #     os += Δ, "Sz", j, "Sz", j + 1
+    # end
+    # H = MPO(os, sites)
+    # ψ₀ = randomMPS(sites, state, linkdims = 2)
+    # #************************************************************************************
+    # #************************************************************************************
+
+    
+    # Obtain the ground-state wavefunction using DMRG
     cutoff = [1E-10]
-    nsweeps = 10
+    nsweeps = 15
     maxdim = [10,20,100,100,200]
     energy, ψ = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
     
@@ -164,43 +186,42 @@ let
     @show Sx, Sz
     @show linkdims(ψ)
     
-    #***********************************************************************************
-    # Generate bistrings in the Sx basis according to the Born rule
-    #***********************************************************************************
-    bitstring_Sx = zeros(Float64, Nₛ, N)
-    bitstring_Sz = zeros(Float64, Nₛ, N)
+    # #***********************************************************************************
+    # # Generate bistrings in the Sx basis according to the Born rule
+    # #***********************************************************************************
+    # bitstring_Sx = zeros(Float64, Nₛ, N)
+    # bitstring_Sz = zeros(Float64, Nₛ, N)
 
-    for i = 1 : Nₛ
-        ψ_copy = deepcopy(ψ)
-        println("Generate bitstring #$(i)")
-        println("")
-        for j = 1 : 2 : N
-            tmp = sample(ψ_copy, j, "Sx")
-            normalize!(ψ_copy)
-            bitstring_Sx[i, j: j + 1] = tmp
-        end
+    # for i = 1 : Nₛ
+    #     ψ_copy = deepcopy(ψ)
+    #     println("Generate bitstring #$(i)")
+    #     println("")
+    #     for j = 1 : 2 : N
+    #         tmp = sample(ψ_copy, j, "Sx")
+    #         normalize!(ψ_copy)
+    #         bitstring_Sx[i, j: j + 1] = tmp
+    #     end
 
-        ψ_copy = deepcopy(ψ)
-        println("Generate bitstring #$(i)")
-        println("")
-        for j = 1 : 2 : N
-            tmp = sample(ψ_copy, j, "Sz")
-            normalize!(ψ_copy)
-            bitstring_Sz[i, j: j + 1] = tmp
-        end
-    end
-    bitstring_Sx .= ifelse.(bitstring_Sx .== 1, 0.5, -0.5)
-    bitstring_Sz .= ifelse.(bitstring_Sz .== 1, 0.5, -0.5)
-    # @show bitstring_Sx, bitstring_Sz
+    #     ψ_copy = deepcopy(ψ)
+    #     println("Generate bitstring #$(i)")
+    #     println("")
+    #     for j = 1 : 2 : N
+    #         tmp = sample(ψ_copy, j, "Sz")
+    #         normalize!(ψ_copy)
+    #         bitstring_Sz[i, j: j + 1] = tmp
+    #     end
+    # end
+    # bitstring_Sx .= ifelse.(bitstring_Sx .== 1, 0.5, -0.5)
+    # bitstring_Sz .= ifelse.(bitstring_Sz .== 1, 0.5, -0.5)
+    # # @show bitstring_Sx, bitstring_Sz
 
     
-    # # Compute the expectation value and standard deviation of one-point functions based on the samples 
-    # sample_ave_Sx = mean(bitstring_Sx, dims = 1)
-    # sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
-    # sample_ave_Sz = mean(bitstring_Sz, dims = 1)
-    # sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
-    # @show sample_ave_Sx, sample_ave_Sz
-
+    # # # Compute the expectation value and standard deviation of one-point functions based on the samples 
+    # # sample_ave_Sx = mean(bitstring_Sx, dims = 1)
+    # # sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
+    # # sample_ave_Sz = mean(bitstring_Sz, dims = 1)
+    # # sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
+    # # @show sample_ave_Sx, sample_ave_Sz
 
     #************************************************************************************
     # Sample the wavefunction using the density matrix rotation algorithm
@@ -370,16 +391,30 @@ let
     #*********************************************************************************************************
     # Save results into a HDF5 file
     #*********************************************************************************************************
-    h5open("data/Transverse_Ising_N$(N)_h$(h)_Sample$(Nₛ_density)_update.h5", "w") do file
+    h5open("data/Transverse_Field_Ising_N$(N)_h$(h)_Sample$(Nₛ_density)_update.h5", "w") do file
         write(file, "Sx", Sx)
         write(file, "Sz", Sz)
-        write(file, "Bitstring Sx", bitstring_Sx)
-        write(file, "Bitstring Sz", bitstring_Sz)
+        # write(file, "Bitstring Sx", bitstring_Sx)
+        # write(file, "Bitstring Sz", bitstring_Sz)
         write(file, "Density Sx", density_Sx)
         write(file, "Density Sz", density_Sz)
         write(file, "Probability", Prob)
         write(file, "Spectrum", eigenvalues)
     end
+
+    # #*********************************************************************************************************
+    # # Save results into a HDF5 file
+    # #*********************************************************************************************************
+    # h5open("data/XXZ_N$(N)_Delta$(Δ)_Sample$(Nₛ_density)_update.h5", "w") do file
+    #     write(file, "Sx", Sx)
+    #     write(file, "Sz", Sz)
+    #     write(file, "Bitstring Sx", bitstring_Sx)
+    #     write(file, "Bitstring Sz", bitstring_Sz)
+    #     write(file, "Density Sx", density_Sx)
+    #     write(file, "Density Sz", density_Sz)
+    #     write(file, "Probability", Prob)
+    #     write(file, "Spectrum", eigenvalues)
+    # end
 
     return
 end
