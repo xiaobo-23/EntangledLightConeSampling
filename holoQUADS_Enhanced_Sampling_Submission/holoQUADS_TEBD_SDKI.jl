@@ -40,7 +40,7 @@ let
     cutoff=1E-8
     h = 0.2                                            # an integrability-breaking longitudinal field h 
     number_of_samples=1
-    sample_string="Sx"
+    sample_string="Sz"
     sample_index=0
     reference_index = 26
 
@@ -294,7 +294,7 @@ let
                     # Test the idea of enhanced sampling for two-point function using an arbitrary reference site
                     if tensor_pointer == reference_index
                         println("$(2 * tensor_pointer)")
-                        tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=2 * tensor_pointer - 1 : 2 * tensor_pointer)
+                        tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites=2 * tensor_pointer - 1 : 2 * tensor_pointer)
                         samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = real(tmp[1, 1:2]) 
                         
                         samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
@@ -302,7 +302,7 @@ let
                         normalize!(ψ_copy)
                     elseif tensor_pointer > reference_index
                         println("$(2 * tensor_pointer)")
-                        tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites= 2 * reference_index - 1 : 2 * tensor_pointer)
+                        tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites= 2 * reference_index - 1 : 2 * tensor_pointer)
                         samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
                         real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
 
@@ -399,7 +399,7 @@ let
                     expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
 
                 # println("$(2 * tensor_pointer)")
-                tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites= 2 * reference_index - 1 : 2 * tensor_pointer)
+                tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites= 2 * reference_index - 1 : 2 * tensor_pointer)
                 samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
                 real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
 

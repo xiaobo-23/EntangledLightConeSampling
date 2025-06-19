@@ -3,12 +3,12 @@
 ## Compute non-equal time correlation functions 
 
 using ITensors
-using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, site, timer
 using Base: Float64, Real, Integer
 using Random
 using Dates
 using TimerOutputs
+using HDF5
 
 
 # using AppleAccelerate
@@ -26,12 +26,12 @@ include("src/SDKI/TEBD_Time_Evolution_Gates.jl")
 include("src/SDKI/ObtainBond.jl")
 
 let 
-    N=100
+    N=6
     cutoff=1E-8
     Δτ=1
-    ttotal=6
-    h=0.2                     # an integrability-breaking longitudinal field h 
-    time_dependent=true
+    ttotal=2
+    h=0.2                                              # an integrability-breaking longitudinal field h 
+    time_dependent = false
     # bond_dimension_upper_bound=10
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
@@ -49,8 +49,13 @@ let
     # states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
     # ψ = MPS(s, states)
     states = [isodd(n) ? "Up" : "Dn" for n = 1 : N]
-    Random.seed!(666)
-    ψ = randomMPS(s, states; linkdims = 2)
+    Random.seed!(999)
+    ψ = random_mps(s, states, linkdims = 2)
+    Sz₀ = expect(ψ, "Sz"; sites = 1 : N)
+    @show Sz₀
+    Random.seed!(789123)
+    # Random.seed!(999)
+    # ψ = randomMPS(s, states; linkdims = 2)
     ψ_copy = deepcopy(ψ)
     ψ_overlap = Complex{Float64}[]
 
@@ -185,23 +190,24 @@ let
             end
         end
 
-        index += 1
+        @show Sz[index, :]
         # Store output data in a HDF5 file
-        h5open("data/kicked_ising/TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_random_ref$(reference_position).h5", "w") do file
+        h5open("Data_Benchmark/Deterministic_Sampling/TEBD_N$(N)_h$(h)_tau$(Δτ)_T$(ttotal)_V3.h5", "w") do file
             write(file, "Sx", Sx)
             write(file, "Sy", Sy)
             write(file, "Sz", Sz)
             write(file, "Cxx", Cxx)
-            write(file, "CxxTime", Cxx_time)
+            # write(file, "CxxTime", Cxx_time)
             write(file, "Cyy", Cyy)
             write(file, "Czz", Czz)
             write(file, "SvN", SvN)
             write(file, "chi", Bond)
         end
+        index += 1
     end
     # Print out the initial and selected final states
-    @show real(Sz[1, :])
-    @show real(Cxx_time[6, :])
+    # @show real(Sz[1, :])
+    # @show real(Cxx_time[6, :])
     # @show Cxx_time[1, :]
     # @show time_machine
 

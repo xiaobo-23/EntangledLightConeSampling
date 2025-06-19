@@ -3,12 +3,12 @@
 ## Skip the resetting part and avoid using a long-range two-site gate
 
 using ITensors
-using ITensors.HDF5
 using ITensors: orthocenter, sites, copy, complex, real
 using Base: Float64
 using Base: product, Integer
 using Random
 using TimerOutputs
+using HDF5
 
 
 include("Sample.jl")
@@ -21,6 +21,7 @@ include("TEBD_Time_Evolution_Gates.jl")
 using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)
+
 
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
@@ -39,12 +40,12 @@ let
     sample_string="Sz"
     sample_index=0
     truncation_bound=1000
-    reference_index=26
+    # reference_index=26
     deterministic_sample = []
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(holoQUADS_time) + 2
-    N_total = 100
+    N_total = 8
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     # @show typeof(s) 
@@ -52,9 +53,12 @@ let
     
     ## INITIALIZE WAVEFUNCTION 
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
-    ψ = MPS(s, states)
+    # ψ = MPS(s, states)
+    Random.seed!(999)
+    ψ = random_mps(s, states, linkdims = 2)
     Sz₀ = expect(ψ, "Sz"; sites = 1:N_total)
-    Random.seed!(123)
+    @show Sz₀
+    Random.seed!(789123)
 
 
     ## OUTPUT THE INFORMATION OF WHETHER TEBD IS USED IN THE BEGINNING
@@ -217,8 +221,8 @@ let
                 update_deterministic_sample = []
                 if index == 1
                     deterministic_sample = single_site_deterministic_sample_initialization(ψ_copy, index, sample_string)
-                    # @show deterministic_sample[1]
-                    # @show deterministic_sample[2]
+                    @show deterministic_sample[1][2]
+                    @show deterministic_sample[2][2]
                 else
                     while !isempty(deterministic_sample)
                     # for (hist_index, tmp_hist) in enumerate(deterministic_sample)
@@ -229,22 +233,28 @@ let
                         tmp = single_site_deterministic_sample(ψ_sample, index, sample_string, tmp_hist[3], tmp_hist[2])
                         # @show length(tmp), tmp
                         # @show tmp_hist[1], tmp[1][1]
-                        prob = push!(tmp_hist[1], tmp[1][1])
-                        @show prob
-                        @show tmp[1][1]
-                        tmp[1][1] = prob
-                        @show tmp[1][1]
+                        # prob = push!(tmp_hist[1], tmp[1][1])
+                        prob1 = hcat(tmp_hist[1], tmp[1][1])
+                        # @show prob1
+                        # @show tmp[1][1]
+                        tmp[1][1] = prob1
+                        # @show tmp[1][1]
+                        @show tmp[1][2]
                         push!(update_deterministic_sample, tmp[1])
+
+
+                        prob2 = hcat(tmp_hist[1], tmp[2][1])
+                        # @show prob2
+                        # @show tmp[2][1]
+                        tmp[2][1] = prob2   
+                        # @show tmp[2][1]
+                        @show tmp[2][2]
                         push!(update_deterministic_sample, tmp[2])
                     end
                     deterministic_sample = deepcopy(update_deterministic_sample)
-                    # @show deterministic_sample
+                    @show length(deterministic_sample)
                 end
-                
             end
-            
-            # @show length(tmp)
-            # @show tmp
             normalize!(ψ_copy)
 
             SvN[
@@ -257,231 +267,319 @@ let
             ] = obtain_bond_dimension(ψ_copy, N_total)
         end
     
+
+        # Running the diagonal part of the circuit 
+        if N_diagonal > 1E-8
+            for ind₁ = 1:N_diagonal
+                tensor_pointer += 1
+
+                gate_seeds = []
+                for ind₂ = 1:circuit_time
+                    tmp_index = N_corner + 2 * ind₁ - ind₂
+                    push!(gate_seeds, tmp_index)
+                end
+                # println("")
+                # println("")
+                # println("#########################################################################################")
+                # @show gate_seeds, ind₁
+                # println("#########################################################################################")
+                # println("")
+                # println("")
+
+                @timeit time_machine "DC Evolution" for ind₃ = 1:circuit_time
+                    # Apply the kick gates at integer time
+                    if ind₃ % 2 == 1
+                        tmp_kick_gate =
+                            build_kick_gates(gate_seeds[ind₃] - 1, gate_seeds[ind₃], s)
+                        ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
+                        normalize!(ψ_copy)
+                    end
+
+                    # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
+                    # tmp_two_site_gates = diagonal_circuit(gate_seeds[ind₃], h, tau, s)
+                    tmp_two_site_gate =
+                        diagonal_right_edge(gate_seeds[ind₃], N_total, h, tau, s)
+                    ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
+                end
+
+                @timeit time_machine "Measure DC unit cell" begin
+                    if measure_index == 1
+                        Sx[2*tensor_pointer-1:2*tensor_pointer] = 
+                            expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                        Sy[2*tensor_pointer-1:2*tensor_pointer] =
+                            expect(ψ_copy, "Sy"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                        Sz[2*tensor_pointer-1:2*tensor_pointer] =
+                            expect(ψ_copy, "Sz"; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                    end
     
-    # 06/26/2024
-    # Delete this end when the testing is done
+                    # Compute von Neumann entanglement entropy before taking measurements
+                    SvN[
+                        measure_index,
+                        (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
+                    ] = entanglement_entropy(ψ_copy, N_total)
+                    Bond[
+                        measure_index,
+                        (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
+                    ] = obtain_bond_dimension(ψ_copy, N_total)
+
+                    # 06/26/2024
+                    # Use single-site sample procedure to sample the wavefunction deterministically
+                    for index in 2 * tensor_pointer - 1 : 2 * tensor_pointer
+                        update_deterministic_sample = []
+                        while !isempty(deterministic_sample)
+                            @show length(deterministic_sample)
+                            tmp_hist = popfirst!(deterministic_sample)
+                            
+                            # @show typeof(tmp_hist[3])
+                            ψ_sample = deepcopy(ψ_copy)
+                            tmp = single_site_deterministic_sample(ψ_sample, index, sample_string, tmp_hist[3], tmp_hist[2])
+                            # @show length(tmp), tmp
+                            # @show tmp_hist[1], tmp[1][1]
+                            # prob = push!(tmp_hist[1], tmp[1][1])
+                            prob1 = hcat(tmp_hist[1], tmp[1][1])
+                            # @show prob1
+                            # @show tmp[1][1]
+                            tmp[1][1] = prob1
+                            # @show tmp[1][1]
+                            push!(update_deterministic_sample, tmp[1])
+
+
+                            prob2 = hcat(tmp_hist[1], tmp[2][1])
+                            # @show prob2
+                            # @show tmp[2][1]
+                            tmp[2][1] = prob2   
+                            # @show tmp[2][1]
+                            push!(update_deterministic_sample, tmp[2])
+                        end
+                        deterministic_sample = deepcopy(update_deterministic_sample)
+                        @show length(deterministic_sample)
+                    end
+
+                    # 10/31/2023
+                    # Test the idea of enhanced sampling for two-point function
+                    # println("$(2 * tensor_pointer)")
+                    # tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
+                    # samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
+                    # samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
+
+                    # # Taking measurements of one two-site unit cell in the diagonal part of a circuit
+                    # samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+                    #     expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
+                    
+                    # # 11/02/2023
+                    # # Test the idea of enhanced sampling for two-point function using an arbitrary reference site
+                    # if tensor_pointer == reference_index
+                    #     println("$(2 * tensor_pointer)")
+                    #     tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites=2 * tensor_pointer - 1 : 2 * tensor_pointer)
+                    #     samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = real(tmp[1, 1:2]) 
+                        
+                    #     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                    #     sample_without_projection(ψ_copy, 2 * tensor_pointer - 1, sample_string) 
+                    #     normalize!(ψ_copy)
+                    # elseif tensor_pointer > reference_index
+                    #     println("$(2 * tensor_pointer)")
+                    #     tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites= 2 * reference_index - 1 : 2 * tensor_pointer)
+                    #     samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
+                    #     real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
+
+                    #     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                    #     sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                    #     normalize!(ψ_copy)                        
+                    # else
+                    #     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                    #     sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
+                    #     normalize!(ψ_copy)
+                    # end
+                    
+
+                    # Compute von Neumann entanglement entropy after taking measurements
+                    SvN[
+                        measure_index,
+                        (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
+                    ] = entanglement_entropy(ψ_copy, N_total)
+                    Bond[
+                        measure_index,
+                        (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
+                    ] = obtain_bond_dimension(ψ_copy, N_total)
+                    # @show Bond[measure_index, (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1)]
+                    # @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
+                end
+                
+                # Previous sample and reset protocol
+                # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
+                # normalize!(ψ_copy)  
+            end
+        end
+
+        # 06/11/2023
+        # Reconstruct the right light cone to simulate a chain with finite length.
+        for ind = 1:div(N_corner - 2, 2)
+            tensor_pointer += 1
+            left_ptr = 2 * tensor_pointer - 1
+            right_ptr = 2 * tensor_pointer
+            # @show ind, left_ptr, right_ptr
+
+            @timeit time_machine "RLC Evolution" for time_index = 1:circuit_time-2*(ind-1)
+                if time_index == 1
+                    ending_index = N_total
+                    starting_index = N_total
+                else
+                    ending_index = N_total - time_index + 2
+                    starting_index = ending_index - 1
+                end
+
+                # @show time_index, starting_index, ending_index
+                # Applying a sequence of one-site gates
+                if time_index % 2 == 1
+                    # @show time_index, starting_index, ending_index
+                    tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
+                    ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
+                end
+
+                if time_index - 1 > 1E-8
+                    tmp_two_site_gate =
+                        diagonal_right_edge(ending_index, N_total, h, tau, s)
+                    ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
+                    normalize!(ψ_copy)
+                end
+            end
+
+            # Measure local observables directly from the wavefunctiongit 
+            @timeit time_machine "Measure RLC unit cell" begin
+                if measure_index == 1
+                    Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
+                    Sy[left_ptr:right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr:right_ptr)
+                    Sz[left_ptr:right_ptr] = expect(ψ_copy, "Sz"; sites = left_ptr:right_ptr)
+                end
+
+                # Compute von Neumann entanglement entropy before taking measurements
+                SvN[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
+                entanglement_entropy(ψ_copy, N_total)
+                Bond[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
+                    obtain_bond_dimension(ψ_copy, N_total)
+
+                
+                # 06/26/2024
+                # Use single-site sample procedure to sample the wavefunction deterministically
+                for index in 2 * tensor_pointer - 1 : 2 * tensor_pointer
+                    update_deterministic_sample = []
+                    while !isempty(deterministic_sample)
+                        @show length(deterministic_sample)
+                        tmp_hist = popfirst!(deterministic_sample)
+                        
+                        # @show typeof(tmp_hist[3])
+                        ψ_sample = deepcopy(ψ_copy)
+                        tmp = single_site_deterministic_sample(ψ_sample, index, sample_string, tmp_hist[3], tmp_hist[2])
+                        # @show length(tmp), tmp
+                        # @show tmp_hist[1], tmp[1][1]
+                        # prob = push!(tmp_hist[1], tmp[1][1])
+                        prob1 = hcat(tmp_hist[1], tmp[1][1])
+                        # @show prob1
+                        # @show tmp[1][1]
+                        tmp[1][1] = prob1
+                        # @show tmp[1][1]
+                        push!(update_deterministic_sample, tmp[1])
+
+
+                        prob2 = hcat(tmp_hist[1], tmp[2][1])
+                        # @show prob2
+                        # @show tmp[2][1]
+                        tmp[2][1] = prob2   
+                        # @show tmp[2][1]
+                        push!(update_deterministic_sample, tmp[2])
+                    end
+                    deterministic_sample = deepcopy(update_deterministic_sample)
+                    @show length(deterministic_sample)
+                end
+                
+                
+                # # 10/31/2023
+                # # Test the idea of enhanced sampling for two-point function
+                # println("$(2 * tensor_pointer)")
+                # tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
+                # samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
+                # samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
+
+
+                # 11/02/2023
+                # Test the idea of enhanced sampling for two-point function using an arbitrary reference site
+                
+                # Taking measurements of one two-site unit cell in the right light cone
+                samples[measure_index, left_ptr:right_ptr] =
+                    expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
+
+                # # println("$(2 * tensor_pointer)")
+                # tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites= 2 * reference_index - 1 : 2 * tensor_pointer)
+                # samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
+                # real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
+
+                # samples_bitstring[measure_index, left_ptr:right_ptr] = 
+                #     sample(ψ_copy, left_ptr, sample_string)
+                # normalize!(ψ_copy)
+
+                # Compute von Neumann entanglement entropy after taking measurements
+                SvN[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
+                    entanglement_entropy(ψ_copy, N_total)
+                Bond[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
+                    obtain_bond_dimension(ψ_copy, N_total) 
+            end
+        end
+        # @show Bond[measure_index, :]
     end
 
-    #     # Running the diagonal part of the circuit 
-    #     if N_diagonal > 1E-8
-    #         for ind₁ = 1:N_diagonal
-    #             tensor_pointer += 1
-
-    #             gate_seeds = []
-    #             for ind₂ = 1:circuit_time
-    #                 tmp_index = N_corner + 2 * ind₁ - ind₂
-    #                 push!(gate_seeds, tmp_index)
-    #             end
-    #             # println("")
-    #             # println("")
-    #             # println("#########################################################################################")
-    #             # @show gate_seeds, ind₁
-    #             # println("#########################################################################################")
-    #             # println("")
-    #             # println("")
-
-    #             @timeit time_machine "DC Evolution" for ind₃ = 1:circuit_time
-    #                 # Apply the kick gates at integer time
-    #                 if ind₃ % 2 == 1
-    #                     tmp_kick_gate =
-    #                         build_kick_gates(gate_seeds[ind₃] - 1, gate_seeds[ind₃], s)
-    #                     ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
-    #                     normalize!(ψ_copy)
-    #                 end
-
-    #                 # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
-    #                 # tmp_two_site_gates = diagonal_circuit(gate_seeds[ind₃], h, tau, s)
-    #                 tmp_two_site_gate =
-    #                     diagonal_right_edge(gate_seeds[ind₃], N_total, h, tau, s)
-    #                 ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
-    #                 normalize!(ψ_copy)
-    #             end
-
-    #             @timeit time_machine "Measure DC unit cell" begin
-    #                 if measure_index == 1
-    #                     Sx[2*tensor_pointer-1:2*tensor_pointer] = 
-    #                         expect(ψ_copy, "Sx"; sites = 2*tensor_pointer-1:2*tensor_pointer)
-    #                     Sy[2*tensor_pointer-1:2*tensor_pointer] =
-    #                         expect(ψ_copy, "Sy"; sites = 2*tensor_pointer-1:2*tensor_pointer)
-    #                     Sz[2*tensor_pointer-1:2*tensor_pointer] =
-    #                         expect(ψ_copy, "Sz"; sites = 2*tensor_pointer-1:2*tensor_pointer)
-    #                 end
-    
-    #                 # Compute von Neumann entanglement entropy before taking measurements
-    #                 SvN[
-    #                     measure_index,
-    #                     (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
-    #                 ] = entanglement_entropy(ψ_copy, N_total)
-    #                 Bond[
-    #                     measure_index,
-    #                     (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
-    #                 ] = obtain_bond_dimension(ψ_copy, N_total)
-
-    #                 # 10/31/2023
-    #                 # Test the idea of enhanced sampling for two-point function
-    #                 # println("$(2 * tensor_pointer)")
-    #                 # tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
-    #                 # samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
-    #                 # samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
-
-    #                 # Taking measurements of one two-site unit cell in the diagonal part of a circuit
-    #                 samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-    #                     expect(ψ_copy, sample_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
-                    
-    #                 # 11/02/2023
-    #                 # Test the idea of enhanced sampling for two-point function using an arbitrary reference site
-    #                 if tensor_pointer == reference_index
-    #                     println("$(2 * tensor_pointer)")
-    #                     tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites=2 * tensor_pointer - 1 : 2 * tensor_pointer)
-    #                     samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = real(tmp[1, 1:2]) 
-                        
-    #                     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-    #                     sample_without_projection(ψ_copy, 2 * tensor_pointer - 1, sample_string) 
-    #                     normalize!(ψ_copy)
-    #                 elseif tensor_pointer > reference_index
-    #                     println("$(2 * tensor_pointer)")
-    #                     tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites= 2 * reference_index - 1 : 2 * tensor_pointer)
-    #                     samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
-    #                     real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
-
-    #                     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-    #                     sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
-    #                     normalize!(ψ_copy)                        
-    #                 else
-    #                     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-    #                     sample(ψ_copy, 2 * tensor_pointer - 1, sample_string)
-    #                     normalize!(ψ_copy)
-    #                 end
-                    
-
-    #                 # Compute von Neumann entanglement entropy after taking measurements
-    #                 SvN[
-    #                     measure_index,
-    #                     (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
-    #                 ] = entanglement_entropy(ψ_copy, N_total)
-    #                 Bond[
-    #                     measure_index,
-    #                     (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
-    #                 ] = obtain_bond_dimension(ψ_copy, N_total)
-    #                 @show Bond[measure_index, (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1)]
-    #                 @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
-    #             end
-                
-    #             # Previous sample and reset protocol
-    #             # samples[measure_index, 2 * tensor_pointer - 1 : 2 * tensor_pointer] = sample(ψ_copy, 2 * tensor_pointer - 1, "Sz")
-    #             # normalize!(ψ_copy)  
-    #         end
-    #     end
-
-    #     # 06/11/2023
-    #     # Reconstruct the right light cone to simulate a chain with finite length.
-    #     for ind = 1:div(N_corner - 2, 2)
-    #         tensor_pointer += 1
-    #         left_ptr = 2 * tensor_pointer - 1
-    #         right_ptr = 2 * tensor_pointer
-    #         # @show ind, left_ptr, right_ptr
-
-    #         @timeit time_machine "RLC Evolution" for time_index = 1:circuit_time-2*(ind-1)
-    #             if time_index == 1
-    #                 ending_index = N_total
-    #                 starting_index = N_total
-    #             else
-    #                 ending_index = N_total - time_index + 2
-    #                 starting_index = ending_index - 1
-    #             end
-
-    #             # @show time_index, starting_index, ending_index
-    #             # Applying a sequence of one-site gates
-    #             if time_index % 2 == 1
-    #                 # @show time_index, starting_index, ending_index
-    #                 tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
-    #                 ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
-    #                 normalize!(ψ_copy)
-    #             end
-
-    #             if time_index - 1 > 1E-8
-    #                 tmp_two_site_gate =
-    #                     diagonal_right_edge(ending_index, N_total, h, tau, s)
-    #                 ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
-    #                 normalize!(ψ_copy)
-    #             end
-    #         end
-
-    #         # Measure local observables directly from the wavefunctiongit 
-    #         @timeit time_machine "Measure RLC unit cell" begin
-    #             if measure_index == 1
-    #                 Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
-    #                 Sy[left_ptr:right_ptr] = expect(ψ_copy, "Sy"; sites = left_ptr:right_ptr)
-    #                 Sz[left_ptr:right_ptr] = expect(ψ_copy, "Sz"; sites = left_ptr:right_ptr)
-    #             end
-
-    #             # Compute von Neumann entanglement entropy before taking measurements
-    #             SvN[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
-    #             entanglement_entropy(ψ_copy, N_total)
-    #             Bond[measure_index, (left_ptr-1)*(N_total-1)+1:left_ptr*(N_total-1)] =
-    #                 obtain_bond_dimension(ψ_copy, N_total)
-
-    #             # # 10/31/2023
-    #             # # Test the idea of enhanced sampling for two-point function
-    #             # println("$(2 * tensor_pointer)")
-    #             # tmp = correlation_matrix(ψ_copy, "Sx", "Sx", sites=1:(2 * tensor_pointer))
-    #             # samples_correlation[measure_index, 2 * tensor_pointer - 1] = real(tmp[1, 2 * tensor_pointer - 1]) 
-    #             # samples_correlation[measure_index, 2 * tensor_pointer] = real(tmp[1, 2 * tensor_pointer])
-
-
-    #             # 11/02/2023
-    #             # Test the idea of enhanced sampling for two-point function using an arbitrary reference site
-                
-    #             # Taking measurements of one two-site unit cell in the right light cone
-    #             samples[measure_index, left_ptr:right_ptr] =
-    #                 expect(ψ_copy, sample_string; sites = left_ptr:right_ptr)
-
-    #             # println("$(2 * tensor_pointer)")
-    #             tmp = correlation_matrix(ψ_copy, sample_string, sample_string, sites= 2 * reference_index - 1 : 2 * tensor_pointer)
-    #             samples_correlation[measure_index, 2*tensor_pointer-1 : 2*tensor_pointer] = 
-    #             real(tmp[1, 2 * (tensor_pointer - reference_index) + 1 : 2 * (tensor_pointer - reference_index) + 2]) 
-
-    #             samples_bitstring[measure_index, left_ptr:right_ptr] = 
-    #                 sample(ψ_copy, left_ptr, sample_string)
-    #             normalize!(ψ_copy)
-
-    #             # Compute von Neumann entanglement entropy after taking measurements
-    #             SvN[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
-    #                 entanglement_entropy(ψ_copy, N_total)
-    #             Bond[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
-    #                 obtain_bond_dimension(ψ_copy, N_total) 
-    #         end
-    #     end
-    #     # @show Bond[measure_index, :]
-    # end
-
-    # if TEBD_time > 1E-8
-    #     @show Bond_TEBD[1, :]
-    # end
+    # 06/26/2024
+    # Post-processing of the deterministic sampling
+    if TEBD_time > 1E-8
+        @show Bond_TEBD[1, :]
+    end
     # replace!(samples_bitstring, 1 => 0.5, 2 => -0.5)
     # @show samples_bitstring
     # @show samples_correlation
-    # @show time_machine
     
-    # # # Store data in hdf5 file
-    # # h5open("../Data/TEBD_holoQUADS_SDKI_N$(N_total)_T$(total_time)_Sample$(sample_index).h5", "w") do file
-    # #     write(file, "Initial Sz", Sz₀)
-    # #     write(file, "Sx", Sx)
-    # #     write(file, "Sy", Sy)
-    # #     write(file, "Sz", Sz)
-    # #     write(file, "Entropy", SvN)
-    # #     write(file, "Chi", Bond)
-    # #     write(file, "Samples", samples)
-    # #     write(file, "Samples Bitstrings", samples_bitstring)
-    # #     write(file, "Samples Correlation", samples_correlation)
-    # #     if TEBD_time > 1E-8
-    # #         write(file, "TEBD Sx", Sx_TEBD)
-    # #         write(file, "TEBD Sy", Sy_TEBD)
-    # #         write(file, "TEBD Sz", Sz_TEBD)
-    # #         write(file, "Entropy TEBD", SvN_TEBD)
-    # #         write(file, "Chi TEBD", Bond_TEBD)
-    # #     end
-    # # end
+    @show length(deterministic_sample)
+    sample_average = Array{Float64}(undef, 1, N_total)
+    sample_weight = Array{Float64}(undef, length(deterministic_sample))
+    @show length(sample_weight), sample_weight
+    for index in 1 : length(deterministic_sample)
+        tmp_matrix = float.(deterministic_sample[index][1])
+        replace!(tmp_matrix, 1.0 => 0.5, 2.0 => -0.5)
+        # @show tmp_maxtrix
+        @show deterministic_sample[index][2]
+        @show tmp_matrix
+        @show tmp_matrix * deterministic_sample[index][2]
+        sample_average += tmp_matrix * deterministic_sample[index][2]
+        sample_weight[index] = deterministic_sample[index][2]
+        # push!(sample_weight, deterministic_sample[index][2])
+    end
+    
+    @show sample_average
+    @show time_machine
+
+    
+    # Store data in hdf5 file
+    h5open("../Data_Benchmark/Deterministic_Sampling/ELCS_SDKI_N$(N_total)_T$(total_time)_V3.h5", "w") do file
+        write(file, "Initial Sz", Sz₀)
+        write(file, "Sx", Sx)
+        write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Entropy", SvN)
+        write(file, "Chi", Bond)
+        # write(file, "Samples", samples)
+        # write(file, "Samples Bitstrings", samples_bitstring)
+        # write(file, "Samples Correlation", samples_correlation)
+        # if TEBD_time > 1E-8
+        #     write(file, "TEBD Sx", Sx_TEBD)
+        #     write(file, "TEBD Sy", Sy_TEBD)
+        #     write(file, "TEBD Sz", Sz_TEBD)
+        #     write(file, "Entropy TEBD", SvN_TEBD)
+        #     write(file, "Chi TEBD", Bond_TEBD)
+        # end
+        write(file, "Deterministic Samples", sample_average)
+        write(file, "Deterministic Weight", sample_weight)
+        # write(file, "Raw Sample", deterministic_sample)
+    end
 
     return
 end

@@ -99,18 +99,17 @@ end
 
 let
     # Initialize the system and set up parameters
-    N = 64                                    # Number of physical sites
-    h = 1.2                                   # Strength of the transverse field
-    Nₛ_density = 500                           # Number of states to be generated in the density matrix rotation sampling 
-    Nₛ = 100                                   # Number of bitstrings to be generated according to the Born rule
-    # prob_epsilon = 0.0002                   # Probability threshold for truncating the number of samples
+    N = 128                                  
+    h = 0.5                                  
+    Nₛ_density = 5                             # Number of states sampled from density matrix 
+    Nₛ = 100                                   # Number of bitstrings sampled according to the Born rule
+    # prob_epsilon = 0.0002                  
    
     projected_states = Vector{Dict{String, Any}}()
     density_Sx = zeros(Float64, N)
     density_Sz = zeros(Float64, N)
     Prob = zeros(Float64, N)
     Prob_density = Vector{Vector{Float64}}()
-    
     
     # Set up the local observables in the Sz basis  
     Sx_matrix = 0.5 * [0 1; 1 0]
@@ -164,41 +163,41 @@ let
     @show Sx, Sz
     @show linkdims(ψ)
     
-    #***********************************************************************************
-    # Generate bistrings in the Sx basis according to the Born rule
-    #***********************************************************************************
-    bitstring_Sx = zeros(Float64, Nₛ, N)
-    bitstring_Sz = zeros(Float64, Nₛ, N)
+    # #***********************************************************************************
+    # # Generate bistrings in the Sx basis according to the Born rule
+    # #***********************************************************************************
+    # bitstring_Sx = zeros(Float64, Nₛ, N)
+    # bitstring_Sz = zeros(Float64, Nₛ, N)
 
-    for i = 1 : Nₛ
-        ψ_copy = deepcopy(ψ)
-        println("Generate bitstring #$(i)")
-        println("")
-        for j = 1 : 2 : N
-            tmp = sample(ψ_copy, j, "Sx")
-            normalize!(ψ_copy)
-            bitstring_Sx[i, j: j + 1] = tmp
-        end
+    # for i = 1 : Nₛ
+    #     ψ_copy = deepcopy(ψ)
+    #     println("Generate bitstring #$(i)")
+    #     println("")
+    #     for j = 1 : 2 : N
+    #         tmp = sample(ψ_copy, j, "Sx")
+    #         normalize!(ψ_copy)
+    #         bitstring_Sx[i, j: j + 1] = tmp
+    #     end
 
-        ψ_copy = deepcopy(ψ)
-        println("Generate bitstring #$(i)")
-        println("")
-        for j = 1 : 2 : N
-            tmp = sample(ψ_copy, j, "Sz")
-            normalize!(ψ_copy)
-            bitstring_Sz[i, j: j + 1] = tmp
-        end
-    end
-    bitstring_Sx .= ifelse.(bitstring_Sx .== 1, 0.5, -0.5)
-    bitstring_Sz .= ifelse.(bitstring_Sz .== 1, 0.5, -0.5)
-    @show bitstring_Sx, bitstring_Sz
+    #     ψ_copy = deepcopy(ψ)
+    #     println("Generate bitstring #$(i)")
+    #     println("")
+    #     for j = 1 : 2 : N
+    #         tmp = sample(ψ_copy, j, "Sz")
+    #         normalize!(ψ_copy)
+    #         bitstring_Sz[i, j: j + 1] = tmp
+    #     end
+    # end
+    # bitstring_Sx .= ifelse.(bitstring_Sx .== 1, 0.5, -0.5)
+    # bitstring_Sz .= ifelse.(bitstring_Sz .== 1, 0.5, -0.5)
+    # # @show bitstring_Sx, bitstring_Sz
 
-    # Compute the expectation value and standard deviation of one-point functions based on the samples 
-    sample_ave_Sx = mean(bitstring_Sx, dims = 1)
-    sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
-    sample_ave_Sz = mean(bitstring_Sz, dims = 1)
-    sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
-    @show sample_ave_Sx, sample_ave_Sz
+    # # Compute the expectation value and standard deviation of one-point functions based on the samples 
+    # sample_ave_Sx = mean(bitstring_Sx, dims = 1)
+    # sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
+    # sample_ave_Sz = mean(bitstring_Sz, dims = 1)
+    # sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
+    # @show sample_ave_Sx, sample_ave_Sz
 
     #************************************************************************************
     # Sample the wavefunction using the density matrix rotation approach
@@ -226,12 +225,16 @@ let
     # @show inds(rho)[1], inds(rho)[2]
     matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
     vals, vecs = eigen(matrix)
-    @show matrix
-    @show vals, vecs
+    # @show matrix
+    # @show vals, vecs
+    @show matrix * vecs[:, 1] ≈ vals[1] * vecs[:, 1]
+    @show matrix * vecs[:, 2] ≈ vals[2] * vecs[:, 2]
 
+    # Compute the expectation values of Sx and Sz based on the density matrix
     density_Sx[1] = tr(matrix * Sx_matrix)
     density_Sz[1] = tr(matrix * Sz_matrix)
     # @show density_Sz[1], Sz[1]
+    
     
     # Perform a singular value decomposition (SVD) of the density matrix
     # U, S, V = svd(rho, inds(rho)[1], inds(rho)[2])
@@ -242,177 +245,224 @@ let
     noprime!(ψ[1])
     tmp_site = siteind(ψ, 1)
 
-    # Iterate over eigenvectors to compute the projected states
-    for i in 1:2
-        # Construct the projection tensor for the current eigenvector
-        projection = ITensor(tmp_site)
-        for j in 1:2
-            projection[tmp_site => j] = vecs[i, j]
-        end
+    copy1 = deepcopy(ψ)
+    # Construct the projector onto the first eigenvector of the density matrix
+    matrix = vecs[:, 1] * vecs[:, 1]'
+    @show matrix
+    # projection = ITensor(vecs[:, 1] * adjoint(vecs[:, 1]), tmp_site', tmp_site)
+    # @show projection
+    # @show sqrt(projection.tensor[1, 1]), sqrt(projection.tensor[2, 2])
+    # copy1[1] *= projection
+    # noprime!(copy1[1])
+    # copy1[1] /= norm(copy1[1])
+    # @show norm(copy1), copy1[1]
+    # @show linkdims(copy1)
+    # orthogonalize!(copy1, 2)
+    # if orthocenter(copy1) != 2
+    #     error("sample: MPS must have orthocenter(psi) == 2")
+    # end
+    # @show linkdims(copy1)
 
-        # Compute and normalize the projected state 
-        ψn = ψ[1] * dag(projection)
-        # ψn *= 1 / sqrt(vals[i])                 
+    # copy2 = deepcopy(ψ)
+    # projection = ITensor(vecs[:, 2] * adjoint(vecs[:, 2]), tmp_site', tmp_site)
+    # @show projection
+    # @show sqrt(projection.tensor[1, 1]), sqrt(projection.tensor[2, 2])
+    # copy2[1] *= projection
+    # noprime!(copy2[1])
+    # copy2[1] /= norm(copy2[1])
+    # @show norm(copy2), copy2[1]
+    # @show linkdims(copy2)
 
-        # Store the eigenvalue, eigenvector, and projected state in a dictionary
-        push!(projected_states, Dict(
-            "eigenvalue" => vals[i],
-            "eigenvector" => projection,
-            "state" => ψn
-        ))
-    end
+    # @show outer(ψ[1], dag(ψ[1]))
+    # # @show inner(ψ[1], ψ[1])
+
+    # # Iterate over eigenvectors to compute the projected states
+    # for i in 1:2
+    #     # Construct the projection tensor for the current eigenvector
+    #     projection = ITensor(tmp_site)
+    #     for j in 1:2
+    #         projection[tmp_site => j] = vecs[i, j]
+    #     end
+    #     @show projection
+
+
+    #     # Compute and normalize the projected state 
+    #     ψn = ψ[1] * dag(projection)
+    #     @show ψn
+    #     # ψn = ψ[1] * projection
+    #     # ψn /= sqrt(vals[i])                 
+    #     # @show ψn[1] * dag(ψn[1])
+
+    #     # Store the eigenvalue, eigenvector, and projected state in a dictionary
+    #     push!(projected_states, Dict(
+    #         "eigenvalue" => vals[i],
+    #         "eigenvector" => projection,
+    #         "state" => ψn
+    #     ))
+    # end
     # projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
 
-    Prob[1] = sum(
-        state["eigenvalue"] for state in projected_states
-    )
-    @show Prob[1]
-    push!(Prob_density, [state["eigenvalue"] for state in projected_states])
-
-    # rotation_matrix = [projected_states[1]["eigenvector"][1] projected_states[2]["eigenvector"][1];
-    #                    projected_states[1]["eigenvector"][2] projected_states[2]["eigenvector"][2]]
-    # eigenvalues = [projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]]
-    # @show projected_states[1]["eigenvector"][1]^2 + projected_states[1]["eigenvector"][2]^2 
-    # @show eigenvalues[1]+ eigenvalues[2], eigenvalues[1] - eigenvalues[2]
-    # rotated_eigenvalues = rotation_matrix * eigenvalues
-    # @show rotated_eigenvalues[1], rotated_eigenvalues[2], rotated_eigenvalues[1]^2 + rotated_eigenvalues[2]^2
-    # @show 0.5 * (rotated_eigenvalues[1]^2 - rotated_eigenvalues[2]^2)
-    # rotated_matrix = [projected_states[1]["eigenvalue"] 0; 0 projected_states[2]["eigenvalue"]]
-    # density_Sz[1] = tr(rotated_matrix * Sz_matrix)
-    # density_Sz[1] = sum(
-    #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
-    #     for (index, state) in enumerate(projected_states)
+    # Prob[1] = sum(
+    #     state["eigenvalue"] for state in projected_states
     # )
-    # @show density_Sz[1]
+    # @show Prob[1]
+    # push!(Prob_density, [state["eigenvalue"] for state in projected_states])
 
+    # # rotation_matrix = [projected_states[1]["eigenvector"][1] projected_states[2]["eigenvector"][1];
+    # #                    projected_states[1]["eigenvector"][2] projected_states[2]["eigenvector"][2]]
+    # # eigenvalues = [projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]]
+    # # @show projected_states[1]["eigenvector"][1]^2 + projected_states[1]["eigenvector"][2]^2 
+    # # @show eigenvalues[1]+ eigenvalues[2], eigenvalues[1] - eigenvalues[2]
+    # # rotated_eigenvalues = rotation_matrix * eigenvalues
+    # # @show rotated_eigenvalues[1], rotated_eigenvalues[2], rotated_eigenvalues[1]^2 + rotated_eigenvalues[2]^2
+    # # @show 0.5 * (rotated_eigenvalues[1]^2 - rotated_eigenvalues[2]^2)
+    # # rotated_matrix = [projected_states[1]["eigenvalue"] 0; 0 projected_states[2]["eigenvalue"]]
+    # # density_Sz[1] = tr(rotated_matrix * Sz_matrix)
+    # # density_Sz[1] = sum(
+    # #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
+    # #     for (index, state) in enumerate(projected_states)
+    # # )
+    # # @show density_Sz[1]
 
-    for idx1 in 2 : N
-        # println(" ")
-        # println(" ")
-        # @show length(projected_states)
-        # println(" ")
-        # println(" ")
+    # for idx1 in 2 : N
+    #     # println(" ")
+    #     # println(" ")
+    #     # @show length(projected_states)
+    #     # println(" ")
+    #     # println(" ")
 
-        upper_bound = min(length(projected_states), Nₛ_density)
-        for idx2 in 1 : upper_bound
-            ψ_copy = deepcopy(ψ)
-            # @show ψ_copy
+    #     upper_bound = min(length(projected_states), Nₛ_density)
+    #     println("Upper bound for sampling: ")
+    #     @show upper_bound
+    #     println("")
 
-            tmp = popfirst!(projected_states)
-            ψ_copy[idx1] *= tmp["state"]
-            # @show ψ_copy
+    #     for idx2 in 1 : upper_bound
+    #         ψ_copy = deepcopy(ψ)
+    #         # @show ψ_copy
 
-            # Compute the 1-body reduced density Matrix
-            psidag_copy = dag(ψ_copy)
-            prime!(psidag_copy[idx1])
-            # @show psidag_copy
+    #         tmp = popfirst!(projected_states)
+    #         ψ_copy[idx1] *= tmp["state"]
+    #         # normalize!(ψ_copy)
+    #         @show inner(ψ_copy, ψ_copy)
+
+    #         # Compute the 1-body reduced density Matrix
+    #         psidag_copy = dag(ψ_copy)
+    #         prime!(psidag_copy[idx1])
+    #         # @show psidag_copy
             
-            if idx1 < N
-                bond_index = commonind(ψ_copy[idx1], ψ_copy[idx1 + 1])
-                prime!(ψ_copy[idx1], bond_index)
-            end
-            # @show ψ_copy
+    #         if idx1 < N
+    #             bond_index = commonind(ψ_copy[idx1], ψ_copy[idx1 + 1])
+    #             prime!(ψ_copy[idx1], bond_index)
+    #         end
+    #         # @show ψ_copy
             
-            rho = ψ_copy[idx1] * psidag_copy[idx1]
-            # @show rho   
+    #         rho = ψ_copy[idx1] * psidag_copy[idx1]
+    #         # @show rho   
             
-            # Diagonalize the density matrix and obtain the eigenvalues and eigenvectors
-            matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
-            vals, vecs = eigen(matrix)
-            # @show matrix
-            # @show vals, vecs
-            density_Sx[idx1] += tr(matrix * Sx_matrix)
-            density_Sz[idx1] += tr(matrix * Sz_matrix)
-            Prob[idx1] += vals[1] + vals[2]
-            @show vals[1], vals[2]
+    #         # Diagonalize the density matrix and obtain the eigenvalues and eigenvectors
+    #         matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
+    #         vals, vecs = eigen(matrix)
+    #         # @show idx1, idx2, matrix, vals, vecs
+            
+    #         density_Sx[idx1] += tr(matrix * Sx_matrix)
+    #         density_Sz[idx1] += tr(matrix * Sz_matrix)
+    #         Prob[idx1] += vals[1] + vals[2]
+            
+    #         println(" ")
+    #         @show rho
+    #         @show vals, Prob[idx1]
+    #         println(" ")
 
-            # Remove prime indices from the first tensor of the MPS
-            noprime!(ψ_copy[idx1])
-            tmp_site = siteind(ψ, idx1)
-            # @show tmp_site
+    #         # Remove prime indices from the first tensor of the MPS
+    #         noprime!(ψ_copy[idx1])
+    #         tmp_site = siteind(ψ, idx1)
+    #         # @show tmp_site
 
-            # Iterate over eigenvectors to compute the projected states
-            for i in 1:2
-                if vals[i] < 0
-                    continue
-                end
+    #         # Iterate over eigenvectors to compute the projected states
+    #         for i in 1:2
+    #             if vals[i] < 0
+    #                 continue
+    #             end
 
-                # Construct the projection tensor for the current eigenvector
-                projection = ITensor(tmp_site)
-                for j in 1:2
-                    projection[tmp_site => j] = vecs[i, j]
-                end
+    #             # Construct the projection tensor for the current eigenvector
+    #             projection = ITensor(tmp_site)
+    #             for j in 1:2
+    #                 projection[tmp_site => j] = vecs[i, j]
+    #             end
+    #             # @show projection
 
-                # Compute the projected state
-                ψn_copy = ψ_copy[idx1] * dag(projection)
-                # ψn_copy *= 1 / sqrt(vals[i])
-                # @show vals[i], tmp["eigenvalue"]
+    #             # Compute the projected state
+    #             ψn_copy = ψ_copy[idx1] * dag(projection)
+    #             # ψn_copy /= sqrt(vals[i])
+    #             @show vals[1]^2 + vals[2]^2 == tmp["eigenvalue"]^2
+    #             # @show vals[1], vals[2], tmp["eigenvalue"], vals[i]
+    #             # @show projection, ψ_copy[idx1], ψn_copy
 
-                # Store the eigenvalue, eigenvector, and projected state in a dictionary
-                push!(projected_states, Dict(
-                    "eigenvalue" => vals[i],
-                    "eigenvector" => projection,
-                    "state" => ψn_copy
-                ))
-            end
-        end
 
-        density_Sx[idx1] = density_Sx[idx1] / Prob[idx1]
-        density_Sz[idx1] = density_Sz[idx1] / Prob[idx1]
-        @show idx1, Prob[idx1]
+    #             # Store the eigenvalue, eigenvector, and projected state in a dictionary
+    #             push!(projected_states, Dict(
+    #                 "eigenvalue" => vals[i],
+    #                 "eigenvector" => projection,
+    #                 "state" => ψn_copy
+    #             ))
+    #         end
+    #     end
+
+    #     # density_Sx[idx1] /= Prob[idx1]
+    #     # density_Sz[idx1] /= Prob[idx1]
         
-        # Sort the projected states based on the eigenvalues and compute local observables based on the projected states
-        projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
-        if length(projected_states) > Nₛ_density
-            projected_states = projected_states[1 : Nₛ_density]
-        end
-        # @show projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]
+    #     # Sort the projected states based on the eigenvalues and compute local observables based on the projected states
+    #     projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+    #     if length(projected_states) > Nₛ_density
+    #         projected_states = projected_states[1 : Nₛ_density]
+    #     end
+    #     # @show projected_states[1]["eigenvalue"], projected_states[2]["eigenvalue"]
         
-        # density_Sz[idx1] = sum(
-        #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
-        #     for state in projected_states
-        # )
-        # Prob[idx1] = sum(
-        #     state["eigenvalue"] for state in projected_states
-        # )
-        # @show Prob[idx1]
-        push!(Prob_density, [state["eigenvalue"] for state in projected_states])
-    end
-
-
-    # Check the total probability of the projected states
-    @show compute_probability(projected_states, "eigenvalue")
-    @show density_Sx
-    @show Sx
-    @show density_Sz
-    @show Sz
-    @show Prob 
-    # @show Prob_density
-
-    # sorted_projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
-    # for i in 1 : 5
-    #     println(" ")
-    #     println(" ")
-    #     @show sorted_projected_states[i]["eigenvalue"]
-    #     @show sorted_projected_states[i]["eigenvector"]
-    #     println(" ")
-    #     println(" ")
+    #     # density_Sz[idx1] = sum(
+    #     #     state["eigenvalue"] * 0.5 * (state["eigenvector"][1] - state["eigenvector"][2])
+    #     #     for state in projected_states
+    #     # )
+    #     # Prob[idx1] = sum(
+    #     #     state["eigenvalue"] for state in projected_states
+    #     # )
+    #     # @show Prob[idx1]
+    #     push!(Prob_density, [state["eigenvalue"] for state in projected_states])
     # end
 
 
-    #*********************************************************************************************************
-    # Save results into a HDF5 file
-    #*********************************************************************************************************
-    h5open("data/Transverse_Ising_N$(N)_h$(h)_Sample$(Nₛ_density).h5", "w") do file
-        write(file, "Sx", Sx)
-        write(file, "Sz", Sz)
-        write(file, "Bitstring Sx", bitstring_Sx)
-        write(file, "Bitstring Sz", bitstring_Sz)
-        write(file, "Density Sx", density_Sx)
-        write(file, "Density Sz", density_Sz)
-        write(file, "Probability", Prob)
-        # write(file, "Probability Density", Prob_density)
-    end
+    # # Check the total probability of the projected states
+    # @show compute_probability(projected_states, "eigenvalue")
+    # # @show density_Sx
+    # # @show Sx
+    # # @show density_Sz
+    # # @show Sz
+    # @show Prob 
+    # # @show Prob_density
+
+    # # sorted_projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+    # # for i in 1 : 5
+    # #     println(" ")
+    # #     println(" ")
+    # #     @show sorted_projected_states[i]["eigenvalue"]
+    # #     @show sorted_projected_states[i]["eigenvector"]
+    # #     println(" ")
+    # #     println(" ")
+    # # end
+
+
+    # #*********************************************************************************************************
+    # # Save results into a HDF5 file
+    # #*********************************************************************************************************
+    # h5open("data/Transverse_Ising_N$(N)_h$(h)_Sample$(Nₛ_density).h5", "w") do file
+    #     write(file, "Sx", Sx)
+    #     write(file, "Sz", Sz)
+    #     # write(file, "Bitstring Sx", bitstring_Sx)
+    #     # write(file, "Bitstring Sz", bitstring_Sz)
+    #     write(file, "Density Sx", density_Sx)
+    #     write(file, "Density Sz", density_Sz)
+    #     write(file, "Probability", Prob)
+    #     # write(file, "Probability Density", Prob_density)
+    # end
 
     return
 end

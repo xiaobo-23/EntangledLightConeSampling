@@ -277,7 +277,8 @@ function single_site_deterministic_sample_initialization(m :: MPS, j :: Int, obs
         An = A * dag(projn)
         pn = real(scalar(dag(An) * An))
 
-        sample_info = ([index], pn, An)
+        # sample_info = ([index], pn, An)
+        sample_info = [[index], pn, An]
         push!(result_vector, sample_info)
     end
 
@@ -333,7 +334,8 @@ function single_site_deterministic_sample(m :: MPS, j :: Int, observable_type ::
         An = A * dag(projn)
         pn = real(scalar(dag(An) * An))
 
-        sample_info = ([index], pn, An)
+        # sample_info = ([index], pn, An)
+        sample_info = [[index], pn, An]
         push!(result_vector, sample_info)
     end
 
