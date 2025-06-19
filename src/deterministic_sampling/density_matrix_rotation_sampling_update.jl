@@ -99,17 +99,18 @@ end
 
 let
     # Initialize the system and set up parameters
-    N = 128                                  
-    h = 0.5                                  
+    N = 128                
+    J = 1                  
+    h = 0.2                                  
     Nₛ_density = 6                             # Number of states sampled from density matrix 
-    Nₛ = 100                                   # Number of bitstrings sampled according to the Born rule
-    # prob_epsilon = 0.0002                  
+    Nₛ = 100                                   # Number of bitstrings sampled according to the Born rule                  
    
     projected_states = Vector{Dict{String, Any}}()
     density_Sx = zeros(Float64, N)
     density_Sz = zeros(Float64, N)
     Prob = zeros(Float64, N)
-    Prob_density = Vector{Vector{Float64}}()
+    eigenvalues = zeros(Float64, N, 2 * Nₛ_density)
+    
     
     # Set up the local observables in the Sz basis  
     Sx_matrix = 0.5 * [0 1; 1 0]
@@ -146,10 +147,10 @@ let
     # Set up the Hamiltonian as a MPO 
     os = OpSum()
     for j = 1 : N - 1
-        os += "Sz", j, "Sz", j + 1
-        os += h, "Sx", j
+        os += J, "Sz", j, "Sz", j + 1
+        os += -h, "Sx", j
     end
-    os += h, "Sx", N
+    os += -h, "Sx", N
     H = MPO(os, sites)
     ψ₀ = randomMPS(sites, state, linkdims = 2)
 
@@ -163,35 +164,36 @@ let
     @show Sx, Sz
     @show linkdims(ψ)
     
-    # #***********************************************************************************
-    # # Generate bistrings in the Sx basis according to the Born rule
-    # #***********************************************************************************
-    # bitstring_Sx = zeros(Float64, Nₛ, N)
-    # bitstring_Sz = zeros(Float64, Nₛ, N)
+    #***********************************************************************************
+    # Generate bistrings in the Sx basis according to the Born rule
+    #***********************************************************************************
+    bitstring_Sx = zeros(Float64, Nₛ, N)
+    bitstring_Sz = zeros(Float64, Nₛ, N)
 
-    # for i = 1 : Nₛ
-    #     ψ_copy = deepcopy(ψ)
-    #     println("Generate bitstring #$(i)")
-    #     println("")
-    #     for j = 1 : 2 : N
-    #         tmp = sample(ψ_copy, j, "Sx")
-    #         normalize!(ψ_copy)
-    #         bitstring_Sx[i, j: j + 1] = tmp
-    #     end
+    for i = 1 : Nₛ
+        ψ_copy = deepcopy(ψ)
+        println("Generate bitstring #$(i)")
+        println("")
+        for j = 1 : 2 : N
+            tmp = sample(ψ_copy, j, "Sx")
+            normalize!(ψ_copy)
+            bitstring_Sx[i, j: j + 1] = tmp
+        end
 
-    #     ψ_copy = deepcopy(ψ)
-    #     println("Generate bitstring #$(i)")
-    #     println("")
-    #     for j = 1 : 2 : N
-    #         tmp = sample(ψ_copy, j, "Sz")
-    #         normalize!(ψ_copy)
-    #         bitstring_Sz[i, j: j + 1] = tmp
-    #     end
-    # end
-    # bitstring_Sx .= ifelse.(bitstring_Sx .== 1, 0.5, -0.5)
-    # bitstring_Sz .= ifelse.(bitstring_Sz .== 1, 0.5, -0.5)
-    # # @show bitstring_Sx, bitstring_Sz
+        ψ_copy = deepcopy(ψ)
+        println("Generate bitstring #$(i)")
+        println("")
+        for j = 1 : 2 : N
+            tmp = sample(ψ_copy, j, "Sz")
+            normalize!(ψ_copy)
+            bitstring_Sz[i, j: j + 1] = tmp
+        end
+    end
+    bitstring_Sx .= ifelse.(bitstring_Sx .== 1, 0.5, -0.5)
+    bitstring_Sz .= ifelse.(bitstring_Sz .== 1, 0.5, -0.5)
+    # @show bitstring_Sx, bitstring_Sz
 
+    
     # # Compute the expectation value and standard deviation of one-point functions based on the samples 
     # sample_ave_Sx = mean(bitstring_Sx, dims = 1)
     # sample_std_Sx = std(bitstring_Sx, corrected = true, dims = 1) / sqrt(Nₛ)
@@ -199,8 +201,9 @@ let
     # sample_std_Sz = std(bitstring_Sz, corrected = true, dims = 1) / sqrt(Nₛ)
     # @show sample_ave_Sx, sample_ave_Sz
 
+
     #************************************************************************************
-    # Sample the wavefunction using the density matrix rotation approach
+    # Sample the wavefunction using the density matrix rotation algorithm
     #************************************************************************************
     
     # Put the orthogonaality center of the MPS at site 1
@@ -232,7 +235,8 @@ let
     # Compute the expectation values of Sx and Sz based on the density matrix
     density_Sx[1] = tr(matrix * Sx_matrix)
     density_Sz[1] = tr(matrix * Sz_matrix)
-    if !(density_Sz[1] ≈ Sz[1])
+    Prob[1] = vals[1] + vals[2]
+    if abs(Sz[1]) > 1e-8 && !(density_Sz[1] ≈ Sz[1])
         error("density_Sz[1] ≉ Sz[1]: $(density_Sz[1]) vs $(Sz[1])")
     end
     if !(matrix * vecs[:, 1] ≈ vals[1] * vecs[:, 1]) || !(matrix * vecs[:, 2] ≈ vals[2] * vecs[:, 2])
@@ -243,7 +247,7 @@ let
     noprime!(ψ[1])
     site_index = siteind(ψ, 1)
 
-    projected_states = []
+
     for j in 1 : 2
         # Construct the projector onto eigenvector of the density matrix
         projection_matrix = vecs[:, j] * vecs[:, j]'; @show projection_matrix
@@ -266,8 +270,17 @@ let
             "wavefunction" => tmp
         ))
     end
+    
+    
+    # Sort the samples based on its weights
+    projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
 
+    for (eigen_index, state) in enumerate(projected_states)
+        eigenvalues[1, eigen_index] = state["eigenvalue"]
+    end
+    @show eigenvalues[1, :]
 
+    
     # Sample the wavefunction from site 2 to N based on the density matrix
     for idx in 2 : N
         N_states = min(length(projected_states), Nₛ_density)
@@ -328,22 +341,30 @@ let
 
         # Sort the samples based on its weights
         projected_states = sort(projected_states, by = x -> x["eigenvalue"], rev = true)
+        for (eigen_index, state) in enumerate(projected_states)
+            eigenvalues[idx, eigen_index] = state["eigenvalue"]
+        end
+        
         if length(projected_states) > Nₛ_density
-            projected_states = projected_states[1 : Nₛ_density]
+            @info "Truncating projected_states from $(length(projected_states)) to $Nₛ_density"
+            projected_states = projected_states[1:Nₛ_density]
+        else
+            @info "Current projected_states length: $(length(projected_states))"
         end
 
-        println(" ")
-        @show "Number of projected states: ", length(projected_states)
-        for state in projected_states
-            @show state["eigenvalue"]
-        end
-        println(" ")
+        # println(" ")
+        # @show "Number of projected states: ", length(projected_states)
+        # for state in projected_states
+        #     @show state["eigenvalue"]
+        # end
+        # println(" ")
     end
 
-    # @show Prob 
+
+    @show linkdims(ψ)
+    @show Prob 
     @show density_Sz[1 : 20]
     @show Sz[1 : 20]
-
     
 
     #*********************************************************************************************************
@@ -352,12 +373,12 @@ let
     h5open("data/Transverse_Ising_N$(N)_h$(h)_Sample$(Nₛ_density)_update.h5", "w") do file
         write(file, "Sx", Sx)
         write(file, "Sz", Sz)
-        # write(file, "Bitstring Sx", bitstring_Sx)
-        # write(file, "Bitstring Sz", bitstring_Sz)
+        write(file, "Bitstring Sx", bitstring_Sx)
+        write(file, "Bitstring Sz", bitstring_Sz)
         write(file, "Density Sx", density_Sx)
         write(file, "Density Sz", density_Sz)
         write(file, "Probability", Prob)
-        # write(file, "Probability Density", Prob_density)
+        write(file, "Spectrum", eigenvalues)
     end
 
     return
