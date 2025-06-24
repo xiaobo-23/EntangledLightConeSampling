@@ -6,7 +6,7 @@ using ITensorMPS
 using Random
 using Statistics
 using LinearAlgebra
-# using TimerOutput
+using HDF5
 
 # include("Sample.jl")
 include("Projection.jl")
@@ -94,11 +94,11 @@ end
 
 let
     # Initialize the system and set up parameters
-    N = 16                
+    N = 128                
     J = 1                  
     h = 0.5                                
-    Nₛ_dmrs = 100                               # Number of states sampled from density matrix 
-    Nₛ = 100                                    # Number of bitstrings sampled according to the Born rule                   
+    Nₛ_dmrs = 400                               # Number of states sampled from density matrix 
+    Nₛ = 400                                    # Number of bitstrings sampled according to the Born rule                   
     
     # Set up the local observables in the Sz basis  
     Sx_matrix = 0.5 * [0 1; 1 0]
@@ -289,4 +289,3 @@ let
 
     return
 end
-
