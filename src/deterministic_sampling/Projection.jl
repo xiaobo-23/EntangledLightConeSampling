@@ -9,7 +9,7 @@ using ITensorMPS
 Sx_projn = (1 / sqrt(2)) * [1  1; 1  -1]
 Sx_projn_plus  = 0.5 * [1  1;  1  1]
 Sx_projn_minus = 0.5 * [1 -1; -1  1]
-
+@show size(Sx_projn), size(Sx_projn_plus), size(Sx_projn_minus)
 
 
 # Relevant operators for Sy
