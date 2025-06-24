@@ -1,43 +1,41 @@
-## 05/02/2023
-## Implement the holoQUADS circuit for the SDKI model
-## Skip the resetting part and avoid using a long-range two-site gate
+# 05/02/2023
+# Implement the holoQUADS circuit for the SDKI model
+# Skip the resetting part and avoid using a long-range two-site gate
 
 using ITensors
-using ITensors.HDF5
-using ITensors: orthocenter, sites, copy, complex, real
-using Base: Float64
-using Base: product
+using ITensorMPS
 using Random
 using TimerOutputs
-
-include("src/Sample.jl")
-include("src/Entanglement.jl")
-include("src/ObtainBond.jl")
-include("src/holoQUADS_Time_Evolution_Gates.jl")
-
 using MKL
 using LinearAlgebra
-BLAS.set_num_threads(4)
+using HDF5
+BLAS.set_num_threads(8)
+
+
+include("src/SDKI/Sample.jl")
+include("src/SDKI/Entanglement.jl")
+include("src/SDKI/ObtainBond.jl")
+include("src/SDKI/holoQUADS_Time_Evolution_Gates.jl")
+
 
 const time_machine = TimerOutput()
 ITensors.disable_warn_order()
 
 
 let
-    floquet_time = 10
+    floquet_time = 2
     circuit_time = 2 * Int(floquet_time)
     cutoff = 1E-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples = 1
+    number_of_samples = 10
     measure_string="Sx"
 
     # Make an array of 'site' indices && quantum numbers are not conserved due to the transverse fields
     N_corner = 2 * Int(floquet_time) + 2
-    N_total = 100
+    N_total = 32
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
-    # @show typeof(s) 
 
     # Allocation for observables
     @timeit time_machine "Allocation" begin
@@ -269,7 +267,7 @@ let
     @show time_machine
     
     # STORE DATA IN A HDF5 FILE 
-    h5open("Scalable_Data/holoQUADS_SDKI_N$(N_total)_T$(floquet_time)_Sample_Sx.h5", "w") do file
+    h5open("data/rdm_sample/Ising_N$(N_total)_T$(floquet_time).h5", "w") do file
         write(file, "Initial Sz", Sz₀)
         write(file, "Sx", Sx)
         write(file, "Sy", Sy)
