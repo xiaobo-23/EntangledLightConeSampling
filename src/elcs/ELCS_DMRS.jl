@@ -16,6 +16,7 @@ include("Sample.jl")
 include("Entanglement.jl")
 include("ObtainBond.jl")
 include("holoQUADS_Time_Evolution_Gates.jl")
+include("dmrs_random.jl")
 
 
 const time_machine = TimerOutput()
@@ -28,7 +29,7 @@ let
     cutoff = 1e-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples = 800
+    number_of_samples = 10
     measure_string = "Sx"
     sample_index = 0
 
@@ -47,10 +48,13 @@ let
         Sz = zeros(ComplexF64, N_total)
         samples = zeros(Float64, number_of_samples, N_total)
         samples_bitstring = zeros(Float64, number_of_samples, N_total)
+        Sx_rdm = zeros(Float64, number_of_samples, N_total)
+        Sz_rdm = zeros(Float64, number_of_samples, N_total)
         SvN = zeros(Float64, number_of_samples, N_total * (N_total - 1))
         Bond = zeros(Float64, number_of_samples, N_total * (N_total - 1))
     end
     
+
     # Initialize the wavefunction as a random MPS or a product state
     states = [isodd(n) ? "Up" : "Dn" for n = 1:N_total]
     Random.seed!(123)
@@ -73,6 +77,7 @@ let
 
         # Make a copy of the original wavefunction for each sample
         ψ_copy = deepcopy(ψ)
+        ψ_density = deepcopy(ψ)
         tensor_pointer = 1
 
         @timeit time_machine "LLC Evolution" for tmp_ind = 1:circuit_time
@@ -85,12 +90,18 @@ let
                 tmp_kick_gate = build_kick_gates(1, 2 * tmp_number_of_gates + 1, s)
                 ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                 normalize!(ψ_copy)
+
+                ψ_density = apply(tmp_kick_gate, ψ_density; cutoff)
+                normalize!(ψ_density)
             end
 
             # APPLY TWO-SITE GATES
             tmp_two_site_gates = left_light_cone(tmp_number_of_gates, tmp_parity, h, tau, s)
             ψ_copy = apply(tmp_two_site_gates, ψ_copy; cutoff)
             normalize!(ψ_copy)
+
+            ψ_density = apply(tmp_two_site_gates, ψ_density; cutoff)
+            normalize!(ψ_density)
         end
 
         # Measure and timing the first two sites after applying the left light cone
@@ -120,6 +131,12 @@ let
                 sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
             normalize!(ψ_copy)
             @show samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
+
+            Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer], 
+            Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+                sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
+            normalize!(ψ_density)
+            @show Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
             SvN[
                 measure_index,
@@ -269,17 +286,17 @@ let
     @show time_machine
     
 
-    # STORE DATA IN A HDF5 FILE 
-    h5open("../../data/rdm_sample/ELCS_N$(N_total)_h$(h)_t$(floquet_time)_sample$(number_of_samples).h5", "w") do file
-        write(file, "Sz0", Sz₀)
-        write(file, "Sx", Sx)
-        write(file, "Sy", Sy)
-        write(file, "Sz", Sz)
-        write(file, "Entropy", SvN)
-        write(file, "Bond Dimension", Bond)
-        write(file, "Samples", samples)
-        write(file, "Samples Bitstring", samples_bitstring)
-    end
+    # # STORE DATA IN A HDF5 FILE 
+    # h5open("../../data/rdm_sample/ELCS_N$(N_total)_h$(h)_t$(floquet_time)_sample$(number_of_samples).h5", "w") do file
+    #     write(file, "Sz0", Sz₀)
+    #     write(file, "Sx", Sx)
+    #     write(file, "Sy", Sy)
+    #     write(file, "Sz", Sz)
+    #     write(file, "Entropy", SvN)
+    #     write(file, "Bond Dimension", Bond)
+    #     write(file, "Samples", samples)
+    #     write(file, "Samples Bitstring", samples_bitstring)
+    # end
 
     return
 end
