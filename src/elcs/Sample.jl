@@ -4,6 +4,7 @@
 # """
 
 using ITensors 
+using ITensorMPS
 include("Projection.jl")
 
 # Sample a two-site MPS to compute Sx, Sy or Sz
@@ -70,6 +71,7 @@ function revised_sample(m :: MPS, j :: Int, observable_type :: AbstractString)
             A = m[ind + 1] * An
             A *= (1. / sqrt(pn))
         end
+        @show linkdims(m)
 
         # Collapse the site based on the measurements 
         if n == 1

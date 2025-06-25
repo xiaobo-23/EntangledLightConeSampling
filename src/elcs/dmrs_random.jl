@@ -50,13 +50,20 @@ function sample_density_matrix(input_ψ :: MPS, sample_idx :: Int, string_length
 
         # Compute the 1-body reduced density matrix
         rho = A * psidag 
+        @show rho
         matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
         vals, vecs = eigen(matrix)    
-        @show rho
+        
 
         # Compute the expectation values of Sx and Sz based on the density matrix
-        Sx_sample[j] = real(tr(matrix * Sx_matrix))
-        Sz_sample[j] = real(tr(matrix * Sz_matrix))
+        if mod(j, 2) == 1
+            tmp_idx = 1
+        else
+            tmp_idx = 2
+        end
+        
+        Sx_sample[tmp_idx] = real(tr(matrix * Sx_matrix))
+        Sz_sample[tmp_idx] = real(tr(matrix * Sz_matrix))
 
         noprime!(A) 
         An = ITensor()
@@ -77,7 +84,13 @@ function sample_density_matrix(input_ψ :: MPS, sample_idx :: Int, string_length
             A = input_ψ[j + 1] * An
             A /= sqrt(vals[n])
         end
+        # @show linkdims(input_ψ)
     end
+    # @show A 
 
+    # if sample_idx + 2 < length(input_ψ)
+    #     input_ψ[sample_idx + 2] = A
+    # end
+    
     return Sx_sample, Sz_sample
 end

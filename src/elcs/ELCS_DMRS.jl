@@ -29,7 +29,7 @@ let
     cutoff = 1e-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples = 10
+    number_of_samples = 200
     measure_string = "Sx"
     sample_index = 0
 
@@ -130,13 +130,15 @@ let
             samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer]=
                 sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
             normalize!(ψ_copy)
-            @show samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
+            # @show samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
+            @show ψ_density
             Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer], 
             Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                 sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
-            normalize!(ψ_density)
-            @show Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
+            # normalize!(ψ_density)
+            @show ψ_density
+            # @show Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
             SvN[
                 measure_index,
@@ -172,6 +174,9 @@ let
                         tmp_kick_gate = build_kick_gates(gate_seeds[ind₃] - 1, gate_seeds[ind₃], s)
                         ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                         normalize!(ψ_copy)
+
+                        ψ_density = apply(tmp_kick_gate, ψ_density; cutoff)
+                        # normalize!(ψ_density)
                     end
 
                     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
@@ -179,6 +184,9 @@ let
                     tmp_two_site_gate = diagonal_right_edge(gate_seeds[ind₃], N_total, h, tau, s)
                     ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
                     normalize!(ψ_copy)
+
+                    ψ_density = apply(tmp_two_site_gate, ψ_density; cutoff)
+                    # normalize!(ψ_density)
                 end
 
                 @timeit time_machine "Measure DC unit cell" begin
@@ -200,6 +208,10 @@ let
                         measure_index,
                         (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
                     ] = obtain_bond_dimension(ψ_copy, N_total)
+                    # @show Bond[
+                    #     measure_index,
+                    #     (2*tensor_pointer-2)*(N_total-1)+1:(2*tensor_pointer-1)*(N_total-1),
+                    # ]
 
                     # Taking measurements of one two-site unit cell in the diagonal part of a circuit
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
@@ -209,10 +221,18 @@ let
                     normalize!(ψ_copy)
                     # @show samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
+                    # @show ψ_density
+                    Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer],
+                    Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
+                        sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
+                    normalize!(ψ_density)
+                    # @show Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
+
+
                     # Compute von Neumann entanglement entropy after taking measurements
                     SvN[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)] = entanglement_entropy(ψ_copy, N_total)
                     Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)] = obtain_bond_dimension(ψ_copy, N_total)
-                    # @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)]
+                    # @show Bond[measure_index, (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1)] 
                 end
             end
         end
@@ -241,17 +261,22 @@ let
                     tmp_kick_gates = build_kick_gates(starting_index, ending_index, s)
                     ψ_copy = apply(tmp_kick_gates, ψ_copy; cutoff)
                     normalize!(ψ_copy)
+
+                    ψ_density = apply(tmp_kick_gates, ψ_density; cutoff)
+                    normalize!(ψ_density)
                 end
 
                 if time_index - 1 > 1E-8
-                    tmp_two_site_gate =
-                        diagonal_right_edge(ending_index, N_total, h, tau, s)
+                    tmp_two_site_gate = diagonal_right_edge(ending_index, N_total, h, tau, s)
                     ψ_copy = apply(tmp_two_site_gate, ψ_copy; cutoff)
                     normalize!(ψ_copy)
+
+                    ψ_density = apply(tmp_two_site_gate, ψ_density; cutoff)
+                    normalize!(ψ_density)
                 end
             end
 
-            # Measure local observables directly from the wavefunctiongit 
+            # Measure local observables directly from the wavefunction
             @timeit time_machine "Measure RLC unit cell" begin
                 if measure_index == 1
                     Sx[left_ptr:right_ptr] = expect(ψ_copy, "Sx"; sites = left_ptr:right_ptr)
@@ -271,6 +296,11 @@ let
                 samples_bitstring[measure_index, left_ptr:right_ptr] = 
                     sample(ψ_copy, left_ptr, measure_string)
                 normalize!(ψ_copy)
+
+                Sx_rdm[measure_index, left_ptr:right_ptr],
+                Sz_rdm[measure_index, left_ptr:right_ptr] =
+                    sample_density_matrix(ψ_density, left_ptr, N_total)
+                normalize!(ψ_density)
 
                 # Compute von Neumann entanglement entropy after taking measurements
                 SvN[measure_index, (right_ptr-1)*(N_total-1)+1:right_ptr*(N_total-1)] =
@@ -294,8 +324,10 @@ let
     #     write(file, "Sz", Sz)
     #     write(file, "Entropy", SvN)
     #     write(file, "Bond Dimension", Bond)
-    #     write(file, "Samples", samples)
-    #     write(file, "Samples Bitstring", samples_bitstring)
+    #     write(file, "ES", samples)
+    #     write(file, "Bitstring", samples_bitstring)
+    #     write(file, "Sx_rdm", Sx_rdm)
+    #     write(file, "Sz_rdm", Sz_rdm)
     # end
 
     return
