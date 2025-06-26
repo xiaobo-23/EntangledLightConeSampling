@@ -76,7 +76,7 @@ function sample_density_matrix(input_ψ :: MPS, sample_idx :: Int, string_length
             (r < probability) && break
             n += 1
         end
-        @show n 
+        # @show n 
         
         projection = ITensor(vecs[:, n], tmp_site)
         An = A * dag(projection)
@@ -84,13 +84,33 @@ function sample_density_matrix(input_ψ :: MPS, sample_idx :: Int, string_length
             A = input_ψ[j + 1] * An
             A /= sqrt(vals[n])
         end
-        # @show linkdims(input_ψ)
+
+        if mod(j, 2) == 0
+            tmp_An = An
+            tmp_coeff = sqrt(vals[n])
+        end
+
+        # # Collapse the site based on the measurement
+        # input_ψ[j] *= dag(projection)
+        # tmp = input_ψ[j]
+        # if j < string_length
+        #     input_ψ[j + 1] *= tmp
+        #     input_ψ[j + 1] /= sqrt(vals[n])
+        # end 
+        # @show input_ψ[j]
+
+        projection_matrix = vecs[:, n] * vecs[:, n]'
+        wavefunction_projector = ITensor(projection_matrix, tmp_site', tmp_site)
+        input_ψ[j] *= wavefunction_projector
+        noprime!(input_ψ[j])
+        
+        # tmp = input_ψ[j]
+        # if j < string_length
+        #     input_ψ[j + 1] *= tmp
+        #     input_ψ[j + 1] /= sqrt(vals[n])
+        # end
+        @show input_ψ[j]
     end
     # @show A 
-
-    # if sample_idx + 2 < length(input_ψ)
-    #     input_ψ[sample_idx + 2] = A
-    # end
-    
     return Sx_sample, Sz_sample
 end

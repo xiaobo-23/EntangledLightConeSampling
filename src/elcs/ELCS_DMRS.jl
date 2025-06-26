@@ -39,7 +39,7 @@ let
     N_diagonal = div(N_total - N_corner, 2)     # the number of diagonal parts of the holoQUADS circuit
     s = siteinds("S=1/2", N_total; conserve_qns = false)
     # @show typeof(s) 
-    @show N_diagonal, N_corner, N_total
+    # @show N_diagonal, N_corner, N_total
 
     # Allocation for observables
     @timeit time_machine "Allocation" begin
@@ -134,9 +134,10 @@ let
 
             @show ψ_density
             Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer], 
-            Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
-            # normalize!(ψ_density)
+            Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                sample_density_matrix_first_two_sites(ψ_density, 2 * tensor_pointer - 1, N_total)
+            normalize!(ψ_density)
+            println("After sampling the first two sites")
             @show ψ_density
             # @show Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
@@ -149,7 +150,8 @@ let
                 (2*tensor_pointer-1)*(N_total-1)+1:2*tensor_pointer*(N_total-1),
             ] = obtain_bond_dimension(ψ_copy, N_total)
         end
-    
+
+
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
             for ind₁ = 1:N_diagonal
@@ -175,8 +177,11 @@ let
                         ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                         normalize!(ψ_copy)
 
+                        println("Simulating the diagonal part!")
+                        @show ψ_density
                         ψ_density = apply(tmp_kick_gate, ψ_density; cutoff)
-                        # normalize!(ψ_density)
+                        normalize!(ψ_density)
+                        @show ψ_density
                     end
 
                     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
@@ -186,7 +191,7 @@ let
                     normalize!(ψ_copy)
 
                     ψ_density = apply(tmp_two_site_gate, ψ_density; cutoff)
-                    # normalize!(ψ_density)
+                    normalize!(ψ_density)
                 end
 
                 @timeit time_machine "Measure DC unit cell" begin
@@ -223,9 +228,10 @@ let
 
                     # @show ψ_density
                     Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer],
-                    Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
-                        sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
+                    Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
+                    sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
                     normalize!(ψ_density)
+                    # @show ψ_density
                     # @show Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
 

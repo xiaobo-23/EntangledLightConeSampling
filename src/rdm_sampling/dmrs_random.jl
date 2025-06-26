@@ -1,8 +1,8 @@
 # 5/15/2025
-# Implement the idea of density matrix rotation sampling
+# Random sampling of the wavefunction using the density matrix rotation algorithm (DMRS)
 
-using ITensors
-using ITensorMPS
+
+using ITensors, ITensorMPS
 using Random
 using Statistics
 using LinearAlgebra
@@ -152,59 +152,136 @@ function sample_density_matrix(input_ψ :: MPS, string_length :: Int)
         end
         # @show n 
         
-        # @show j
-        # @show input_ψ
+
         projection = ITensor(vecs[:, n], tmp_site)
         An = A * dag(projection)
         if j < string_length
-            @show input_ψ
-            orthogonalize!(input_ψ, j + 1)
-            if orthocenter(input_ψ) != j + 1
-                error("sample: MPS must have orthocenter(psi) == 1")
-            end
-            @show input_ψ
-
             A = input_ψ[j + 1] * An
             A /= sqrt(vals[n])
         end
-        # @show j + 1
-        # @show input_ψ
         # @show A
+
+        projection_matrix = vecs[:, n] * vecs[:, n]'
+        wavefunction_projector = ITensor(projection_matrix, tmp_site', tmp_site)
+        input_ψ[j] *= wavefunction_projector
+        noprime!(input_ψ[j])
+        
+        # tmp = input_ψ[j]
+        # if j < string_length
+        #     input_ψ[j + 1] *= tmp
+        #     input_ψ[j + 1] /= sqrt(vals[n])
+        # end
+        @show input_ψ[j]
     end
 
     return Sx_sample, Sz_sample
 end
 
 
+# function sample_density_matrix(input_ψ :: MPS, string_length :: Int)
+#     # Put the orthogonaality center of the MPS at site 1
+#     orthogonalize!(input_ψ, 1)
+#     if orthocenter(input_ψ) != 1
+#         error("sample: MPS must have orthocenter(psi) == 1")
+#     end
+#     # @show expect(ψ, "Sz"; sites = 1 : 1)
+
+#     if length(input_ψ) != string_length
+#         error("density matrix sampling: input wavefunction must have the same length as the number of physical sites")
+#     end
+
+#     # Initialize arrays to store the sampled expectation values
+#     Sx_sample = zeros(Float64, string_length)
+#     Sz_sample = zeros(Float64, string_length)
+
+#     A = input_ψ[1]
+#     for j in 1 : string_length
+#         tmp_site = siteind(input_ψ, j)
+#         dimension = dim(tmp_site)
+
+#         psidag = dag(A)
+#         prime!(psidag)
+
+#         if j < string_length
+#             prime!(A, commonind(input_ψ[j], input_ψ[j + 1]))
+#         end
+#         # @show A 
+#         # @show psidag
+
+#         # Compute the 1-body reduced density matrix
+#         rho = A * psidag 
+#         @show rho
+#         matrix = Matrix(rho, inds(rho)[1], inds(rho)[2])
+#         vals, vecs = eigen(matrix)    
+#         # @show rho
+
+#         # Compute the expectation values of Sx and Sz based on the density matrix
+#         Sx_sample[j] = tr(matrix * Sx_matrix)
+#         Sz_sample[j] = tr(matrix * Sz_matrix)
+
+#         noprime!(A) 
+#         An = ITensor()
+#         r = rand()
+#         probability = 0.0
+#         n = 1
+
+#         while n <= dimension
+#             probability += vals[n]
+#             (r < probability) && break
+#             n += 1
+#         end
+#         # @show n 
+        
+
+#         projection = ITensor(vecs[:, n], tmp_site)
+#         An = A * dag(projection)
+#         if j < string_length
+#             A = input_ψ[j + 1] * An
+#             A /= sqrt(vals[n])
+#         end
+#         # @show A
+
+#         input_ψ[j] *= dag(projection)
+#         tmp = input_ψ[j]
+#         if j < string_length
+#             input_ψ[j + 1] *= tmp
+#             input_ψ[j + 1] /= sqrt(vals[n])
+#         end
+#     end
+
+#     return Sx_sample, Sz_sample
+# end
+
+
 let
     # Initialize the system and set up parameters
-    N = 128               
+    N = 8              
     J = 1                  
-    h = 0.6                                
-    Nₛ_dmrs = 2                                # Number of states sampled from density matrix 
-    Nₛ = 2                                     # Number of bitstrings sampled according to the Born rule                   
+    h = 0.5                                
+    Nₛ_dmrs = 2                               # Number of states sampled from density matrix 
+    Nₛ = 2                                    # Number of bitstrings sampled according to the Born rule                   
 
-    # Read in the ground-state wavefunction from a file and sample the wavefunction
-    println(" ")
-    println("*************************************************************************************")
-    println("Read in the wavefunction from a file and start the sampling process.")
-    println("*************************************************************************************")
-    println(" ")
+    # # Read in the ground-state wavefunction from a file and sample the wavefunction
+    # println(" ")
+    # println("*************************************************************************************")
+    # println("Read in the wavefunction from a file and start the sampling process.")
+    # println("*************************************************************************************")
+    # println(" ")
 
-    Δ = 1.5 * J
-    file = h5open("data/XXZ_N128_Delta2.0_Psi.h5", "r")
-    ψ_original = read(file, "Psi", MPS)
-    Sz = expect(ψ_original, "Sz"; sites = 1 : N)
-    Sx = expect(ψ_original, "Sx"; sites = 1 : N)
-    Czz = correlation_matrix(ψ_original, "Sz", "Sz"; sites = 1 : N)
-    @show linkdims(ψ_original)
+    # Δ = 1.5 * J
+    # file = h5open("data/XXZ_N128_Delta2.0_Psi.h5", "r")
+    # ψ_original = read(file, "Psi", MPS)
+    # Sz = expect(ψ_original, "Sz"; sites = 1 : N)
+    # Sx = expect(ψ_original, "Sx"; sites = 1 : N)
+    # Czz = correlation_matrix(ψ_original, "Sz", "Sz"; sites = 1 : N)
+    # @show linkdims(ψ_original)
     # ************************************************************************************************
     # ************************************************************************************************
 
 
     # Set up the initial wavefunction as a product state or a random MPS
-    # sites = siteinds("S=1/2", N; conserve_qns = false) 
-    # state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]          # Initialize the state as a Neel state
+    sites = siteinds("S=1/2", N; conserve_qns = false) 
+    state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]          # Initialize the state as a Neel state
     # # state = fill("+", N)                                  # Initialize the state as a product state of |+>
     # # ψ = MPS(sites, state)
 
@@ -214,14 +291,14 @@ let
     # ************************************************************************************
     # Set up the transverse field Ising Hamiltonian
     # ************************************************************************************
-    # os = OpSum()
-    # for j = 1 : N - 1
-    #     os += J, "Sz", j, "Sz", j + 1
-    #     os += -h, "Sx", j
-    # end
-    # os += -h, "Sx", N
-    # H = MPO(os, sites)
-    # ψ₀ = randomMPS(sites, state, linkdims = 2)
+    os = OpSum()
+    for j = 1 : N - 1
+        os += J, "Sz", j, "Sz", j + 1
+        os += -h, "Sx", j
+    end
+    os += -h, "Sx", N
+    H = MPO(os, sites)
+    ψ₀ = randomMPS(sites, state, linkdims = 2)
     # ************************************************************************************
     # ************************************************************************************
 
@@ -241,16 +318,22 @@ let
     #************************************************************************************
     #************************************************************************************
 
+
+    #***********************************************************************************
     # # Obtain the ground-state wavefunction using DMRG
-    # cutoff = [1E-10]
-    # nsweeps = 10
-    # maxdim = [10,20,100,100,200]
-    # energy, ψ_original = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
+    #***********************************************************************************
+    cutoff = [1E-10]
+    nsweeps = 10
+    maxdim = [10,20,100,100,200]
+    energy, ψ_original = dmrg(H, ψ₀; nsweeps,maxdim,cutoff)
     
-    # Sx = expect(ψ_original, "Sx"; sites = 1 : N)
-    # Sz = expect(ψ_original, "Sz"; sites = 1 : N)
-    # @show Sx, Sz
-    # @show linkdims(ψ_original)
+    Sx = expect(ψ_original, "Sx"; sites = 1 : N)
+    Sz = expect(ψ_original, "Sz"; sites = 1 : N)
+    @show Sx, Sz
+    @show linkdims(ψ_original)
+    #************************************************************************************
+    #************************************************************************************
+
 
     #***********************************************************************************
     # Generate bistrings in the Sx basis according to the Born rule
@@ -354,28 +437,23 @@ let
     # end 
     
     @show linkdims(ψ_original)
-
-
     #*********************************************************************************************************
     # Save results into a HDF5 file
     #*********************************************************************************************************
-    # h5open("data/TFIM_N$(N)_h$(h)_sample$(Nₛ_dmrs).h5", "w") do file
-    #     write(file, "Sx", Sx)
-    #     write(file, "Sz", Sz)
-    #     write(file, "Bitstring Sx", bitstring_Sx)
-    #     write(file, "Bitstring Sz", bitstring_Sz)
-    #     write(file, "RDM Sx", dmrs_Sx)
-    #     write(file, "RDM Sz", dmrs_Sz)
-    # end
+    if h > 1e-8
+        files_name = "data/TFIM_N$(N)_h$(h)_sample$(Nₛ_dmrs).h5"
+    else
+        files_name = "data/XXZ_N$(N)_Delta$(Δ)_sample$(Nₛ_dmrs).h5"
+    end
 
-    # h5open("data/XXZ_N$(N)_Delta$(Δ)_sample$(Nₛ_dmrs).h5", "w") do file
-    #     write(file, "Sx", Sx)
-    #     write(file, "Sz", Sz)
-    #     write(file, "Bitstring Sx", bitstring_Sx)
-    #     write(file, "Bitstring Sz", bitstring_Sz)
-    #     write(file, "RDM Sx", dmrs_Sx)
-    #     write(file, "RDM Sz", dmrs_Sz)
-    # end
+    h5open(files_name, "w") do file
+        write(file, "Sx", Sx)
+        write(file, "Sz", Sz)
+        write(file, "Bitstring Sx", bitstring_Sx)
+        write(file, "Bitstring Sz", bitstring_Sz)
+        write(file, "RDM Sx", dmrs_Sx)
+        write(file, "RDM Sz", dmrs_Sz)
+    end
 
     return
 end
