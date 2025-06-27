@@ -152,7 +152,6 @@ function sample_density_matrix(input_ψ :: MPS, string_length :: Int)
         end
         # @show n 
         
-
         projection = ITensor(vecs[:, n], tmp_site)
         An = A * dag(projection)
         if j < string_length
@@ -161,19 +160,25 @@ function sample_density_matrix(input_ψ :: MPS, string_length :: Int)
         end
         # @show A
 
-        projection_matrix = vecs[:, n] * vecs[:, n]'
-        wavefunction_projector = ITensor(projection_matrix, tmp_site', tmp_site)
-        input_ψ[j] *= wavefunction_projector
-        noprime!(input_ψ[j])
         
-        # tmp = input_ψ[j]
-        # if j < string_length
-        #     input_ψ[j + 1] *= tmp
-        #     input_ψ[j + 1] /= sqrt(vals[n])
-        # end
-        @show input_ψ[j]
-    end
+        # Collapse the site based on the measurement
+        input_ψ[j] *= dag(projection)
+        tmp = input_ψ[j]
+        if j < string_length
+            input_ψ[j + 1] *= tmp
+            input_ψ[j + 1] /= sqrt(vals[n])
+        end 
+        input_ψ[j] = ITensor(vecs[:, n], tmp_site)
+        @show input_ψ[j], input_ψ[j + 1]
 
+        
+        # # An alternative way to collapse the site based on the measurement     
+        # projection_matrix = vecs[:, n] * vecs[:, n]'
+        # wavefunction_projector = ITensor(projection_matrix, tmp_site', tmp_site)
+        # input_ψ[j] *= wavefunction_projector
+        # noprime!(input_ψ[j])
+        # @show input_ψ[j], input_ψ[j + 1]
+    end
     return Sx_sample, Sz_sample
 end
 
@@ -281,7 +286,7 @@ let
 
     # Set up the initial wavefunction as a product state or a random MPS
     sites = siteinds("S=1/2", N; conserve_qns = false) 
-    state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]          # Initialize the state as a Neel state
+    state = [isodd(n) ? "Up" : "Dn" for n = 1 : N]            # Initialize the state as a Neel state
     # # state = fill("+", N)                                  # Initialize the state as a product state of |+>
     # # ψ = MPS(sites, state)
 

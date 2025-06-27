@@ -128,14 +128,14 @@ let
             samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
                 expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
             samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer]=
-                sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
+                revised_sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
             normalize!(ψ_copy)
             # @show samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
             @show ψ_density
             Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer], 
             Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                sample_density_matrix_first_two_sites(ψ_density, 2 * tensor_pointer - 1, N_total)
+                sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
             normalize!(ψ_density)
             println("After sampling the first two sites")
             @show ψ_density
@@ -222,7 +222,7 @@ let
                     samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer] =
                         expect(ψ_copy, measure_string; sites = 2*tensor_pointer-1:2*tensor_pointer)
                     samples_bitstring[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                        sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
+                        revised_sample(ψ_copy, 2 * tensor_pointer - 1, measure_string)
                     normalize!(ψ_copy)
                     # @show samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
@@ -300,7 +300,7 @@ let
                 samples[measure_index, left_ptr:right_ptr] =
                     expect(ψ_copy, measure_string; sites = left_ptr:right_ptr)
                 samples_bitstring[measure_index, left_ptr:right_ptr] = 
-                    sample(ψ_copy, left_ptr, measure_string)
+                    revised_sample(ψ_copy, left_ptr, measure_string)
                 normalize!(ψ_copy)
 
                 Sx_rdm[measure_index, left_ptr:right_ptr],
