@@ -1,13 +1,13 @@
-## 05/02/2023
-## Implement the holoQUADS circuit for the SDKI model
-## Skip the resetting part and avoid using a long-range two-site gate
+# 05/02/2023
+# Implement the holoQUADS circuit for the SDKI model
+# Skip the resetting part and avoid using a long-range two-site gate
 
 using ITensors
 using ITensorMPS
 using HDF5
 using Random
 using TimerOutputs
-using MKL
+# using MKL
 using LinearAlgebra
 BLAS.set_num_threads(8)
 
@@ -29,7 +29,7 @@ let
     cutoff = 1e-8
     tau = 1.0
     h = 0.2                                            # an integrability-breaking longitudinal field h 
-    number_of_samples = 200
+    number_of_samples = 100
     measure_string = "Sx"
     sample_index = 0
 
@@ -151,7 +151,7 @@ let
             ] = obtain_bond_dimension(ψ_copy, N_total)
         end
 
-
+        @show ψ_density
         # Running the diagonal part of the circuit 
         if N_diagonal > 1E-8
             for ind₁ = 1:N_diagonal
@@ -170,18 +170,14 @@ let
                 # println("")
                 # println("")
 
-                @timeit time_machine "DC Evoltuion" for ind₃ = 1:circuit_time
-                    # Apply the kick gates at integer time
-                    if ind₃ % 2 == 1
+                @timeit time_machine "DC Evoltuion" for ind₃ = 1:circuit_time                    # Apply the kick gates at integer time
+                    if mod(ind₃, 2) == 1
                         tmp_kick_gate = build_kick_gates(gate_seeds[ind₃] - 1, gate_seeds[ind₃], s)
                         ψ_copy = apply(tmp_kick_gate, ψ_copy; cutoff)
                         normalize!(ψ_copy)
-
-                        println("Simulating the diagonal part!")
-                        @show ψ_density
+                        
                         ψ_density = apply(tmp_kick_gate, ψ_density; cutoff)
                         normalize!(ψ_density)
-                        @show ψ_density
                     end
 
                     # Apply the Ising interaction and longitudinal fields using a sequence of two-site gates
@@ -193,6 +189,7 @@ let
                     ψ_density = apply(tmp_two_site_gate, ψ_density; cutoff)
                     normalize!(ψ_density)
                 end
+                                
 
                 @timeit time_machine "Measure DC unit cell" begin
                     if measure_index == 1
@@ -226,10 +223,13 @@ let
                     normalize!(ψ_copy)
                     # @show samples[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
 
-                    # @show ψ_density
+                    println("")
+                    println("")
+                    println("Right before sampling the two-site unit cell")
+                    @show ψ_density
                     Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer],
                     Sz_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer] = 
-                    sample_density_matrix(ψ_density, 2 * tensor_pointer - 1, N_total)
+                    sample_rdm_bulk(ψ_density, 2 * tensor_pointer - 1, N_total)
                     normalize!(ψ_density)
                     # @show ψ_density
                     # @show Sx_rdm[measure_index, 2*tensor_pointer-1:2*tensor_pointer]
@@ -304,8 +304,7 @@ let
                 normalize!(ψ_copy)
 
                 Sx_rdm[measure_index, left_ptr:right_ptr],
-                Sz_rdm[measure_index, left_ptr:right_ptr] =
-                    sample_density_matrix(ψ_density, left_ptr, N_total)
+                Sz_rdm[measure_index, left_ptr:right_ptr] = sample_rdm_bulk(ψ_density, left_ptr, N_total)
                 normalize!(ψ_density)
 
                 # Compute von Neumann entanglement entropy after taking measurements
@@ -322,19 +321,19 @@ let
     @show time_machine
     
 
-    # # STORE DATA IN A HDF5 FILE 
-    # h5open("../../data/rdm_sample/ELCS_N$(N_total)_h$(h)_t$(floquet_time)_sample$(number_of_samples).h5", "w") do file
-    #     write(file, "Sz0", Sz₀)
-    #     write(file, "Sx", Sx)
-    #     write(file, "Sy", Sy)
-    #     write(file, "Sz", Sz)
-    #     write(file, "Entropy", SvN)
-    #     write(file, "Bond Dimension", Bond)
-    #     write(file, "ES", samples)
-    #     write(file, "Bitstring", samples_bitstring)
-    #     write(file, "Sx_rdm", Sx_rdm)
-    #     write(file, "Sz_rdm", Sz_rdm)
-    # end
+    # STORE DATA IN A HDF5 FILE 
+    h5open("../../data/rdm_sample/ELCS_N$(N_total)_h$(h)_t$(floquet_time)_sample$(number_of_samples).h5", "w") do file
+        write(file, "Sz0", Sz₀)
+        write(file, "Sx", Sx)
+        write(file, "Sy", Sy)
+        write(file, "Sz", Sz)
+        write(file, "Entropy", SvN)
+        write(file, "Bond Dimension", Bond)
+        write(file, "ES", samples)
+        write(file, "Bitstring", samples_bitstring)
+        write(file, "Sx_rdm", Sx_rdm)
+        write(file, "Sz_rdm", Sz_rdm)
+    end
 
     return
 end
